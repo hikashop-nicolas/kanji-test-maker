@@ -24,8 +24,8 @@ function options() {
   return {
     perPage: parseInt($('o_perpage').value, 10) || 10,
     font: customFontFamily || $('o_font').value,
-    fontSize: parseFloat($('o_fontsize').value) || 16,
-    boxSize: parseFloat($('o_boxsize').value) || 8,
+    fontSize: parseFloat($('o_fontsize').value) || 18,
+    boxSize: parseFloat($('o_boxsize').value) || 10,
   };
 }
 

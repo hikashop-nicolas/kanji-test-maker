@@ -5,9 +5,9 @@
 // row height / cell widths (the vertical content collapses otherwise).
 
 const VERT = 'TOP_TO_BOTTOM_RIGHT_TO_LEFT';
-const TEXT_W = 820;   // text column width, twips
-const ROW_H  = 9300;  // column height, twips (~164mm)
+const ROW_H  = 10300; // column height, twips (~182mm)
 const MM = 56.7;      // twips per mm
+const CONTENT_TW = 16838 - 1200; // A4 landscape width minus L/R margins, twips
 
 export function buildDocx(layout, docx) {
   const {
@@ -20,11 +20,12 @@ export function buildDocx(layout, docx) {
   const boxMm = layout.boxSize || 8;            // mm per writing cell
   const halfPt = Math.round(fontSize * 2);      // docx run size unit
   const fontTw = Math.round(fontSize * 20);     // glyph advance, twips
-  const CELL_TW = Math.round(boxMm * MM);       // grid pitch = box size, twips
-  const BOX_TW = CELL_TW;                        // box cell height = one grid cell
-  const BOX_INNER = CELL_TW;                     // square box
+  const CELL_TW = fontTw;                        // column pitch = font advance
+  const BOX_TW = fontTw;                         // box cell height = one text cell
+  const BOX_INNER = Math.round(boxMm * MM);     // box width = box-size setting
   const BOX_W = BOX_INNER + 160;                // box column width
-  const charSpace = Math.max(0, CELL_TW - fontTw); // extra advance to fill a cell
+  const TEXT_W = fontTw + 240;                  // text column width (one glyph + margin)
+  const charSpace = 0;                           // text uses its natural pitch
 
   const none = { style: BorderStyle.NONE, size: 0, color: 'FFFFFF' };
   const noBorders = { top: none, bottom: none, left: none, right: none };
@@ -95,14 +96,25 @@ export function buildDocx(layout, docx) {
     return makeCell([new Paragraph({ children: [new TextRun({ text: headerText, font, size: halfPt, bold: true })] })], TEXT_W + 200);
   }
 
+  const spacerCell = (w) => new TableCell({
+    width: { size: w, type: WidthType.DXA }, borders: noBorders,
+    margins: { top: 0, bottom: 0, left: 0, right: 0 }, children: [new Paragraph({ children: [] })],
+  });
+
   function pageTable(page) {
-    // visual left-to-right: [box_n, text_n, ..., box_1, text_1, title]
-    const pairs = page.columns.map(c => [boxCell(c), textCell(c)]);
-    pairs.reverse();
-    const cells = pairs.flat();
+    const n = page.columns.length;
+    // Distribute the leftover width as equal gaps so the sentences fill the page.
+    const titleW = TEXT_W + 200;
+    const used = n * (TEXT_W + BOX_W) + titleW;
+    const gap = Math.max(120, Math.round((CONTENT_TW - used) / Math.max(1, n)));
+    // visual left-to-right: [box_n, text_n, gap, ..., box_1, text_1, gap, title]
+    const cells = [];
+    for (let i = n - 1; i >= 0; i--) {
+      cells.push(boxCell(page.columns[i]), textCell(page.columns[i]), spacerCell(gap));
+    }
     cells.push(titleCell(page.header));
     return new Table({
-      width: { size: 100, type: WidthType.PERCENTAGE },
+      width: { size: CONTENT_TW, type: WidthType.DXA },
       borders: noBorders,
       rows: [new TableRow({ height: { value: ROW_H, rule: HeightRule.ATLEAST }, children: cells })],
     });

@@ -98,8 +98,8 @@ export function buildLayout(worksheet) {
   const o = worksheet.options || {};
   const perPage = Math.max(1, o.perPage || 10);
   const font = o.font || 'Hiragino Mincho ProN';
-  const fontSize = o.fontSize || 16; // pt
-  const boxSize = o.boxSize || 8;    // mm, one writing cell
+  const fontSize = o.fontSize || 18; // pt
+  const boxSize = o.boxSize || 10;   // mm, one writing cell
   const header = headerLine(worksheet.header);
 
   const sentences = worksheet.sentences.map((s, i) => sentenceColumn(s, i));

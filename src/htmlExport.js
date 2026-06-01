@@ -1,6 +1,8 @@
 // Pure: layout -> standalone vertical-writing HTML (preview + PDF via print).
-// Each sentence is two adjacent columns: the text column (tested words side-lined
-// on the right) and, to its left, a box column whose boxes align with their word.
+// The page is a horizontal flex row (reading right to left) whose items are
+// distributed with space-between, so the sentences fill the page width based on
+// how many there are. Each sentence is the text column plus a box column (to
+// its left) aligned on a shared cell grid (pitch = box size).
 
 function esc(s) {
   return String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -18,15 +20,15 @@ function sentenceHtml(col) {
     `<span class="box" style="top:calc(${b.offset} * var(--cell));height:calc(${b.cells} * var(--cell))"></span>`
   ).join('');
   const boxcol = `<div class="boxcol">${boxes}</div>`;
-  return text + boxcol; // text on the right, box column to its left
+  return `<div class="sentence">${text}${boxcol}</div>`;
 }
 
 export function buildHtml(layout, opts = {}) {
   const font = opts.font || layout.font || 'Hiragino Mincho ProN';
-  const fontSize = layout.fontSize || 16; // pt
-  const boxSize = layout.boxSize || 8;    // mm per writing cell
+  const fontSize = layout.fontSize || 18; // pt
+  const boxSize = layout.boxSize || 10;   // mm per writing cell
   const pages = layout.pages.map(p => {
-    const header = `<div class="col title">${esc(p.header)}</div>`;
+    const header = `<div class="title col">${esc(p.header)}</div>`;
     const cols = p.columns.map(sentenceHtml).join('');
     return `<section class="page">${header}${cols}</section>`;
   }).join('');
@@ -35,28 +37,28 @@ export function buildHtml(layout, opts = {}) {
 <style>
   ${opts.fontFace || ''}
   @page { size: A4 landscape; margin: 8mm; }
-  html,body { margin:0; padding:0; height:auto; overflow:hidden; }
+  html,body { margin:0; padding:0; }
   .page {
-    writing-mode: vertical-rl;
+    display: flex; flex-direction: row-reverse; justify-content: space-between;
+    align-items: flex-start;
     font-family: ${JSON.stringify(font)}, "Hiragino Mincho ProN", serif;
-    font-size: ${fontSize}pt; line-height: 1.0;
-    --cell: ${boxSize}mm;   /* grid pitch = one writing cell (box size) */
-    --colH: 168mm;
+    font-size: ${fontSize}pt;
+    --cell: 1em;            /* column pitch = the font's natural advance */
+    --bw: ${boxSize}mm;     /* answer-box width (the box-size setting) */
+    --colH: 182mm;
     box-sizing: border-box; padding: 4mm 6mm;
-    height: 178mm; width: 278mm; overflow: hidden;
+    width: 281mm; height: 192mm; overflow: hidden;
   }
   .page + .page { page-break-before: always; }
-  /* every character advances by one grid cell, so text and boxes share a grid */
-  .col { margin-left: 2mm; height: var(--colH); letter-spacing: max(0px, calc(var(--cell) - 1em)); }
-  .title { font-weight: bold; margin-left: 7mm; letter-spacing: normal; }
-  .num { letter-spacing: max(0px, calc(var(--cell) - 1em)); }
+  .sentence { display: flex; flex-direction: row-reverse; align-items: flex-start; }
+  /* vertical text, natural pitch so a sentence stays in one column */
+  .col { writing-mode: vertical-rl; line-height: 1.0; height: var(--colH); }
+  .title { writing-mode: vertical-rl; line-height: 1.0; height: var(--colH); font-weight: bold; }
   /* tested word: a side line on the RIGHT of the characters (vertical 傍線) */
   .read { border-right: 1.6px solid #333; padding-right: 1px; }
-  .boxcol {
-    position: relative; width: var(--cell); height: var(--colH); margin-left: 3mm;
-  }
+  .boxcol { position: relative; width: var(--bw); height: var(--colH); margin-right: 2mm; }
   .box {
-    position: absolute; right: 0; width: var(--cell);
+    position: absolute; right: 0; width: var(--bw);
     border: 1.4px solid #222; box-sizing: border-box;
   }
 </style></head><body>${pages}</body></html>`;
