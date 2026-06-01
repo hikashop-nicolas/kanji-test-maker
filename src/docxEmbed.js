@@ -8,7 +8,15 @@ export async function addFontEmbedFlag(bytes, JSZip) {
   if (f) {
     let s = await f.async('string');
     if (!s.includes('w:embedTrueTypeFonts')) {
-      s = s.replace(/(<w:settings\b[^>]*>)/, '$1<w:embedTrueTypeFonts/><w:embedSystemFonts/>');
+      // CT_Settings is an ordered sequence; embedTrueTypeFonts must come right
+      // after displayBackgroundShape (inserting it at the top makes the file
+      // invalid -> Word / LibreOffice refuse to open it).
+      const tag = '<w:embedTrueTypeFonts/>';
+      if (s.includes('<w:displayBackgroundShape/>')) {
+        s = s.replace('<w:displayBackgroundShape/>', '<w:displayBackgroundShape/>' + tag);
+      } else {
+        s = s.replace(/(<w:settings\b[^>]*>)/, '$1<w:displayBackgroundShape/>' + tag);
+      }
       zip.file('word/settings.xml', s);
     }
   }
