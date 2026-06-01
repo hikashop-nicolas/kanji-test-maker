@@ -54,10 +54,7 @@ function renderTable() {
       b.textContent = m === 'kaki' ? '書き' : '読み';
       b.className = sent.mode === m ? 'on' : '';
       b.onclick = () => {
-        sent.mode = m;
-        // kaki tests every kanji word (write them) -> auto-select; yomi tests
-        // specific readings -> start empty so the teacher picks.
-        sent.tokens.forEach(t => { t.selected = (m === 'kaki') && t.hasKanji; });
+        sent.mode = m; // keep the current selection when switching modes
         renderTable(); refreshPreview();
       };
       tdMode.appendChild(b);

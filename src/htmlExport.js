@@ -15,7 +15,7 @@ function sentenceHtml(col) {
   const num = col.number ? `<span class="num">${esc(col.number)}</span>` : '';
   const text = `<div class="col">${num}${col.runs.map(runHtml).join('')}</div>`;
   const boxes = col.boxes.map(b =>
-    `<span class="box" style="top:calc(${b.offset} * var(--cell));height:calc(${b.cells} * var(--box))"></span>`
+    `<span class="box" style="top:calc(${b.offset} * var(--cell));height:calc(${b.cells} * var(--cell))"></span>`
   ).join('');
   const boxcol = `<div class="boxcol">${boxes}</div>`;
   return text + boxcol; // text on the right, box column to its left
@@ -40,23 +40,23 @@ export function buildHtml(layout, opts = {}) {
     writing-mode: vertical-rl;
     font-family: ${JSON.stringify(font)}, "Hiragino Mincho ProN", serif;
     font-size: ${fontSize}pt; line-height: 1.0;
-    --cell: 1em;            /* vertical advance of one reading character */
-    --box: ${boxSize}mm;    /* one writing cell (answer box) */
+    --cell: ${boxSize}mm;   /* grid pitch = one writing cell (box size) */
     --colH: 168mm;
     box-sizing: border-box; padding: 4mm 6mm;
     height: 178mm; width: 278mm; overflow: hidden;
   }
   .page + .page { page-break-before: always; }
-  .col { margin-left: 2mm; height: var(--colH); }
-  .title { font-weight: bold; margin-left: 7mm; }
-  .num { margin-bottom: 1mm; }
+  /* every character advances by one grid cell, so text and boxes share a grid */
+  .col { margin-left: 2mm; height: var(--colH); letter-spacing: max(0px, calc(var(--cell) - 1em)); }
+  .title { font-weight: bold; margin-left: 7mm; letter-spacing: normal; }
+  .num { letter-spacing: max(0px, calc(var(--cell) - 1em)); }
   /* tested word: a side line on the RIGHT of the characters (vertical 傍線) */
   .read { border-right: 1.6px solid #333; padding-right: 1px; }
   .boxcol {
-    position: relative; width: var(--box); height: var(--colH); margin-left: 3mm;
+    position: relative; width: var(--cell); height: var(--colH); margin-left: 3mm;
   }
   .box {
-    position: absolute; right: 0; width: var(--box);
+    position: absolute; right: 0; width: var(--cell);
     border: 1.4px solid #222; box-sizing: border-box;
   }
 </style></head><body>${pages}</body></html>`;

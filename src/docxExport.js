@@ -19,17 +19,19 @@ export function buildDocx(layout, docx) {
   const fontSize = layout.fontSize || 16;       // pt
   const boxMm = layout.boxSize || 8;            // mm per writing cell
   const halfPt = Math.round(fontSize * 2);      // docx run size unit
-  const CELL_TW = Math.round(fontSize * 20);    // text char pitch, twips
-  const BOX_TW = Math.round(boxMm * MM);        // box cell height, twips
-  const BOX_INNER = Math.round(boxMm * MM);     // box width, twips
+  const fontTw = Math.round(fontSize * 20);     // glyph advance, twips
+  const CELL_TW = Math.round(boxMm * MM);       // grid pitch = box size, twips
+  const BOX_TW = CELL_TW;                        // box cell height = one grid cell
+  const BOX_INNER = CELL_TW;                     // square box
   const BOX_W = BOX_INNER + 160;                // box column width
+  const charSpace = Math.max(0, CELL_TW - fontTw); // extra advance to fill a cell
 
   const none = { style: BorderStyle.NONE, size: 0, color: 'FFFFFF' };
   const noBorders = { top: none, bottom: none, left: none, right: none };
   const solid = { style: BorderStyle.SINGLE, size: 6, color: '222222' };
   const allBorders = { top: solid, bottom: solid, left: solid, right: solid };
   const font = layout.font || 'Hiragino Mincho ProN';
-  const text = (s, extra = {}) => new TextRun({ text: s, font, size: halfPt, ...extra });
+  const text = (s, extra = {}) => new TextRun({ text: s, font, size: halfPt, characterSpacing: charSpace, ...extra });
 
   // A box-column cell is a nested 1-column table: alternating spacer rows
   // (no border) and box rows (bordered), heights given in twips so offsets

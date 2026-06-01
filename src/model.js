@@ -75,9 +75,14 @@ function sentenceColumn(sentence, index) {
     const cells = mode === 'yomi'
       ? Math.max(1, (reading || surface).length) // write the reading
       : Math.max(1, surface.length);              // write the whole word
+    // Reserve max(shown, box) cells so a box (which may be taller than the
+    // shown text, e.g. a long reading under a short kanji) never overlaps the
+    // next word's box. Extra cells are blank padding after the shown text.
+    const occupy = Math.max(show.length, cells);
     runs.push({ t: 'read', s: show });
+    if (occupy > show.length) runs.push({ t: 'plain', s: '　'.repeat(occupy - show.length) });
     boxes.push({ offset: pos, cells });
-    pos += show.length;
+    pos += occupy;
   }
   return { number: circled(index + 1), runs, boxes, length: pos };
 }
