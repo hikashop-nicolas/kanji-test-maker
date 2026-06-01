@@ -82,9 +82,11 @@ function sentenceColumn(sentence, index, ratio) {
       ? Math.max(1, (reading || surface).length) // write the reading
       : Math.max(1, surface.length);              // write the whole word
     // Reserve enough text cells that a box (taller than one text cell when the
-    // box size exceeds the font) never overlaps the next word's box. ratio =
-    // box-height in text-cell units. Extra cells are blank padding.
-    const occupy = Math.max(show.length, Math.ceil(cells * ratio));
+    // box size exceeds the font) never overlaps the NEXT word's box. Only pad
+    // when another box follows, otherwise the trailing text (e.g. the closing
+    // 。) would be pushed away from the last word.
+    const hasLaterBox = toks.slice(i).some(t => t.selected);
+    const occupy = hasLaterBox ? Math.max(show.length, Math.ceil(cells * ratio)) : show.length;
     runs.push({ t: 'read', s: show });
     if (occupy > show.length) runs.push({ t: 'plain', s: '　'.repeat(occupy - show.length) });
     boxes.push({ offset: pos, cells });
