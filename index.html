@@ -4,6 +4,9 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>漢字テストメーカー</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=LINE+Seed+JP:wght@400;700&family=Klee+One:wght@400;600&family=Zen+Kaku+Gothic+New:wght@400;500;700&family=Zen+Maru+Gothic:wght@400;500;700&family=Kaisei+Tokumin:wght@400;700&family=Yuji+Syuku&display=swap" rel="stylesheet">
 <style>
   :root { --accent:#3a7bd5; }
   * { box-sizing: border-box; }
@@ -57,12 +60,22 @@
       <div>
         <label>フォント</label>
         <select id="o_font">
-          <option value="Hiragino Mincho ProN">ヒラギノ明朝</option>
-          <option value="Hiragino Kaku Gothic ProN">ヒラギノ角ゴ</option>
-          <option value="YuMincho">游明朝</option>
-          <option value="YuGothic">游ゴシック</option>
-          <option value="Noto Serif CJK JP">Noto Serif</option>
-          <option value="Noto Sans CJK JP">Noto Sans</option>
+          <optgroup label="Google Fonts">
+            <option value="Klee One">Klee One（おすすめ・手書きふう）</option>
+            <option value="LINE Seed JP">LINE Seed JP</option>
+            <option value="Zen Kaku Gothic New">Zen Kaku Gothic</option>
+            <option value="Zen Maru Gothic">Zen Maru Gothic（丸ゴ）</option>
+            <option value="Kaisei Tokumin">Kaisei Tokumin（明朝）</option>
+            <option value="Yuji Syuku">Yuji Syuku（筆）</option>
+          </optgroup>
+          <optgroup label="システム">
+            <option value="Hiragino Mincho ProN">ヒラギノ明朝</option>
+            <option value="Hiragino Kaku Gothic ProN">ヒラギノ角ゴ</option>
+            <option value="YuMincho">游明朝</option>
+            <option value="YuGothic">游ゴシック</option>
+            <option value="Noto Serif CJK JP">Noto Serif</option>
+            <option value="Noto Sans CJK JP">Noto Sans</option>
+          </optgroup>
         </select>
       </div>
       <div><label>フォントファイル（PDF用）</label><input type="file" id="o_fontfile" accept=".ttf,.otf,.woff,.woff2"></div>

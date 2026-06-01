@@ -33,7 +33,7 @@ kuromoji.builder({ dicPath }).build(async (err, tok) => {
 
   const worksheet = {
     header: { classCode: '小1', title: 'こんしゅうのかんじ', lessonNo: '1', nameLabel: 'なまえ' },
-    options: { perPage: 10, font: 'Hiragino Mincho ProN' },
+    options: { perPage: 10, font: 'Klee One' },
     sentences,
   };
 

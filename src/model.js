@@ -115,7 +115,7 @@ function chunk(arr, n) {
 export function buildLayout(worksheet) {
   const o = worksheet.options || {};
   const perPage = Math.max(1, o.perPage || 10);
-  const font = o.font || 'Hiragino Mincho ProN';
+  const font = o.font || 'Klee One';
   const fontSize = o.fontSize || 18; // pt
   const boxSize = o.boxSize || 10;   // mm, one writing cell
   const header = headerParts(worksheet.header);

@@ -43,6 +43,7 @@ export function buildHtml(layout, opts = {}) {
 
   return `<!doctype html><html lang="ja"><head><meta charset="utf-8">
 <style>
+  @import url('https://fonts.googleapis.com/css2?family=LINE+Seed+JP:wght@400;700&family=Klee+One:wght@400;600&family=Zen+Kaku+Gothic+New:wght@400;500;700&family=Zen+Maru+Gothic:wght@400;500;700&family=Kaisei+Tokumin:wght@400;700&family=Yuji+Syuku&display=swap');
   ${opts.fontFace || ''}
   @page { size: A4 landscape; margin: 8mm; }
   html,body { margin:0; padding:0; }

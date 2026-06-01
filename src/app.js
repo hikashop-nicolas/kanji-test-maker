@@ -8,6 +8,19 @@ const state = { sentences: [] };
 let tokenizer = null;
 let customFontFamily = null; // set when a font file is uploaded (preview/PDF only)
 
+// ---- persist settings ----------------------------------------------------
+const SETTING_IDS = ['h_class','h_title','h_lesson','h_name','o_perpage','o_font','o_fontsize','o_boxsize'];
+function saveSettings() {
+  const o = {};
+  SETTING_IDS.forEach(id => { if ($(id)) o[id] = $(id).value; });
+  try { localStorage.setItem('ktm_settings', JSON.stringify(o)); } catch (e) {}
+}
+function loadSettings() {
+  let o; try { o = JSON.parse(localStorage.getItem('ktm_settings') || '{}'); } catch (e) { o = {}; }
+  SETTING_IDS.forEach(id => { if (o[id] !== undefined && $(id)) $(id).value = o[id]; });
+}
+loadSettings();
+
 // ---- init kuromoji -------------------------------------------------------
 window.kuromoji.builder({ dicPath: 'assets/dict' }).build((err, tok) => {
   if (err) { $('status').textContent = '辞書の読み込みに失敗しました'; console.error(err); return; }
@@ -115,9 +128,8 @@ function refreshPreview() {
   $('previewPanel').style.display = '';
 }
 $('btnPreview').addEventListener('click', refreshPreview);
-// live-refresh the preview when settings or header fields change
-['h_class','h_title','h_lesson','h_name','o_perpage','o_font','o_fontsize','o_boxsize']
-  .forEach(id => $(id).addEventListener('input', refreshPreview));
+// live-refresh + persist when settings or header fields change
+SETTING_IDS.forEach(id => $(id).addEventListener('input', () => { saveSettings(); refreshPreview(); }));
 
 // ---- font file (preview/PDF only) ----------------------------------------
 let customFontDataUrl = null;
