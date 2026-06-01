@@ -1,9 +1,13 @@
 node_modules/
-poc/node_modules/
-tools/out.*
-tools/out_html.pdf
 *.log
 .DS_Store
+
+# dev-harness render outputs
+tools/out.*
+tools/out_html.pdf
 tools/*.docx
 tools/*.pdf
 tools/*.html
+
+# generated worksheets
+kanji-test*.docx

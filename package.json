@@ -1,16 +1,15 @@
 {
   "name": "kanji-test-maker",
   "version": "1.0.0",
-  "description": "",
-  "main": "index.js",
-  "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
-  },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
+  "description": "漢字テストメーカー — browser tool that turns Japanese sentences into vertical-writing kanji worksheets (PDF + Word .docx).",
   "type": "module",
-  "dependencies": {
+  "license": "MIT",
+  "scripts": {
+    "serve": "python3 tools/devserver.py",
+    "gen": "node tools/gen.mjs"
+  },
+  "keywords": ["kanji", "japanese", "worksheet", "education", "docx", "vertical-writing"],
+  "devDependencies": {
     "docx": "^9.7.1",
     "jszip": "^3.10.1",
     "kuromoji": "^0.1.2"
