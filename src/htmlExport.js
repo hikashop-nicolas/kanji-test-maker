@@ -63,12 +63,15 @@ export function buildHtml(layout, opts = {}) {
   .title { writing-mode: vertical-rl; line-height: 1.0; height: var(--colH); font-weight: bold; font-size: ${titleFontSize}pt; }
   /* tested word: a side line on the RIGHT of the characters (vertical 傍線) */
   .read { border-right: 1.6px solid #333; padding-right: 1px; }
-  /* a plain number drawn inside a circle (works for any value) */
+  /* a plain number drawn inside a circle. Forced to a horizontal box with a
+     fixed font so the circle/centering is the same whatever the body font is. */
   .num {
-    display: inline-block; box-sizing: border-box;
-    width: 1.5em; height: 1.5em; line-height: 1.36em; text-align: center;
-    border: 1.6px solid #222; border-radius: 50%; font-size: .82em;
-    text-combine-upright: all; margin-bottom: 1.5mm;
+    writing-mode: horizontal-tb;
+    display: inline-flex; align-items: center; justify-content: center;
+    box-sizing: border-box; width: 1.5em; height: 1.5em;
+    border: 1.6px solid #222; border-radius: 50%;
+    font-family: Arial, "Helvetica Neue", sans-serif; font-size: .8em; font-weight: 600;
+    margin-bottom: 1.2mm;
   }
   .boxcol { position: relative; width: var(--box); height: var(--colH); margin-right: 2mm; }
   .box {

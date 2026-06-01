@@ -12,6 +12,7 @@
   "type": "module",
   "dependencies": {
     "docx": "^9.7.1",
+    "jszip": "^3.10.1",
     "kuromoji": "^0.1.2"
   }
 }

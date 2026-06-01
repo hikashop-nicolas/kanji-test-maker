@@ -11,7 +11,10 @@ const ROW_H  = 10650; // column height, twips (~188mm, near the page limit)
 const MM = 56.7;      // twips per mm
 const CONTENT_TW = 16838 - 1200; // A4 landscape width minus L/R margins, twips
 
-export function buildDocx(layout, docx) {
+// embeddedFonts: optional [{ name, data }] to embed the font in the .docx so it
+// renders in Word without being installed (the lib obfuscates + writes the
+// fontTable). Use for OFL fonts like Klee One / LINE Seed JP.
+export function buildDocx(layout, docx, embeddedFonts = []) {
   const {
     Document, Paragraph, TextRun, Table, TableRow, TableCell,
     WidthType, BorderStyle, TextDirection, PageOrientation, HeightRule,
@@ -138,5 +141,7 @@ export function buildDocx(layout, docx) {
     children: [pageTable(page)],
   }));
 
-  return new Document({ sections });
+  const opts = { sections };
+  if (embeddedFonts && embeddedFonts.length) opts.fonts = embeddedFonts;
+  return new Document(opts);
 }

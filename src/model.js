@@ -35,6 +35,12 @@ export function normalizeTokens(tokens) {
   });
 }
 
+// ASCII letters/digits -> full-width, so they sit upright in vertical writing
+// (e.g. 小1 -> 小１) in both the PDF and the .docx.
+export function toFullWidth(s) {
+  return (s || '').replace(/[!-~]/g, c => String.fromCharCode(c.charCodeAt(0) + 0xFEE0));
+}
+
 // Header parts for the title column. The lesson number is kept separate so the
 // exporters can draw a circle around it (like the sentence numbers).
 export function headerParts(header = {}) {
@@ -43,9 +49,9 @@ export function headerParts(header = {}) {
   const lesson = (header.lessonNo ?? '').toString().trim();
   const name = header.nameLabel || 'なまえ';
   return {
-    pre: `${cls}　${title}`,
+    pre: toFullWidth(`${cls}　${title}`),
     lesson,                                  // drawn circled by the exporters
-    post: `　${name}（　　　　　　　　　　）`,
+    post: toFullWidth(`　${name}（　　　　　　　　　　）`),
   };
 }
 

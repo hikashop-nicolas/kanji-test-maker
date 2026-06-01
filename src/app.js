@@ -2,11 +2,23 @@
 import { normalizeTokens, buildLayout } from './model.js?v=2';
 import { buildHtml } from './htmlExport.js?v=2';
 import { buildDocx } from './docxExport.js?v=2';
+import { addFontEmbedFlag } from './docxEmbed.js?v=2';
+
+// fonts we ship a TTF for and can embed in the .docx (all OFL-licensed)
+const FONT_TTF = {
+  'Klee One': 'assets/fonts/KleeOne-Regular.ttf',
+  'LINE Seed JP': 'assets/fonts/LineSeedJP-Regular.ttf',
+  'Zen Kaku Gothic New': 'assets/fonts/ZenKakuGothicNew-Regular.ttf',
+  'Zen Maru Gothic': 'assets/fonts/ZenMaruGothic-Regular.ttf',
+  'Kaisei Tokumin': 'assets/fonts/KaiseiTokumin-Regular.ttf',
+  'Yuji Syuku': 'assets/fonts/YujiSyuku-Regular.ttf',
+};
 
 const $ = (id) => document.getElementById(id);
 const state = { sentences: [] };
 let tokenizer = null;
-let customFontFamily = null; // set when a font file is uploaded (preview/PDF only)
+let customFontFamily = null; // set when a font file is uploaded
+let customFontBytes = null;  // uploaded font bytes, for docx embedding
 
 // ---- persist settings ----------------------------------------------------
 const SETTING_IDS = ['h_class','h_title','h_lesson','h_name','o_perpage','o_font','o_fontsize','o_boxsize'];
@@ -25,7 +37,7 @@ loadSettings();
 window.kuromoji.builder({ dicPath: 'assets/dict' }).build((err, tok) => {
   if (err) { $('status').textContent = '辞書の読み込みに失敗しました'; console.error(err); return; }
   tokenizer = tok;
-  $('status').textContent = '準備完了';
+  $('status').textContent = ''; // clear the loading message once ready
   $('process').disabled = false;
 });
 
@@ -135,9 +147,10 @@ SETTING_IDS.forEach(id => $(id).addEventListener('input', () => { saveSettings()
 let customFontDataUrl = null;
 $('o_fontfile').addEventListener('change', async (e) => {
   const file = e.target.files[0];
-  if (!file) { customFontFamily = null; customFontDataUrl = null; refreshPreview(); return; }
+  if (!file) { customFontFamily = null; customFontDataUrl = null; customFontBytes = null; refreshPreview(); return; }
   const buf = await file.arrayBuffer();
   customFontFamily = 'UserFont';
+  customFontBytes = new Uint8Array(buf.slice(0)); // keep for docx embedding
   try {
     const ff = new FontFace('UserFont', buf);
     await ff.load();
@@ -164,12 +177,25 @@ $('btnPdf').addEventListener('click', () => {
 // ---- DOCX ----------------------------------------------------------------
 $('btnDocx').addEventListener('click', async () => {
   const layout = buildLayout(worksheet());
-  // docx uses a font NAME only; if a custom file was uploaded, fall back to the
-  // selected bundled font name (the PDF export is the faithful path for it).
-  layout.font = $('o_font').value;
-  const doc = buildDocx(layout, window.docx);
-  const blob = await window.docx.Packer.toBlob(doc);
-  downloadBlob(blob, 'kanji-test.docx');
+  const fontName = $('o_font').value;
+  let embed = [];
+  if (customFontFamily && customFontBytes) {
+    // embed the uploaded font; runs use that family name
+    layout.font = 'UserFont';
+    embed = [{ name: 'UserFont', data: customFontBytes }];
+  } else {
+    layout.font = fontName;
+    if (FONT_TTF[fontName]) {
+      try {
+        const data = new Uint8Array(await (await fetch(FONT_TTF[fontName])).arrayBuffer());
+        embed = [{ name: fontName, data }];
+      } catch (e) { console.warn('font fetch failed; .docx will reference the font by name', e); }
+    }
+  }
+  const doc = buildDocx(layout, window.docx, embed);
+  let bytes = new Uint8Array(await (await window.docx.Packer.toBlob(doc)).arrayBuffer());
+  if (embed.length) bytes = await addFontEmbedFlag(bytes, window.JSZip);
+  downloadBlob(new Blob([bytes], { type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' }), 'kanji-test.docx');
 });
 
 function downloadBlob(blob, name) {
