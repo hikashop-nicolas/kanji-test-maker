@@ -1,0 +1,101 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>漢字テストメーカー</title>
+<style>
+  :root { --accent:#3a7bd5; }
+  * { box-sizing: border-box; }
+  body { font:14px/1.5 system-ui, "Hiragino Sans", sans-serif; margin:0; color:#222; background:#f6f7f9; }
+  header { background:#fff; border-bottom:1px solid #e2e4e8; padding:.8rem 1.2rem; display:flex; align-items:baseline; gap:1rem; }
+  header h1 { font-size:1.15rem; margin:0; }
+  header .status { font-size:.85rem; color:#777; }
+  main { max-width:1100px; margin:1rem auto; padding:0 1rem 3rem; }
+  .panel { background:#fff; border:1px solid #e2e4e8; border-radius:8px; padding:1rem; margin-bottom:1rem; }
+  .grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); gap:.6rem 1rem; }
+  label { display:block; font-size:.8rem; color:#555; margin-bottom:.15rem; }
+  input[type=text], input[type=number], select { width:100%; padding:.35rem .5rem; border:1px solid #ccc; border-radius:5px; font:inherit; }
+  textarea { width:100%; min-height:120px; padding:.6rem; border:1px solid #ccc; border-radius:6px; font:15px/1.7 inherit; }
+  button { font:inherit; padding:.45rem .9rem; border:0; border-radius:6px; background:var(--accent); color:#fff; cursor:pointer; }
+  button.secondary { background:#eef1f5; color:#333; border:1px solid #d4d8de; }
+  button:disabled { opacity:.5; cursor:default; }
+  .row-actions { display:flex; gap:.5rem; flex-wrap:wrap; align-items:center; }
+  table.sheet { width:100%; border-collapse:collapse; }
+  table.sheet th, table.sheet td { border-bottom:1px solid #eee; padding:.5rem .4rem; vertical-align:top; text-align:left; }
+  table.sheet th { font-size:.78rem; color:#666; font-weight:600; }
+  .chips { display:flex; flex-wrap:wrap; gap:.25rem; }
+  .chip { border:1px solid #d0d5dc; border-radius:5px; padding:.1rem .35rem; cursor:pointer; user-select:none; background:#fafbfc; }
+  .chip.kanji { border-color:#bcd; }
+  .chip.sel { background:var(--accent); color:#fff; border-color:var(--accent); }
+  .chip .rd { display:block; font-size:.7rem; opacity:.85; }
+  .chip.sel .rd input { width:4.5em; font-size:.72rem; border:0; border-bottom:1px solid #fff8; background:transparent; color:#fff; text-align:center; }
+  .modebtns button { padding:.2rem .5rem; font-size:.8rem; }
+  .modebtns button.on { background:var(--accent); color:#fff; }
+  .modebtns button:not(.on) { background:#eef1f5; color:#333; }
+  .toolbar { display:flex; gap:.6rem; flex-wrap:wrap; align-items:center; margin-top:.4rem; }
+  iframe#preview { width:100%; height:460px; border:1px solid #ddd; border-radius:6px; background:#fff; }
+  .muted { color:#888; font-size:.85rem; }
+</style>
+</head>
+<body>
+<header>
+  <h1>漢字テストメーカー</h1>
+  <span class="status" id="status">辞書を読み込み中…</span>
+</header>
+
+<main>
+  <div class="panel">
+    <div class="grid">
+      <div><label>クラス</label><input type="text" id="h_class" value="ＣＥ一"></div>
+      <div><label>タイトル</label><input type="text" id="h_title" value="こんしゅうのかん字"></div>
+      <div><label>番号</label><input type="text" id="h_lesson" value="⑬"></div>
+      <div><label>名前ラベル</label><input type="text" id="h_name" value="名まえ"></div>
+      <div><label>1ページの文数</label><input type="number" id="o_perpage" value="10" min="1" max="20"></div>
+      <div>
+        <label>フォント</label>
+        <select id="o_font">
+          <option value="Hiragino Mincho ProN">ヒラギノ明朝</option>
+          <option value="Hiragino Kaku Gothic ProN">ヒラギノ角ゴ</option>
+          <option value="YuMincho">游明朝</option>
+          <option value="YuGothic">游ゴシック</option>
+          <option value="Noto Serif CJK JP">Noto Serif</option>
+          <option value="Noto Sans CJK JP">Noto Sans</option>
+        </select>
+      </div>
+      <div><label>フォントファイル（PDF用）</label><input type="file" id="o_fontfile" accept=".ttf,.otf,.woff,.woff2"></div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <label for="input">文を貼り付け（1行に1文）</label>
+    <textarea id="input" placeholder="絵の具で、花の絵をかく。&#10;春休みに、雪がふった。"></textarea>
+    <div class="toolbar">
+      <button id="process" disabled>解析する</button>
+      <span class="muted">漢字の語が自動で選択されます。語をクリックして選択／解除。</span>
+    </div>
+  </div>
+
+  <div class="panel" id="tablePanel" style="display:none">
+    <table class="sheet">
+      <thead><tr><th style="width:90px">モード</th><th>文（語をクリックで選択）</th><th style="width:40px"></th></tr></thead>
+      <tbody id="rows"></tbody>
+    </table>
+    <div class="toolbar">
+      <button id="btnPreview" class="secondary">プレビュー更新</button>
+      <button id="btnPdf">PDF を保存</button>
+      <button id="btnDocx">Word (.docx) を保存</button>
+    </div>
+  </div>
+
+  <div class="panel" id="previewPanel" style="display:none">
+    <label>プレビュー</label>
+    <iframe id="preview"></iframe>
+  </div>
+</main>
+
+<script src="vendor/kuromoji.js"></script>
+<script src="vendor/docx.umd.js"></script>
+<script type="module" src="src/app.js"></script>
+</body>
+</html>
