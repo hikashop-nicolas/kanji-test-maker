@@ -26,8 +26,3 @@ All bundled fonts are under the **SIL Open Font License 1.1** (see
 
 When a worksheet's `.docx` embeds one of these fonts, the embedded font remains
 under the OFL; the OFL text is included in the file's font data and in this repo.
-
-## Sample
-
-`samples/13. 絵・知・春・思　練習.pdf` is a reference worksheet used only to match
-the layout. Replace or remove it if you do not have the right to redistribute it.

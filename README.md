@@ -7,9 +7,6 @@ editable **Word (.docx)**, with the font embedded so it looks right anywhere.
 No accounts, no server-side processing, no build step. Everything (tokenizing,
 layout, PDF, .docx, font embedding) runs in the browser.
 
-![target layout](samples/13.%20%E7%B5%B5%E3%83%BB%E7%9F%A5%E3%83%BB%E6%98%A5%E3%83%BB%E6%80%9D%E3%80%80%E7%B7%B4%E7%BF%92.pdf)
-*(see `samples/` for the reference worksheet the layout reproduces)*
-
 ## Features
 
 - **Paste & mark.** Paste sentences (one per line); kanji words are auto-detected
