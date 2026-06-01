@@ -4,8 +4,10 @@
 // spaces so each box sits next to its word. Page orientation only + explicit
 // row height / cell widths (the vertical content collapses otherwise).
 
+import { circledExtended } from './model.js';
+
 const VERT = 'TOP_TO_BOTTOM_RIGHT_TO_LEFT';
-const ROW_H  = 10300; // column height, twips (~182mm)
+const ROW_H  = 10650; // column height, twips (~188mm, near the page limit)
 const MM = 56.7;      // twips per mm
 const CONTENT_TW = 16838 - 1200; // A4 landscape width minus L/R margins, twips
 
@@ -20,8 +22,9 @@ export function buildDocx(layout, docx) {
   const boxMm = layout.boxSize || 8;            // mm per writing cell
   const halfPt = Math.round(fontSize * 2);      // docx run size unit
   const fontTw = Math.round(fontSize * 20);     // glyph advance, twips
+  const titleHalf = Math.round((layout.titleFontSize || fontSize) * 2);
   const CELL_TW = fontTw;                        // column pitch = font advance
-  const BOX_TW = fontTw;                         // box cell height = one text cell
+  const BOX_TW = Math.round(boxMm * MM);        // box cell height = box-size setting
   const BOX_INNER = Math.round(boxMm * MM);     // box width = box-size setting
   const BOX_W = BOX_INNER + 160;                // box column width
   const TEXT_W = fontTw + 240;                  // text column width (one glyph + margin)
@@ -60,7 +63,7 @@ export function buildDocx(layout, docx) {
 
   function textCell(col) {
     const kids = [];
-    if (col.number) kids.push(text(col.number));
+    if (col.number) kids.push(text(circledExtended(col.number)));
     for (const r of col.runs) {
       if (r.t === 'plain') kids.push(text(r.s));
       else kids.push(text(r.s, { underline: { type: UnderlineType.SINGLE, color: '333333' } }));
@@ -93,7 +96,7 @@ export function buildDocx(layout, docx) {
   }
 
   function titleCell(headerText) {
-    return makeCell([new Paragraph({ children: [new TextRun({ text: headerText, font, size: halfPt, bold: true })] })], TEXT_W + 200);
+    return makeCell([new Paragraph({ children: [new TextRun({ text: headerText, font, size: titleHalf, bold: true })] })], TEXT_W + 200);
   }
 
   const spacerCell = (w) => new TableCell({

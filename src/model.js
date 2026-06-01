@@ -3,7 +3,6 @@
 // both the HTML and DOCX exporters consume.
 
 const KANJI_RE = /[一-鿿㐀-䶿豈-﫿]/;
-const CIRCLED = ['', '①','②','③','④','⑤','⑥','⑦','⑧','⑨','⑩','⑪','⑫','⑬','⑭','⑮','⑯','⑰','⑱','⑲','⑳'];
 
 export function hasKanji(s) { return KANJI_RE.test(s || ''); }
 export function countKanji(s) { return ((s || '').match(new RegExp(KANJI_RE.source, 'g')) || []).length; }
@@ -12,7 +11,14 @@ export function kataToHira(s) {
   return (s || '').replace(/[ァ-ヶ]/g, c => String.fromCharCode(c.charCodeAt(0) - 0x60));
 }
 
-export function circled(n) { return CIRCLED[n] || `(${n})`; }
+// Unicode circled number (used by the docx export; the HTML draws its own
+// circle). Covers 1-50, falls back to a plain number.
+export function circledExtended(n) {
+  if (n >= 1 && n <= 20) return String.fromCodePoint(0x2460 + n - 1);
+  if (n >= 21 && n <= 35) return String.fromCodePoint(0x3251 + n - 21);
+  if (n >= 36 && n <= 50) return String.fromCodePoint(0x32B1 + n - 36);
+  return String(n);
+}
 
 // Normalize a kuromoji token list into our token model.
 // Each token: { surface, reading(hiragana), hasKanji, selected }
@@ -48,7 +54,7 @@ export function headerLine(header = {}) {
 //          { offset, cells }  offset = cell position (down the text column,
 //                             counting the leading number) where the word starts
 //   length: total cells in the text column (for sizing the box column)
-function sentenceColumn(sentence, index) {
+function sentenceColumn(sentence, index, ratio) {
   const mode = sentence.mode || 'kaki';
   const toks = sentence.tokens;
   const runs = [];
@@ -75,16 +81,16 @@ function sentenceColumn(sentence, index) {
     const cells = mode === 'yomi'
       ? Math.max(1, (reading || surface).length) // write the reading
       : Math.max(1, surface.length);              // write the whole word
-    // Reserve max(shown, box) cells so a box (which may be taller than the
-    // shown text, e.g. a long reading under a short kanji) never overlaps the
-    // next word's box. Extra cells are blank padding after the shown text.
-    const occupy = Math.max(show.length, cells);
+    // Reserve enough text cells that a box (taller than one text cell when the
+    // box size exceeds the font) never overlaps the next word's box. ratio =
+    // box-height in text-cell units. Extra cells are blank padding.
+    const occupy = Math.max(show.length, Math.ceil(cells * ratio));
     runs.push({ t: 'read', s: show });
     if (occupy > show.length) runs.push({ t: 'plain', s: '　'.repeat(occupy - show.length) });
     boxes.push({ offset: pos, cells });
     pos += occupy;
   }
-  return { number: circled(index + 1), runs, boxes, length: pos };
+  return { number: index + 1, runs, boxes, length: pos };
 }
 
 function chunk(arr, n) {
@@ -102,13 +108,17 @@ export function buildLayout(worksheet) {
   const boxSize = o.boxSize || 10;   // mm, one writing cell
   const header = headerLine(worksheet.header);
 
-  const sentences = worksheet.sentences.map((s, i) => sentenceColumn(s, i));
+  const fontPitchMm = fontSize * 0.35278;
+  const ratio = Math.max(1, boxSize / fontPitchMm); // box height in text-cell units
+  const sentences = worksheet.sentences.map((s, i) => sentenceColumn(s, i, ratio));
 
-  const pages = chunk(sentences, perPage).map(group => ({
-    header,
-    columns: group,
-  }));
+  // The title shares the column height; shrink its font so the whole line
+  // (class, lesson, name field) always fits in a single column.
+  const COLH_PT = 182 / 0.35278;
+  const titleFontSize = Math.min(fontSize, Math.max(8, Math.floor(COLH_PT * 0.96 / Math.max(1, header.length))));
+
+  const pages = chunk(sentences, perPage).map(group => ({ header, columns: group }));
   if (pages.length === 0) pages.push({ header, columns: [] });
 
-  return { font, fontSize, boxSize, pages };
+  return { font, fontSize, boxSize, titleFontSize, pages };
 }
