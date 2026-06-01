@@ -7,6 +7,11 @@ editable **Word (.docx)**, with the font embedded so it looks right anywhere.
 No accounts, no server-side processing, no build step. Everything (tokenizing,
 layout, PDF, .docx, font embedding) runs in the browser.
 
+## Use it now
+
+**https://hikashop-nicolas.github.io/kanji-test-maker/** — open it in your
+browser, nothing to install.
+
 ## Features
 
 - **Paste & mark.** Paste sentences (one per line); kanji words are auto-detected
