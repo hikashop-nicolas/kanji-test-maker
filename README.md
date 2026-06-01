@@ -81,7 +81,8 @@ paste → kuromoji (tokens + readings) → editable table
 - `src/docxEmbed.js` — adds the `<w:embedTrueTypeFonts/>` flag Word needs.
 - `src/app.js` — UI glue (kuromoji, table, settings, exports).
 - `vendor/` — kuromoji.js, docx, JSZip (no build step).
-- `assets/dict/` — kuromoji dictionary · `assets/fonts/` — embeddable TTFs.
+- `assets/dict/` — kuromoji dictionary
+- `assets/fonts/` — embeddable TTFs.
 - `tools/gen.mjs` — Node harness to render outputs without a browser.
 
 ## Notes & limits
