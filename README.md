@@ -36,7 +36,8 @@ The app is static, but the kuromoji dictionary and the fonts are fetched, so it
 must be served over HTTP (opening the file directly will not work):
 
 ```bash
-npm run serve          # python3 tools/devserver.py  (serves on :8799, no-cache)
+npm run serve
+# python3 tools/devserver.py  (serves on :8799, no-cache)
 # open http://localhost:8799/index.html
 ```
 
