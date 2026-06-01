@@ -27,22 +27,39 @@ export function normalizeTokens(tokens) {
     const surface = t.surface_form !== undefined ? t.surface_form : t.surface;
     const readingKata = t.reading && t.reading !== '*' ? t.reading : '';
     const k = hasKanji(surface);
-    return {
-      surface,
-      reading: kataToHira(readingKata) || (k ? '' : surface),
-      hasKanji: k,
-      selected: k, // auto-select kanji words
-    };
+    // Reading in hiragana. For katakana words (e.g. レストラン) this yields the
+    // hiragana (れすとらん), so in 書き mode the student writes the katakana.
+    let reading = kataToHira(readingKata);
+    if (!reading) reading = k ? '' : kataToHira(surface);
+    return { surface, reading, hasKanji: k, selected: k };
   });
 }
 
-// Build the header line shown in the title column.
-export function headerLine(header = {}) {
+// Header parts for the title column. The lesson number is kept separate so the
+// exporters can draw a circle around it (like the sentence numbers).
+export function headerParts(header = {}) {
   const cls = header.classCode || '';
-  const title = header.title || 'こんしゅうのかん字';
-  const lesson = header.lessonNo || '';
-  const name = header.nameLabel || '名まえ';
-  return `${cls}　${title}${lesson}　${name}（　　　　　　　　　　）`.trim();
+  const title = header.title || 'こんしゅうのかんじ';
+  const lesson = (header.lessonNo ?? '').toString().trim();
+  const name = header.nameLabel || 'なまえ';
+  return {
+    pre: `${cls}　${title}`,
+    lesson,                                  // drawn circled by the exporters
+    post: `　${name}（　　　　　　　　　　）`,
+  };
+}
+
+// Box positions in a column: each box sits at its word's position but is pushed
+// down so boxes never overlap. Text stays tight; only the boxes get spacing.
+// pitch = text cell size, cellHeight = box cell size, in the caller's units.
+export function layoutBoxes(boxes, pitch, cellHeight, gap = 0) {
+  let prevBottom = -Infinity;
+  return boxes.map(b => {
+    const top = Math.max(b.offset * pitch, prevBottom + gap);
+    const height = b.cells * cellHeight;
+    prevBottom = top + height;
+    return { top, height };
+  });
 }
 
 // Turn one sentence into:
@@ -54,7 +71,7 @@ export function headerLine(header = {}) {
 //          { offset, cells }  offset = cell position (down the text column,
 //                             counting the leading number) where the word starts
 //   length: total cells in the text column (for sizing the box column)
-function sentenceColumn(sentence, index, ratio) {
+function sentenceColumn(sentence, index) {
   const mode = sentence.mode || 'kaki';
   const toks = sentence.tokens;
   const runs = [];
@@ -81,16 +98,9 @@ function sentenceColumn(sentence, index, ratio) {
     const cells = mode === 'yomi'
       ? Math.max(1, (reading || surface).length) // write the reading
       : Math.max(1, surface.length);              // write the whole word
-    // Reserve enough text cells that a box (taller than one text cell when the
-    // box size exceeds the font) never overlaps the NEXT word's box. Only pad
-    // when another box follows, otherwise the trailing text (e.g. the closing
-    // 。) would be pushed away from the last word.
-    const hasLaterBox = toks.slice(i).some(t => t.selected);
-    const occupy = hasLaterBox ? Math.max(show.length, Math.ceil(cells * ratio)) : show.length;
     runs.push({ t: 'read', s: show });
-    if (occupy > show.length) runs.push({ t: 'plain', s: '　'.repeat(occupy - show.length) });
     boxes.push({ offset: pos, cells });
-    pos += occupy;
+    pos += show.length; // text stays tight; boxes get their spacing separately
   }
   return { number: index + 1, runs, boxes, length: pos };
 }
@@ -108,19 +118,17 @@ export function buildLayout(worksheet) {
   const font = o.font || 'Hiragino Mincho ProN';
   const fontSize = o.fontSize || 18; // pt
   const boxSize = o.boxSize || 10;   // mm, one writing cell
-  const header = headerLine(worksheet.header);
-
-  const fontPitchMm = fontSize * 0.35278;
-  const ratio = Math.max(1, boxSize / fontPitchMm); // box height in text-cell units
-  const sentences = worksheet.sentences.map((s, i) => sentenceColumn(s, i, ratio));
+  const header = headerParts(worksheet.header);
+  const sentences = worksheet.sentences.map((s, i) => sentenceColumn(s, i));
 
   // The title shares the column height; shrink its font so the whole line
   // (class, lesson, name field) always fits in a single column.
+  const headerLen = header.pre.length + (header.lesson ? 1 : 0) + header.post.length;
   const COLH_PT = 182 / 0.35278;
-  const titleFontSize = Math.min(fontSize, Math.max(8, Math.floor(COLH_PT * 0.96 / Math.max(1, header.length))));
+  const titleFontSize = Math.min(fontSize, Math.max(8, Math.floor(COLH_PT * 0.96 / Math.max(1, headerLen))));
 
-  const pages = chunk(sentences, perPage).map(group => ({ header, columns: group }));
-  if (pages.length === 0) pages.push({ header, columns: [] });
+  const pages = chunk(sentences, perPage).map(group => ({ columns: group }));
+  if (pages.length === 0) pages.push({ columns: [] });
 
-  return { font, fontSize, boxSize, titleFontSize, pages };
+  return { font, fontSize, boxSize, titleFontSize, header, pages };
 }

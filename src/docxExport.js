@@ -4,7 +4,7 @@
 // spaces so each box sits next to its word. Page orientation only + explicit
 // row height / cell widths (the vertical content collapses otherwise).
 
-import { circledExtended } from './model.js';
+import { circledExtended, layoutBoxes } from './model.js';
 
 const VERT = 'TOP_TO_BOTTOM_RIGHT_TO_LEFT';
 const ROW_H  = 10650; // column height, twips (~188mm, near the page limit)
@@ -72,14 +72,14 @@ export function buildDocx(layout, docx) {
   }
 
   function boxCell(col) {
+    const positions = layoutBoxes(col.boxes, CELL_TW, BOX_TW, 30); // push-down, small gap
     const rows = [];
-    let pos = 0; // current vertical position in twips
-    for (const b of col.boxes) {
-      const pad = b.offset * CELL_TW - pos;       // align box top to its word
-      if (pad > 0) rows.push(innerRow(noBorders, pad));
-      const boxH = b.cells * BOX_TW;
-      rows.push(innerRow(allBorders, boxH));
-      pos = b.offset * CELL_TW + boxH;
+    let cum = 0; // current vertical position in twips
+    for (const p of positions) {
+      const top = Math.round(p.top), h = Math.round(p.height);
+      if (top - cum > 0) rows.push(innerRow(noBorders, top - cum));
+      rows.push(innerRow(allBorders, h));
+      cum = top + h;
     }
     const children = rows.length
       ? [new Table({ width: { size: BOX_INNER, type: WidthType.DXA }, borders: noBorders, rows })]
@@ -95,8 +95,15 @@ export function buildDocx(layout, docx) {
     });
   }
 
-  function titleCell(headerText) {
-    return makeCell([new Paragraph({ children: [new TextRun({ text: headerText, font, size: titleHalf, bold: true })] })], TEXT_W + 200);
+  function titleCell(h) {
+    const t = (s) => new TextRun({ text: s, font, size: titleHalf, bold: true });
+    const runs = [t(h.pre)];
+    if (h.lesson) {
+      const lnum = parseInt(h.lesson, 10);
+      runs.push(t(isNaN(lnum) ? h.lesson : circledExtended(lnum)));
+    }
+    runs.push(t(h.post));
+    return makeCell([new Paragraph({ children: runs })], TEXT_W + 200);
   }
 
   const spacerCell = (w) => new TableCell({
@@ -115,7 +122,7 @@ export function buildDocx(layout, docx) {
     for (let i = n - 1; i >= 0; i--) {
       cells.push(boxCell(page.columns[i]), textCell(page.columns[i]), spacerCell(gap));
     }
-    cells.push(titleCell(page.header));
+    cells.push(titleCell(layout.header || { pre: '', lesson: '', post: '' }));
     return new Table({
       width: { size: CONTENT_TW, type: WidthType.DXA },
       borders: noBorders,
