@@ -1,7 +1,7 @@
 // Browser app: paste -> kuromoji -> editable table -> DOCX / PDF.
-import { normalizeTokens, buildLayout } from './model.js';
-import { buildHtml } from './htmlExport.js';
-import { buildDocx } from './docxExport.js';
+import { normalizeTokens, buildLayout } from './model.js?v=2';
+import { buildHtml } from './htmlExport.js?v=2';
+import { buildDocx } from './docxExport.js?v=2';
 
 const $ = (id) => document.getElementById(id);
 const state = { sentences: [] };
@@ -21,7 +21,12 @@ function header() {
   return { classCode: $('h_class').value, title: $('h_title').value, lessonNo: $('h_lesson').value, nameLabel: $('h_name').value };
 }
 function options() {
-  return { perPage: parseInt($('o_perpage').value, 10) || 10, font: customFontFamily || $('o_font').value };
+  return {
+    perPage: parseInt($('o_perpage').value, 10) || 10,
+    font: customFontFamily || $('o_font').value,
+    fontSize: parseFloat($('o_fontsize').value) || 16,
+    boxSize: parseFloat($('o_boxsize').value) || 8,
+  };
 }
 
 // ---- processing ----------------------------------------------------------
@@ -48,7 +53,13 @@ function renderTable() {
       const b = document.createElement('button');
       b.textContent = m === 'kaki' ? '書き' : '読み';
       b.className = sent.mode === m ? 'on' : '';
-      b.onclick = () => { sent.mode = m; renderTable(); refreshPreview(); };
+      b.onclick = () => {
+        sent.mode = m;
+        // kaki tests every kanji word (write them) -> auto-select; yomi tests
+        // specific readings -> start empty so the teacher picks.
+        sent.tokens.forEach(t => { t.selected = (m === 'kaki') && t.hasKanji; });
+        renderTable(); refreshPreview();
+      };
       tdMode.appendChild(b);
     }
     tr.appendChild(tdMode);
@@ -107,6 +118,9 @@ function refreshPreview() {
   $('previewPanel').style.display = '';
 }
 $('btnPreview').addEventListener('click', refreshPreview);
+// live-refresh the preview when settings or header fields change
+['h_class','h_title','h_lesson','h_name','o_perpage','o_font','o_fontsize','o_boxsize']
+  .forEach(id => $(id).addEventListener('input', refreshPreview));
 
 // ---- font file (preview/PDF only) ----------------------------------------
 let customFontDataUrl = null;

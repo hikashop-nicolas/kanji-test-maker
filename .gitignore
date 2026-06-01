@@ -4,3 +4,6 @@ tools/out.*
 tools/out_html.pdf
 *.log
 .DS_Store
+tools/*.docx
+tools/*.pdf
+tools/*.html

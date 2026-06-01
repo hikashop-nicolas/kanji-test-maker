@@ -36,7 +36,7 @@ export function headerLine(header = {}) {
   const title = header.title || 'こんしゅうのかん字';
   const lesson = header.lessonNo || '';
   const name = header.nameLabel || '名まえ';
-  return `${cls}　${title}${lesson}　${name}（　　　　）`.trim();
+  return `${cls}　${title}${lesson}　${name}（　　　　　　　　　　）`.trim();
 }
 
 // Turn one sentence into:
@@ -50,20 +50,31 @@ export function headerLine(header = {}) {
 //   length: total cells in the text column (for sizing the box column)
 function sentenceColumn(sentence, index) {
   const mode = sentence.mode || 'kaki';
+  const toks = sentence.tokens;
   const runs = [];
   const boxes = [];
   let pos = 1; // the circled number occupies the first cell
 
-  for (const tok of sentence.tokens) {
-    if (!tok.selected) {
-      runs.push({ t: 'plain', s: tok.surface });
-      pos += tok.surface.length;
+  let i = 0;
+  while (i < toks.length) {
+    if (!toks[i].selected) {
+      runs.push({ t: 'plain', s: toks[i].surface });
+      pos += toks[i].surface.length;
+      i++;
       continue;
     }
-    const show = mode === 'yomi' ? tok.surface : (tok.reading || tok.surface);
+    // Merge a run of consecutive selected tokens into one tested word, so an
+    // adjacent split like 図書 + 室 becomes a single 図書室 box.
+    let surface = '', reading = '';
+    while (i < toks.length && toks[i].selected) {
+      surface += toks[i].surface;
+      reading += (toks[i].reading || toks[i].surface);
+      i++;
+    }
+    const show = mode === 'yomi' ? surface : (reading || surface);
     const cells = mode === 'yomi'
-      ? Math.max(1, (tok.reading || tok.surface).length) // write the reading
-      : Math.max(1, tok.surface.length);                  // write the whole word
+      ? Math.max(1, (reading || surface).length) // write the reading
+      : Math.max(1, surface.length);              // write the whole word
     runs.push({ t: 'read', s: show });
     boxes.push({ offset: pos, cells });
     pos += show.length;
@@ -79,8 +90,11 @@ function chunk(arr, n) {
 
 // worksheet: { header, options:{perPage, font}, sentences:[{tokens, mode}] }
 export function buildLayout(worksheet) {
-  const perPage = Math.max(1, worksheet.options?.perPage || 10);
-  const font = worksheet.options?.font || 'Hiragino Mincho ProN';
+  const o = worksheet.options || {};
+  const perPage = Math.max(1, o.perPage || 10);
+  const font = o.font || 'Hiragino Mincho ProN';
+  const fontSize = o.fontSize || 16; // pt
+  const boxSize = o.boxSize || 8;    // mm, one writing cell
   const header = headerLine(worksheet.header);
 
   const sentences = worksheet.sentences.map((s, i) => sentenceColumn(s, i));
@@ -91,5 +105,5 @@ export function buildLayout(worksheet) {
   }));
   if (pages.length === 0) pages.push({ header, columns: [] });
 
-  return { font, pages };
+  return { font, fontSize, boxSize, pages };
 }

@@ -15,7 +15,7 @@ function sentenceHtml(col) {
   const num = col.number ? `<span class="num">${esc(col.number)}</span>` : '';
   const text = `<div class="col">${num}${col.runs.map(runHtml).join('')}</div>`;
   const boxes = col.boxes.map(b =>
-    `<span class="box" style="top:calc(${b.offset} * var(--cell));height:calc(${b.cells} * var(--bh))"></span>`
+    `<span class="box" style="top:calc(${b.offset} * var(--cell));height:calc(${b.cells} * var(--box))"></span>`
   ).join('');
   const boxcol = `<div class="boxcol">${boxes}</div>`;
   return text + boxcol; // text on the right, box column to its left
@@ -23,6 +23,8 @@ function sentenceHtml(col) {
 
 export function buildHtml(layout, opts = {}) {
   const font = opts.font || layout.font || 'Hiragino Mincho ProN';
+  const fontSize = layout.fontSize || 16; // pt
+  const boxSize = layout.boxSize || 8;    // mm per writing cell
   const pages = layout.pages.map(p => {
     const header = `<div class="col title">${esc(p.header)}</div>`;
     const cols = p.columns.map(sentenceHtml).join('');
@@ -37,9 +39,9 @@ export function buildHtml(layout, opts = {}) {
   .page {
     writing-mode: vertical-rl;
     font-family: ${JSON.stringify(font)}, "Hiragino Mincho ProN", serif;
-    font-size: 16pt; line-height: 1.0;
-    --cell: 1em;     /* vertical advance of one reading character */
-    --bh: 1.5em;     /* height of one writing cell (a bit taller than text) */
+    font-size: ${fontSize}pt; line-height: 1.0;
+    --cell: 1em;            /* vertical advance of one reading character */
+    --box: ${boxSize}mm;    /* one writing cell (answer box) */
     --colH: 168mm;
     box-sizing: border-box; padding: 4mm 6mm;
     height: 178mm; width: 278mm; overflow: hidden;
@@ -51,10 +53,10 @@ export function buildHtml(layout, opts = {}) {
   /* tested word: a side line on the RIGHT of the characters (vertical 傍線) */
   .read { border-right: 1.6px solid #333; padding-right: 1px; }
   .boxcol {
-    position: relative; width: 1.7em; height: var(--colH); margin-left: 4mm;
+    position: relative; width: var(--box); height: var(--colH); margin-left: 3mm;
   }
   .box {
-    position: absolute; right: .1em; width: 1.5em;
+    position: absolute; right: 0; width: var(--box);
     border: 1.4px solid #222; box-sizing: border-box;
   }
 </style></head><body>${pages}</body></html>`;

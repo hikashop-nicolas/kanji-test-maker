@@ -6,10 +6,8 @@
 
 const VERT = 'TOP_TO_BOTTOM_RIGHT_TO_LEFT';
 const TEXT_W = 820;   // text column width, twips
-const BOX_W  = 760;   // box column width, twips
-const BOX_INNER = 460;// inner box width, twips (~8mm)
 const ROW_H  = 9300;  // column height, twips (~164mm)
-const CELL_TW = 360;  // vertical advance of one character, twips (tuned to font size)
+const MM = 56.7;      // twips per mm
 
 export function buildDocx(layout, docx) {
   const {
@@ -18,24 +16,32 @@ export function buildDocx(layout, docx) {
     VerticalAlign, UnderlineType,
   } = docx;
 
+  const fontSize = layout.fontSize || 16;       // pt
+  const boxMm = layout.boxSize || 8;            // mm per writing cell
+  const halfPt = Math.round(fontSize * 2);      // docx run size unit
+  const CELL_TW = Math.round(fontSize * 20);    // text char pitch, twips
+  const BOX_TW = Math.round(boxMm * MM);        // box cell height, twips
+  const BOX_INNER = Math.round(boxMm * MM);     // box width, twips
+  const BOX_W = BOX_INNER + 160;                // box column width
+
   const none = { style: BorderStyle.NONE, size: 0, color: 'FFFFFF' };
   const noBorders = { top: none, bottom: none, left: none, right: none };
   const solid = { style: BorderStyle.SINGLE, size: 6, color: '222222' };
   const allBorders = { top: solid, bottom: solid, left: solid, right: solid };
   const font = layout.font || 'Hiragino Mincho ProN';
-  const text = (s, extra = {}) => new TextRun({ text: s, font, size: 32, ...extra });
+  const text = (s, extra = {}) => new TextRun({ text: s, font, size: halfPt, ...extra });
 
   // A box-column cell is a nested 1-column table: alternating spacer rows
-  // (no border, height = offset) and box rows (bordered, height = cells), with
-  // EXACT row heights. Table cell borders render reliably (unlike run borders).
-  const innerCell = (borders, h) => new TableCell({
-    borders, width: { size: BOX_INNER, type: WidthType.DXA },
-    margins: { top: 0, bottom: 0, left: 0, right: 0 },
-    children: [new Paragraph({ spacing: { before: 0, after: 0, line: 1, lineRule: 'exact' }, children: [] })],
-  });
-  const innerRow = (borders, cells) => new TableRow({
-    height: { value: Math.max(1, cells) * CELL_TW, rule: HeightRule.EXACT },
-    children: [innerCell(borders, cells)],
+  // (no border) and box rows (bordered), heights given in twips so offsets
+  // track the text pitch while boxes use the writing-cell size. Table cell
+  // borders render reliably (unlike run borders).
+  const innerRow = (borders, twips) => new TableRow({
+    height: { value: Math.max(1, Math.round(twips)), rule: HeightRule.EXACT },
+    children: [new TableCell({
+      borders, width: { size: BOX_INNER, type: WidthType.DXA },
+      margins: { top: 0, bottom: 0, left: 0, right: 0 },
+      children: [new Paragraph({ spacing: { before: 0, after: 0, line: 1, lineRule: 'exact' }, children: [] })],
+    })],
   });
 
   function makeCell(children, width) {
@@ -61,12 +67,13 @@ export function buildDocx(layout, docx) {
 
   function boxCell(col) {
     const rows = [];
-    let pos = 0;
+    let pos = 0; // current vertical position in twips
     for (const b of col.boxes) {
-      const pad = b.offset - pos;
+      const pad = b.offset * CELL_TW - pos;       // align box top to its word
       if (pad > 0) rows.push(innerRow(noBorders, pad));
-      rows.push(innerRow(allBorders, b.cells));
-      pos = b.offset + b.cells;
+      const boxH = b.cells * BOX_TW;
+      rows.push(innerRow(allBorders, boxH));
+      pos = b.offset * CELL_TW + boxH;
     }
     const children = rows.length
       ? [new Table({ width: { size: BOX_INNER, type: WidthType.DXA }, borders: noBorders, rows })]
@@ -83,7 +90,7 @@ export function buildDocx(layout, docx) {
   }
 
   function titleCell(headerText) {
-    return makeCell([new Paragraph({ children: [new TextRun({ text: headerText, font, size: 32, bold: true })] })], TEXT_W + 200);
+    return makeCell([new Paragraph({ children: [new TextRun({ text: headerText, font, size: halfPt, bold: true })] })], TEXT_W + 200);
   }
 
   function pageTable(page) {
