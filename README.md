@@ -31,16 +31,27 @@ kanji is highlighted. "やさしい文だけ" keeps only sentences within the gr
 ![Pick example sentences](docs/screenshots/02-pick-sentences.png)
 
 **3. Fine-tune in the table.** Checked sentences drop into the editable table
-with only the lesson kanji marked. Toggle any word, fix a reading, switch a
-sentence between 書き (write the kanji) and 読み (write the reading). You can also
-paste extra sentences of your own.
+with only the lesson kanji marked. Click a word to cycle its state, fix a
+reading, switch a sentence between 書き (write the kanji) and 読み (write the
+reading). You can also paste extra sentences of your own. Each word has four
+states:
+
+- そのまま (grey): the kanji is shown as-is.
+- テスト (blue): the word becomes an answer box.
+- ふりがな (orange): the kanji is kept, with furigana added.
+- ひらがな (red): the kanji is replaced by its reading (for words above the
+  grade). Above-grade words are auto-set to this when you add lesson sentences.
 
 ![Edit the table](docs/screenshots/03-edit-table.png)
 
 **4. Get the worksheet.** Save a print-perfect PDF or an editable .docx, in the
-classic vertical layout with answer boxes and circled numbers.
+classic vertical layout with answer boxes and circled numbers. Tick 解答シートも
+作成する to also export an answer key (the same sheet with the boxes filled in).
 
 ![Generated worksheet](docs/screenshots/04-worksheet.png)
+
+Save the whole sheet with **セットを保存** and reopen it later with **セットを
+読み込み**.
 
 ## Features
 
@@ -51,8 +62,17 @@ classic vertical layout with answer boxes and circled numbers.
   content.
 - **Paste & mark.** Paste sentences (one per line); kanji words are auto-detected
   and selected. Click a word to toggle it. Readings are editable.
+- **Four per-word states.** Click a word to cycle: plain (kanji as-is), test
+  (answer box), furigana (kanji + ruby), or kana (kanji replaced by its reading,
+  for words above the grade). Furigana renders as real ruby in both the PDF and
+  the .docx.
 - **書き / 読み per sentence.** *Write* mode shows the reading and a box to write
   the word; *read* mode shows the kanji and a box to write the reading.
+- **Answer key.** One tick exports a second sheet with every box filled in (the
+  kanji in 書き, the reading in 読み), as its own PDF or .docx.
+- **Save / load sheets.** Save the whole worksheet (sentences, word states,
+  header, options) to a small `.ktm.json` file and reopen it later to tweak or
+  reprint.
 - **Vertical worksheet** matching the classic layout: title column, right-to-left
   sentences, side-lined tested words, an aligned answer-box column, circled
   sentence numbers (any value), and a name field.
@@ -97,10 +117,13 @@ below cover pasting your own sentences.)
 
 1. Fill the header (class, weekly title, lesson number, name label).
 2. Paste sentences, one per line, written naturally with kanji.
-3. Click **解析する**. In the table, toggle which words to test and switch each
-   sentence between 書き / 読み. Fix any reading inline.
+3. Click **解析する**. In the table, click a word to cycle its state (plain /
+   test / furigana / kana) and switch each sentence between 書き / 読み. Fix any
+   reading inline.
 4. Adjust options: sentences per page, font, font size, box size.
 5. **PDF を保存** (browser print → Save as PDF) or **Word (.docx) を保存**.
+   Tick **解答シートも作成する** for an answer key. Use **セットを保存** /
+   **セットを読み込み** to keep a sheet for later.
 
 See `test_sentences.md` for ready-to-paste example sets.
 

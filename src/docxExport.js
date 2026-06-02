@@ -14,12 +14,13 @@ const CONTENT_TW = 16838 - 1200; // A4 landscape width minus L/R margins, twips
 // embeddedFonts: optional [{ name, data }] to embed the font in the .docx so it
 // renders in Word without being installed (the lib obfuscates + writes the
 // fontTable). Use for OFL fonts like Klee One / LINE Seed JP.
-export function buildDocx(layout, docx, embeddedFonts = []) {
+export function buildDocx(layout, docx, embeddedFonts = [], opts = {}) {
   const {
     Document, Paragraph, TextRun, Table, TableRow, TableCell,
     WidthType, BorderStyle, TextDirection, PageOrientation, HeightRule,
-    VerticalAlign, UnderlineType, ImportedXmlComponent,
+    VerticalAlign, UnderlineType, ImportedXmlComponent, AlignmentType,
   } = docx;
+  const answers = !!opts.answers; // fill the boxes with the answer (answer key)
 
   const fontSize = layout.fontSize || 16;       // pt
   const boxMm = layout.boxSize || 8;            // mm per writing cell
@@ -30,6 +31,7 @@ export function buildDocx(layout, docx, embeddedFonts = []) {
   const BOX_TW = Math.round(boxMm * MM);        // box cell height = box-size setting
   const BOX_INNER = Math.round(boxMm * MM);     // box width = box-size setting
   const BOX_W = BOX_INNER + 160;                // box column width
+  const ansHalf = Math.max(16, Math.round(boxMm * 4.4)); // answer glyph size (half-pt), sized to the box
   const TEXT_W = fontTw + 240;                  // text column width (one glyph + margin)
   const charSpace = 0;                           // text uses its natural pitch
 
@@ -58,12 +60,16 @@ export function buildDocx(layout, docx, embeddedFonts = []) {
   // (no border) and box rows (bordered), heights given in twips so offsets
   // track the text pitch while boxes use the writing-cell size. Table cell
   // borders render reliably (unlike run borders).
-  const innerRow = (borders, twips) => new TableRow({
+  const innerRow = (borders, twips, ansText) => new TableRow({
     height: { value: Math.max(1, Math.round(twips)), rule: HeightRule.EXACT },
     children: [new TableCell({
       borders, width: { size: BOX_INNER, type: WidthType.DXA },
       margins: { top: 0, bottom: 0, left: 0, right: 0 },
-      children: [new Paragraph({ spacing: { before: 0, after: 0, line: 1, lineRule: 'exact' }, children: [] })],
+      textDirection: ansText ? TextDirection[VERT] : undefined,
+      verticalAlign: VerticalAlign.CENTER,
+      children: [ansText
+        ? new Paragraph({ alignment: AlignmentType.CENTER, spacing: { before: 0, after: 0 }, children: [new TextRun({ text: ansText, font, size: ansHalf, color: 'C0392B' })] })
+        : new Paragraph({ spacing: { before: 0, after: 0, line: 1, lineRule: 'exact' }, children: [] })],
     })],
   });
 
@@ -93,12 +99,12 @@ export function buildDocx(layout, docx, embeddedFonts = []) {
     const positions = layoutBoxes(col.boxes, CELL_TW, BOX_TW, 30); // push-down, small gap
     const rows = [];
     let cum = 0; // current vertical position in twips
-    for (const p of positions) {
+    positions.forEach((p, i) => {
       const top = Math.round(p.top), h = Math.round(p.height);
       if (top - cum > 0) rows.push(innerRow(noBorders, top - cum));
-      rows.push(innerRow(allBorders, h));
+      rows.push(innerRow(allBorders, h, answers ? (col.boxes[i].answer || '') : undefined));
       cum = top + h;
-    }
+    });
     const children = rows.length
       ? [new Table({ width: { size: BOX_INNER, type: WidthType.DXA }, borders: noBorders, rows })]
       : [new Paragraph({ children: [] })];
@@ -156,7 +162,7 @@ export function buildDocx(layout, docx, embeddedFonts = []) {
     children: [pageTable(page)],
   }));
 
-  const opts = { sections };
-  if (embeddedFonts && embeddedFonts.length) opts.fonts = embeddedFonts;
-  return new Document(opts);
+  const docOpts = { sections };
+  if (embeddedFonts && embeddedFonts.length) docOpts.fonts = embeddedFonts;
+  return new Document(docOpts);
 }

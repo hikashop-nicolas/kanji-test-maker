@@ -318,15 +318,17 @@ function customFontCss() {
 function blobToDataUrl(b) { return new Promise(r => { const fr = new FileReader(); fr.onload = () => r(fr.result); fr.readAsDataURL(b); }); }
 
 // ---- PDF (browser print) -------------------------------------------------
-$('btnPdf').addEventListener('click', () => {
-  const html = buildHtml(buildLayout(worksheet()), { font: options().font, fontFace: customFontCss() });
+function exportPdf(answers) {
+  const html = buildHtml(buildLayout(worksheet()), { font: options().font, fontFace: customFontCss(), answers });
   const w = window.open('', '_blank');
   w.document.open(); w.document.write(html); w.document.close();
   w.onload = () => { w.focus(); w.print(); };
-});
+}
+$('btnPdf').addEventListener('click', () => exportPdf(false));
+$('btnPdfAns').addEventListener('click', () => exportPdf(true));
 
 // ---- DOCX ----------------------------------------------------------------
-$('btnDocx').addEventListener('click', async () => {
+async function exportDocx(answers, filename) {
   const layout = buildLayout(worksheet());
   const fontName = $('o_font').value;
   let embed = [];
@@ -343,11 +345,58 @@ $('btnDocx').addEventListener('click', async () => {
       } catch (e) { console.warn('font fetch failed; .docx will reference the font by name', e); }
     }
   }
-  const doc = buildDocx(layout, window.docx, embed);
+  const doc = buildDocx(layout, window.docx, embed, { answers });
   let bytes = new Uint8Array(await (await window.docx.Packer.toBlob(doc)).arrayBuffer());
   if (embed.length) bytes = await addFontEmbedFlag(bytes, window.JSZip);
-  downloadBlob(new Blob([bytes], { type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' }), 'kanji-test.docx');
+  downloadBlob(new Blob([bytes], { type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' }), filename);
+}
+$('btnDocx').addEventListener('click', () => exportDocx(false, 'kanji-test.docx'));
+$('btnDocxAns').addEventListener('click', () => exportDocx(true, 'kanji-test-answers.docx'));
+
+// answer-sheet checkbox reveals its export buttons
+$('ans_enable').addEventListener('change', () => {
+  $('ans_buttons').style.display = $('ans_enable').checked ? '' : 'none';
 });
+
+// ---- save / load a worksheet set (JSON) ----------------------------------
+function saveSet() {
+  const data = {
+    version: 1,
+    header: header(),
+    options: { perPage: $('o_perpage').value, font: $('o_font').value, fontSize: $('o_fontsize').value, boxSize: $('o_boxsize').value },
+    sentences: state.sentences.map(s => ({
+      mode: s.mode,
+      tokens: s.tokens.map(t => ({ surface: t.surface, reading: t.reading, hasKanji: t.hasKanji, state: t.state || (t.selected ? 'test' : 'plain') })),
+    })),
+  };
+  const stamp = ($('h_class').value || 'kanji') + '-' + ($('h_lesson').value || '');
+  downloadBlob(new Blob([JSON.stringify(data, null, 1)], { type: 'application/json' }), `${stamp}.ktm.json`.replace(/\s+/g, ''));
+}
+function loadSet(file) {
+  const fr = new FileReader();
+  fr.onload = () => {
+    let d; try { d = JSON.parse(fr.result); } catch (e) { alert('読み込みに失敗しました（JSONではありません）'); return; }
+    const h = d.header || {}, o = d.options || {};
+    if (h.classCode != null) $('h_class').value = h.classCode;
+    if (h.title != null) $('h_title').value = h.title;
+    if (h.lessonNo != null) $('h_lesson').value = h.lessonNo;
+    if (h.nameLabel != null) $('h_name').value = h.nameLabel;
+    if (o.perPage != null) $('o_perpage').value = o.perPage;
+    if (o.font != null) $('o_font').value = o.font;
+    if (o.fontSize != null) $('o_fontsize').value = o.fontSize;
+    if (o.boxSize != null) $('o_boxsize').value = o.boxSize;
+    state.sentences = (d.sentences || []).map(s => ({ mode: s.mode || 'kaki', tokens: s.tokens || [] }));
+    saveSettings();
+    renderTable();
+    $('tablePanel').style.display = state.sentences.length ? '' : 'none';
+    refreshPreview();
+  };
+  fr.readAsText(file);
+}
+$('btnSave').addEventListener('click', saveSet);
+$('btnSave2').addEventListener('click', saveSet);
+$('btnLoad').addEventListener('click', () => $('loadFile').click());
+$('loadFile').addEventListener('change', (e) => { if (e.target.files[0]) loadSet(e.target.files[0]); e.target.value = ''; });
 
 function downloadBlob(blob, name) {
   const url = URL.createObjectURL(blob);

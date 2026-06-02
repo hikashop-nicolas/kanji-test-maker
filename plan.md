@@ -366,3 +366,16 @@ merges consecutive same-state tokens. When adding lesson sentences, states are
 auto-assigned: lesson kanji -> test, words containing an above-grade or
 non-jouyou kanji -> kana, else plain; furigana is left manual. Only the kanji
 characters of a word are inspected (okurigana kana are ignored).
+
+### 10.8 Answer key + save/load
+
+- Answer key: an `answers` option on buildHtml/buildDocx fills each test box with
+  the expected answer (kaki -> the kanji, yomi -> the reading), drawn in red and
+  sized to the box; HTML uses a .ans span, .docx puts a vertical centred run in
+  the bordered box cell. Each box carries its `answer` from sentenceColumn. A
+  "解答シートも作成する" checkbox under the export buttons reveals 解答 PDF / 解答
+  Word, which export a separate filled sheet.
+- Save/load: the whole worksheet (header, options, sentences with per-token
+  state and mode) serialises to a small .ktm.json. Save is on the top bar and
+  next to the export buttons; Load (top bar) reads a file and restores fields +
+  table + preview. Versioned ({version:1}).
