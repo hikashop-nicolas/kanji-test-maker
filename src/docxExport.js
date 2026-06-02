@@ -18,7 +18,7 @@ export function buildDocx(layout, docx, embeddedFonts = []) {
   const {
     Document, Paragraph, TextRun, Table, TableRow, TableCell,
     WidthType, BorderStyle, TextDirection, PageOrientation, HeightRule,
-    VerticalAlign, UnderlineType,
+    VerticalAlign, UnderlineType, ImportedXmlComponent,
   } = docx;
 
   const fontSize = layout.fontSize || 16;       // pt
@@ -39,6 +39,20 @@ export function buildDocx(layout, docx, embeddedFonts = []) {
   const allBorders = { top: solid, bottom: solid, left: solid, right: solid };
   const font = layout.font || 'Hiragino Mincho ProN';
   const text = (s, extra = {}) => new TextRun({ text: s, font, size: halfPt, characterSpacing: charSpace, ...extra });
+
+  // Furigana: a real w:ruby run (the lib has no Ruby type, so inject the XML).
+  const xmlEsc = (s) => String(s).replace(/[&<>]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));
+  const rtHalf = Math.max(10, Math.round(halfPt / 2));   // furigana size, half-pt
+  function rubyRun(base, rt) {
+    const rf = `<w:rFonts w:ascii="${font}" w:eastAsia="${font}" w:hAnsi="${font}"/>`;
+    const xml =
+      `<w:r><w:ruby>` +
+      `<w:rubyPr><w:rubyAlign w:val="distributeSpace"/><w:hps w:val="${rtHalf}"/><w:hpsRaise w:val="${halfPt}"/><w:hpsBaseText w:val="${halfPt}"/><w:lid w:val="ja-JP"/></w:rubyPr>` +
+      `<w:rt><w:r><w:rPr>${rf}<w:sz w:val="${rtHalf}"/><w:szCs w:val="${rtHalf}"/></w:rPr><w:t xml:space="preserve">${xmlEsc(rt)}</w:t></w:r></w:rt>` +
+      `<w:rubyBase><w:r><w:rPr>${rf}<w:sz w:val="${halfPt}"/><w:szCs w:val="${halfPt}"/></w:rPr><w:t xml:space="preserve">${xmlEsc(base)}</w:t></w:r></w:rubyBase>` +
+      `</w:ruby></w:r>`;
+    return ImportedXmlComponent.fromXmlString(xml);
+  }
 
   // A box-column cell is a nested 1-column table: alternating spacer rows
   // (no border) and box rows (bordered), heights given in twips so offsets
@@ -68,8 +82,9 @@ export function buildDocx(layout, docx, embeddedFonts = []) {
     const kids = [];
     if (col.number) kids.push(text(circledExtended(col.number)));
     for (const r of col.runs) {
-      if (r.t === 'plain') kids.push(text(r.s));
-      else kids.push(text(r.s, { underline: { type: UnderlineType.SINGLE, color: '333333' } }));
+      if (r.t === 'plain' || r.t === 'kana') kids.push(text(r.s));
+      else if (r.t === 'furi') kids.push(rubyRun(r.base, r.rt));
+      else kids.push(text(r.s, { underline: { type: UnderlineType.SINGLE, color: '333333' } })); // 'read'
     }
     return makeCell([new Paragraph({ children: kids })], TEXT_W);
   }

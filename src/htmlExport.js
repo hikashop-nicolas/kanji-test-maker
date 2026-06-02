@@ -10,7 +10,9 @@ function esc(s) {
 
 function runHtml(r) {
   if (r.t === 'plain') return `<span class="plain">${esc(r.s)}</span>`;
-  return `<span class="read">${esc(r.s)}</span>`;
+  if (r.t === 'kana') return `<span class="plain">${esc(r.s)}</span>`; // reading in place of kanji
+  if (r.t === 'furi') return `<ruby>${esc(r.base)}<rt>${esc(r.rt)}</rt></ruby>`;
+  return `<span class="read">${esc(r.s)}</span>`; // 'read' (tested word, side-lined)
 }
 
 function sentenceHtml(col, fontPitchMm, boxSize) {
@@ -63,6 +65,9 @@ export function buildHtml(layout, opts = {}) {
   .title { writing-mode: vertical-rl; line-height: 1.0; height: var(--colH); font-weight: bold; font-size: ${titleFontSize}pt; }
   /* tested word: a side line on the RIGHT of the characters (vertical 傍線) */
   .read { border-right: 1.6px solid #333; padding-right: 1px; }
+  /* furigana: ruby to the right of the kanji in vertical writing */
+  ruby { ruby-position: over; }
+  rt { font-size: .5em; font-weight: normal; }
   /* a plain number drawn inside a circle. Forced to a horizontal box with a
      fixed font so the circle/centering is the same whatever the body font is. */
   .num {
