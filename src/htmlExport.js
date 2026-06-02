@@ -65,8 +65,9 @@ export function buildHtml(layout, opts = {}) {
   .sentence { display: flex; flex-direction: row-reverse; align-items: flex-start; }
   .col { writing-mode: vertical-rl; line-height: 1.0; height: var(--colH); }
   /* when a sentence wraps to extra columns, start them below the circled number
-     (level with the first character), not at the very top. */
-  .sentence .col { text-indent: calc(1.5em + 1.2mm) hanging; }
+     (level with the first character), not at the very top; and give the columns
+     a little gap so a tested word's side line never touches the next column. */
+  .sentence .col { text-indent: calc(1.5em + 1.2mm) hanging; line-height: 1.3; }
   .title { writing-mode: vertical-rl; line-height: 1.0; height: var(--colH); font-weight: bold; font-size: ${titleFontSize}pt; }
   /* tested word: a side line on the RIGHT of the characters (vertical 傍線) */
   .read { border-right: 1.6px solid #333; padding-right: 1px; }
