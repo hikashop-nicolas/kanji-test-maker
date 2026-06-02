@@ -3,6 +3,8 @@ import { normalizeTokens, buildLayout } from './model.js?v=2';
 import { buildHtml } from './htmlExport.js?v=2';
 import { buildDocx } from './docxExport.js?v=2';
 import { addFontEmbedFlag } from './docxEmbed.js?v=2';
+import { initLessonBuilder, onLessonChange, selectedKanji, gradeOf, setSelection, currentGrade } from './lesson.js?v=2';
+import { buildCandidates } from './sentences.js?v=2';
 
 // fonts we ship a TTF for and can embed in the .docx (all OFL-licensed)
 const FONT_TTF = {
@@ -32,6 +34,131 @@ function loadSettings() {
   SETTING_IDS.forEach(id => { if (o[id] !== undefined && $(id)) $(id).value = o[id]; });
 }
 loadSettings();
+
+// ---- lesson builder (grade -> kanji table) -------------------------------
+initLessonBuilder({
+  grade: $('lesson_grade'),
+  grid: $('kanji_grid'),
+  field: $('lesson_field'),
+  count: $('lesson_count'),
+  clear: $('lesson_clear'),
+});
+
+// persist + restore the lesson selection (grade + chosen kanji)
+function saveLesson() {
+  try { localStorage.setItem('ktm_lesson', JSON.stringify({ grade: currentGrade(), kanji: $('lesson_field').value })); } catch (e) {}
+}
+onLessonChange((kanji) => { $('lesson_find').disabled = kanji.length === 0; saveLesson(); });
+$('lesson_grade').addEventListener('change', saveLesson);
+(function restoreLesson() {
+  let o; try { o = JSON.parse(localStorage.getItem('ktm_lesson') || '{}'); } catch (e) { o = {}; }
+  if (o.grade || o.kanji) setSelection(o.grade || '', o.kanji || '');
+})();
+
+// baseline grade: the chosen dropdown grade, else the hardest selected kanji
+function baselineGrade() {
+  const v = $('lesson_grade').value;
+  if (v === 'secondary') return 8;
+  if (v) return parseInt(v, 10);
+  const gs = selectedKanji().map(gradeOf).filter(g => g != null);
+  return gs.length ? Math.max(...gs) : 6;
+}
+
+async function runPicker() {
+  const kanji = selectedKanji();
+  if (!kanji.length) return;
+  const G = baselineGrade();
+  $('lesson_find').disabled = true;
+  $('lesson_find').textContent = 'さがしています…';
+  const groups = await buildCandidates(kanji, G, { hideAboveLevel: $('pick_easyonly').checked, perKanji: 20 });
+  renderPicker(groups, G);
+  $('pickerPanel').style.display = '';
+  $('lesson_find').disabled = false;
+  $('lesson_find').textContent = '選んだ漢字で例文をさがす';
+}
+$('lesson_find').addEventListener('click', runPicker);
+$('pick_easyonly').addEventListener('change', () => { if ($('pickerPanel').style.display !== 'none') runPicker(); });
+$('pick_add').addEventListener('click', addPickedSentences);
+
+// render a sentence with each kanji coloured by its role for the current lesson
+function sentenceNodes(text, lessonSet, G, target) {
+  const frag = document.createDocumentFragment();
+  for (const ch of text) {
+    if (/\p{Script=Han}/u.test(ch)) {
+      const s = document.createElement('span');
+      s.textContent = ch;
+      const g = gradeOf(ch);
+      if (ch === target) s.className = 'k-target';
+      else if (lessonSet.has(ch)) s.className = 'k-lesson';
+      else if (g == null || g > G) s.className = 'k-future';
+      frag.appendChild(s);
+    } else {
+      frag.appendChild(document.createTextNode(ch));
+    }
+  }
+  return frag;
+}
+
+function renderPicker(groups, G) {
+  const lessonSet = new Set(selectedKanji());
+  const root = $('picker');
+  root.innerHTML = '';
+  let totalShown = 0;
+  for (const grp of groups) {
+    const block = document.createElement('div');
+    block.className = 'pick-block';
+    const h = document.createElement('h4');
+    h.textContent = `「${grp.kanji}」`;
+    block.appendChild(h);
+    if (!grp.sentences.length) {
+      const e = document.createElement('div');
+      e.className = 'empty';
+      e.textContent = grp.note === 'jouyou外' ? '常用漢字ではないため例文がありません。' : '条件に合う例文が見つかりませんでした。';
+      block.appendChild(e);
+    }
+    for (const s of grp.sentences) {
+      totalShown++;
+      const row = document.createElement('div');
+      row.className = 'sent-row';
+      const id = `pk_${Math.abs(hashStr(grp.kanji + s.t))}`;
+      const cb = document.createElement('input');
+      cb.type = 'checkbox'; cb.id = id; cb.dataset.text = s.t;
+      const lab = document.createElement('label');
+      lab.htmlFor = id;
+      lab.title = `スコア ${s.score.toFixed(1)}`; // ranking score, on hover
+      lab.appendChild(sentenceNodes(s.t, lessonSet, G, grp.kanji));
+      row.appendChild(cb); row.appendChild(lab);
+      block.appendChild(row);
+    }
+    root.appendChild(block);
+  }
+  $('pick_summary').textContent = `${groups.length}字・${totalShown}文（学年基準：${G === 8 ? '中学以降' : '小' + G}）`;
+}
+
+function hashStr(s) { let h = 0; for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) | 0; return h; }
+
+// add the checked sentences into the editable table, marking only lesson kanji
+function addPickedSentences() {
+  if (!tokenizer) return;
+  const lessonSet = new Set(selectedKanji());
+  const existing = new Set(state.sentences.map(s => s.tokens.map(t => t.surface).join('')));
+  const picked = [...new Set([...document.querySelectorAll('#picker input[type=checkbox]:checked')].map(cb => cb.dataset.text))];
+  let added = 0;
+  for (const text of picked) {
+    if (existing.has(text)) continue;
+    const tokens = normalizeTokens(tokenizer.tokenize(text));
+    // test only the lesson kanji; leave other kanji shown as-is
+    tokens.forEach(t => { t.selected = t.hasKanji && [...t.surface].some(c => lessonSet.has(c)); });
+    state.sentences.push({ tokens, mode: 'kaki' });
+    existing.add(text); added++;
+  }
+  if (added) {
+    renderTable();
+    $('tablePanel').style.display = '';
+    refreshPreview();
+    $('tablePanel').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+}
 
 // ---- init kuromoji -------------------------------------------------------
 window.kuromoji.builder({ dicPath: 'assets/dict' }).build((err, tok) => {

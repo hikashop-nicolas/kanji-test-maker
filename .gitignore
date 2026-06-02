@@ -11,3 +11,6 @@ tools/*.html
 
 # generated worksheets
 kanji-test*.docx
+
+# build-data source cache (large; re-downloaded on demand)
+tools/data-cache/

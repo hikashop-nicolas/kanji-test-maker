@@ -218,3 +218,131 @@ kanji-test-maker/
 
 PoC artifacts to look at now: `poc/poc.pdf` (PDF path) and `poc/min.pdf`
 (docx path, the layout that will back the .docx output).
+
+---
+
+## 10. Lesson auto-fill (grade -> kanji -> sentence picker)
+
+Goal: let a teacher build a worksheet without writing sentences by hand, while
+keeping full control. Pick a grade, pick the week's kanji from a familiar table,
+get ranked candidate sentences per kanji, select the ones to keep; the result
+wires into the existing word-selector table. Manual entry stays available
+throughout.
+
+### 10.1 What is legal to ship (researched 2026-06-02)
+
+- Kanji-by-grade facts are public and reusable: MEXT 学年別漢字配当表 (1,026
+  kyōiku kanji, grades 1 to 6, Reiwa-2/2020 revision) and the 2,136 jōyō list.
+  Kanji past grade 6 have no MEXT grade; they are "secondary / jōyō" (KANJIDIC
+  grade 8). The level selector therefore is: grades 1 to 6, then one extra
+  "secondary jōyō" bucket.
+- JLPT has published no official kanji/vocab list since 2010 (the 出題基準 was
+  dropped on purpose). Any N5 to N1 list is an unofficial reconstruction; if
+  added later, label it as such. Not in scope for v1.
+- Textbook sentences (Genki, Minna no Nihongo, Marugoto, Tobira) are
+  copyrighted and cannot be bundled. A list of which kanji a lesson introduces
+  is facts and is reusable, but we do not need it: the teacher picks the kanji.
+- So we ship no copyrighted text. Sentences come from Tatoeba and are filtered
+  to the chosen level (the "i+1" idea below).
+
+### 10.2 Data sources
+
+| Source | Use | License | Attribution |
+|---|---|---|---|
+| davidluzgouveia/kanji-data (JSON) | per-kanji grade, stroke count, radical, readings, meanings | MIT (derived from KANJIDIC) | credit KANJIDIC/EDRDG |
+| KANJIDIC2 (EDRDG), fnshr/kyo-kan | cross-check grade tables / radicals | CC BY-SA 4.0 | on-screen "Data sources" note |
+| Tatoeba Japanese sentences (+ English links) | candidate example sentences, optional translation | CC BY 2.0 FR | credit Tatoeba |
+
+Add Tatoeba and EDRDG to THIRD_PARTY.md and an on-screen "Data sources" note
+(EDRDG's CC BY-SA requires on-screen attribution).
+
+### 10.3 Build pipeline (tools/, run offline, output committed as static assets)
+
+Produces small JSON the static app lazy-loads. Reuses kuromoji already vendored.
+
+1. Download Tatoeba jpn sentences (+ eng links) and kanji-data JSON.
+2. Build the kanji index: for each grade (1 to 6 and secondary), the kanji with
+   stroke count, radical, and readings, for the selection table.
+3. For each sentence: extract its kanji set, tokenize with kuromoji (for the
+   word boundaries we later hand to the existing selector), compute its
+   "max grade" (highest grade among its kanji; non-jōyō kanji = out of scope).
+4. Quality filter: length bounds (~6 to 30 chars), drop sentences containing
+   non-jōyō / out-of-scope kanji, dedupe, cap N sentences per kanji so frequent
+   kanji do not dominate (keeps shard size bounded: ~200 kanji/grade x cap).
+5. Emit a per-kanji index grouped by the kanji's grade:
+   assets/data/lesson-kanji/grade-{1..6,secondary}.json = { kanji: [[text,
+   kanjiset], ...] }, up to 60 easiest (lowest max-grade, then shortest)
+   sentences per kanji. The global kanji -> grade map is assets/data/kanji.json.
+
+IMPLEMENTED (differs from the earlier "per-grade sentence shard" sketch):
+indexing by the kanji's grade means selecting a grade loads ONE file and every
+chosen kanji already carries its candidates; tokenization is done in the browser
+by the existing kuromoji at pick time, so shards stay small (text + kanji set
+only). Build: tools/build-data.mjs (kanji.json from KANJIDIC2) then
+tools/build-sentences.mjs (sentence index from Tatoeba). 223k sentences kept;
+2090/2136 kanji have >=1 candidate. Sentence scoring lives in src/sentences.js.
+
+### 10.4 UI flow
+
+1. Select grade (1 to 6, or secondary jōyō). Or: teacher pastes their own kanji
+   AND still picks a grade, so the scorer knows the baseline.
+2. Kanji table for the grade, sorted by stroke count then by radical (the order
+   Japanese teachers scan fastest). Teacher checks the kanji for this week's
+   lesson. This set = "current lesson".
+3. Per selected kanji, a table of candidate sentences, ranked by the score in
+   10.5. Teacher checks the sentences to include.
+4. A free-text field for extra manual sentences (always available).
+5. Selected sentences + their target words feed the existing editable
+   word-selector table, then on to the normal kaki/yomi + export flow. The
+   teacher keeps full control (toggle words, fix readings) exactly as today.
+
+### 10.5 Sentence scoring (per candidate sentence, for the current lesson)
+
+Implements i+1 readability: reward sentences whose other kanji the student
+already knows, penalise ones that introduce kanji from later grades. Both the
+bonus and the penalty scale with grade distance, so value reflects how "current"
+each kanji is, not just whether it is in-level.
+
+Let G = the selected grade and g = a kanji's grade. The secondary-jōyō bucket
+counts as the grade above 6. For a sentence containing target kanji K, sum over
+each other kanji J in it:
+
+- J in the current lesson set (J != K): flat +4. Strongest signal: it reinforces
+  exactly the week's set. (Lesson kanji all sit at grade G, so distance does not
+  apply here.)
+- J known, not in the lesson, g <= G: bonus that decays with distance below.
+  default = max(1, 3 - (G - g)). So same grade +3, one back +2, two back +1,
+  three or more back +1 (floor). A far-past kanji stays mildly positive because
+  it is still readable, but adds little.
+- J in a future grade, g > G: penalty that escalates with distance above.
+  default = -5 * (g - G). One above -5, two above -10, etc.
+- J out-of-scope / non-jōyō: filtered out at build time (10.3), so it should not
+  appear; if it does, treat as far-future (large penalty).
+
+Length handling: sum-over-kanji favours long sentences, so apply a mild
+length penalty (or normalise by character count) and prefer shorter, cleaner
+sentences as the tie-break. Provide a toggle "hide sentences containing
+above-level kanji" for teachers who want a hard ceiling instead of the soft
+escalating penalty. All weights (+4 / decay step / -5 per grade / length factor)
+are constants to tune against real Tatoeba data, not fixed.
+
+### 10.6 Phasing
+
+- Phase A (DONE): build pipeline + kanji table (grade -> sorted selectable
+  kanji), with the chosen set as an editable, two-way-synced input.
+- Phase B (DONE): sentence index + scorer + candidate table with role-coloured
+  kanji and an "easy only" grade-ceiling toggle -> wires checked sentences into
+  the existing word selector (only lesson kanji pre-marked). Attribution shown
+  on-screen + in THIRD_PARTY.md. The paste box remains for extra manual
+  sentences.
+- Phase C (DONE): near-duplicate suppression (bigram Jaccard) in the picker;
+  readability counterweight in the scorer (kana ratio, kanji-run penalty,
+  length) for vocab-level difficulty; lesson selection persisted in
+  localStorage; full coverage 2136/2136 via tools/manual-sentences.json (39
+  authored sentences for rare kanji with no Tatoeba example); kanji matching
+  switched to \p{Script=Han} so supplementary-plane kanji (𠮟) work.
+  Still open: optional sentence translations, weight tuning on feedback,
+  vocab-frequency data. JLPT scheme deferred.
+
+Decided out of scope: textbook lesson presets (Genki/Minna kanji lists). The
+grade table + manual kanji selection covers it; no per-textbook maintenance.
