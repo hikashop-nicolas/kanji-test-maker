@@ -120,11 +120,12 @@ function sentenceColumn(sentence, index) {
       pos += surface.length; // ruby sits alongside; base keeps the column pitch
     } else { // 'test'
       const show = mode === 'yomi' ? surface : (reading || surface);
+      const answer = mode === 'yomi' ? (reading || surface) : surface; // what goes in the box
       const cells = mode === 'yomi'
         ? Math.max(1, (reading || surface).length) // write the reading
         : Math.max(1, surface.length);              // write the whole word
       runs.push({ t: 'read', s: show });
-      boxes.push({ offset: pos, cells });
+      boxes.push({ offset: pos, cells, answer });
       pos += show.length; // text stays tight; boxes get their spacing separately
     }
   }

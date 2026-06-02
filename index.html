@@ -65,6 +65,11 @@
 <header>
   <h1>漢字テストメーカー</h1>
   <span class="status" id="status">辞書を読み込み中…</span>
+  <div style="margin-left:auto; display:flex; gap:.5rem">
+    <button id="btnSave" class="secondary">セットを保存</button>
+    <button id="btnLoad" class="secondary">セットを読み込み</button>
+    <input type="file" id="loadFile" accept=".json,application/json" style="display:none">
+  </div>
 </header>
 
 <main>
@@ -169,6 +174,16 @@
       <button id="btnPreview" class="secondary">プレビュー更新</button>
       <button id="btnPdf">PDF を保存</button>
       <button id="btnDocx">Word (.docx) を保存</button>
+      <button id="btnSave2" class="secondary">セットを保存</button>
+    </div>
+    <div class="toolbar" style="margin-top:.2rem">
+      <label style="display:flex;align-items:center;gap:.35rem;margin:0;font-size:.9rem;color:#333">
+        <input type="checkbox" id="ans_enable"> 解答シートも作成する
+      </label>
+      <span id="ans_buttons" style="display:none">
+        <button id="btnPdfAns">解答 PDF</button>
+        <button id="btnDocxAns">解答 Word (.docx)</button>
+      </span>
     </div>
   </div>
 

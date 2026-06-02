@@ -15,13 +15,14 @@ function runHtml(r) {
   return `<span class="read">${esc(r.s)}</span>`; // 'read' (tested word, side-lined)
 }
 
-function sentenceHtml(col, fontPitchMm, boxSize) {
+function sentenceHtml(col, fontPitchMm, boxSize, answers) {
   const num = `<span class="num">${esc(col.number)}</span>`;
   const text = `<div class="col">${num}${col.runs.map(runHtml).join('')}</div>`;
   const pos = layoutBoxes(col.boxes, fontPitchMm, boxSize, 1);
-  const boxes = pos.map(p =>
-    `<span class="box" style="top:${p.top.toFixed(2)}mm;height:${p.height.toFixed(2)}mm"></span>`
-  ).join('');
+  const boxes = pos.map((p, i) => {
+    const ans = answers ? `<span class="ans">${esc(col.boxes[i].answer || '')}</span>` : '';
+    return `<span class="box" style="top:${p.top.toFixed(2)}mm;height:${p.height.toFixed(2)}mm">${ans}</span>`;
+  }).join('');
   return `<div class="sentence">${text}<div class="boxcol">${boxes}</div></div>`;
 }
 
@@ -38,8 +39,9 @@ export function buildHtml(layout, opts = {}) {
   const fontPitchMm = fontSize * 0.35278;            // one full-width cell, mm
   const header = layout.header || { pre: '', lesson: '', post: '' };
 
+  const answers = !!opts.answers;
   const pages = layout.pages.map(p => {
-    const cols = p.columns.map(c => sentenceHtml(c, fontPitchMm, boxSize)).join('');
+    const cols = p.columns.map(c => sentenceHtml(c, fontPitchMm, boxSize, answers)).join('');
     return `<section class="page">${titleHtml(header)}${cols}</section>`;
   }).join('');
 
@@ -82,6 +84,12 @@ export function buildHtml(layout, opts = {}) {
   .box {
     position: absolute; right: 0; width: var(--box);
     border: 1.4px solid #222; box-sizing: border-box;
+    display: flex; align-items: center; justify-content: center;
+  }
+  /* answer-key text inside the box (vertical, sized to the box) */
+  .box .ans {
+    writing-mode: vertical-rl; line-height: 1;
+    font-size: calc(var(--box) * 0.74); color: #c0392b;
   }
 </style></head><body>${pages}</body></html>`;
 }
