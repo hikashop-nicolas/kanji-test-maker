@@ -96,7 +96,7 @@ export function buildDocx(layout, docx, embeddedFonts = [], opts = {}) {
   }
 
   function boxCell(col) {
-    const positions = layoutBoxes(col.boxes, CELL_TW, BOX_TW, 30); // push-down, small gap
+    const positions = layoutBoxes(col.boxes, CELL_TW, BOX_TW, 30, ROW_H); // push-down/up within the column
     const rows = [];
     let cum = 0; // current vertical position in twips
     positions.forEach((p, i) => {

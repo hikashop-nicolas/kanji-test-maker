@@ -18,7 +18,7 @@ function runHtml(r) {
 function sentenceHtml(col, fontPitchMm, boxSize, answers) {
   const num = `<span class="num">${esc(col.number)}</span>`;
   const text = `<div class="col">${num}${col.runs.map(runHtml).join('')}</div>`;
-  const pos = layoutBoxes(col.boxes, fontPitchMm, boxSize, 1);
+  const pos = layoutBoxes(col.boxes, fontPitchMm, boxSize, 1, 190); // 190mm = --colH
   const boxes = pos.map((p, i) => {
     const ans = answers ? `<span class="ans">${esc(col.boxes[i].answer || '')}</span>` : '';
     return `<span class="box" style="top:${p.top.toFixed(2)}mm;height:${p.height.toFixed(2)}mm">${ans}</span>`;

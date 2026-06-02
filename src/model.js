@@ -65,14 +65,27 @@ export function headerParts(header = {}) {
 // Box positions in a column: each box sits at its word's position but is pushed
 // down so boxes never overlap. Text stays tight; only the boxes get spacing.
 // pitch = text cell size, cellHeight = box cell size, in the caller's units.
-export function layoutBoxes(boxes, pitch, cellHeight, gap = 0) {
+// maxHeight: if the stack would overflow the column, boxes are pushed UP into
+// the empty space before them (so the last box still fits on the page).
+export function layoutBoxes(boxes, pitch, cellHeight, gap = 0, maxHeight = Infinity) {
   let prevBottom = -Infinity;
-  return boxes.map(b => {
+  const pos = boxes.map(b => {
     const top = Math.max(b.offset * pitch, prevBottom + gap);
     const height = b.cells * cellHeight;
     prevBottom = top + height;
     return { top, height };
   });
+  // overflow: walk backward, pulling each box up just enough to fit under the
+  // running ceiling, consuming the slack between boxes without overlapping.
+  if (pos.length && prevBottom > maxHeight) {
+    let ceil = maxHeight;
+    for (let i = pos.length - 1; i >= 0; i--) {
+      if (pos[i].top + pos[i].height > ceil) pos[i].top = ceil - pos[i].height;
+      if (pos[i].top < 0) pos[i].top = 0; // never above the column top
+      ceil = pos[i].top - gap;
+    }
+  }
+  return pos;
 }
 
 // Turn one sentence into:
@@ -98,7 +111,8 @@ function sentenceColumn(sentence, index) {
   while (i < toks.length) {
     const st = tokenState(toks[i]);
     if (st === 'plain') {
-      runs.push({ t: 'plain', s: toks[i].surface });
+      // full-width so ASCII digits/letters sit upright in vertical writing
+      runs.push({ t: 'plain', s: toFullWidth(toks[i].surface) });
       pos += toks[i].surface.length;
       i++;
       continue;
