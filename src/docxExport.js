@@ -18,7 +18,7 @@ export function buildDocx(layout, docx, embeddedFonts = [], opts = {}) {
   const {
     Document, Paragraph, TextRun, Table, TableRow, TableCell,
     WidthType, BorderStyle, TextDirection, PageOrientation, HeightRule,
-    VerticalAlign, UnderlineType, ImportedXmlComponent, AlignmentType,
+    VerticalAlign, UnderlineType, ImportedXmlComponent, AlignmentType, LineRuleType,
   } = docx;
   const answers = !!opts.answers; // fill the boxes with the answer (answer key)
 
@@ -93,8 +93,13 @@ export function buildDocx(layout, docx, embeddedFonts = [], opts = {}) {
       else kids.push(text(r.s, { underline: { type: UnderlineType.SINGLE, color: '333333' } })); // 'read'
     }
     // hanging indent so a wrapped sentence's extra columns start below the
-    // circled number (level with the first character), like the PDF.
-    return makeCell([new Paragraph({ indent: { hanging: CELL_TW }, children: kids })], TEXT_W);
+    // circled number (level with the first character); 1.3 line spacing gives
+    // the columns a gap so a side line never touches the next column.
+    return makeCell([new Paragraph({
+      indent: { hanging: CELL_TW },
+      spacing: { line: 312, lineRule: LineRuleType.AUTO }, // 312 = 1.3 x 240
+      children: kids,
+    })], TEXT_W);
   }
 
   function boxCell(col) {
