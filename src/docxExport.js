@@ -92,7 +92,9 @@ export function buildDocx(layout, docx, embeddedFonts = [], opts = {}) {
       else if (r.t === 'furi') kids.push(rubyRun(r.base, r.rt));
       else kids.push(text(r.s, { underline: { type: UnderlineType.SINGLE, color: '333333' } })); // 'read'
     }
-    return makeCell([new Paragraph({ children: kids })], TEXT_W);
+    // hanging indent so a wrapped sentence's extra columns start below the
+    // circled number (level with the first character), like the PDF.
+    return makeCell([new Paragraph({ indent: { hanging: CELL_TW }, children: kids })], TEXT_W);
   }
 
   function boxCell(col) {
