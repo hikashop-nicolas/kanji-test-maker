@@ -21,7 +21,8 @@ export function circledExtended(n) {
 }
 
 // Normalize a kuromoji token list into our token model.
-// Each token: { surface, reading(hiragana), hasKanji, selected }
+// Each token: { surface, reading(hiragana), hasKanji, state }
+// state: 'plain' | 'test' | 'furigana' | 'kana' (see sentenceColumn).
 export function normalizeTokens(tokens) {
   return tokens.map(t => {
     const surface = t.surface_form !== undefined ? t.surface_form : t.surface;
@@ -31,8 +32,14 @@ export function normalizeTokens(tokens) {
     // hiragana (れすとらん), so in 書き mode the student writes the katakana.
     let reading = kataToHira(readingKata);
     if (!reading) reading = k ? '' : kataToHira(surface);
-    return { surface, reading, hasKanji: k, selected: k };
+    return { surface, reading, hasKanji: k, state: k ? 'test' : 'plain' };
   });
+}
+
+// A token's state, tolerant of the older `selected` boolean.
+export function tokenState(t) {
+  if (t.state) return t.state;
+  return t.selected ? 'test' : 'plain';
 }
 
 // ASCII letters/digits -> full-width, so they sit upright in vertical writing
@@ -70,9 +77,12 @@ export function layoutBoxes(boxes, pitch, cellHeight, gap = 0) {
 
 // Turn one sentence into:
 //   runs:  the text column (no boxes), kinds:
-//          { t:'plain', s }   verbatim text
-//          { t:'read', s }    a tested word, shown side-lined (reading in kaki,
-//                             the kanji in yomi)
+//          { t:'plain', s }        verbatim text
+//          { t:'read', s }         a tested word, side-lined (reading in kaki,
+//                                  the kanji in yomi); gets an answer box
+//          { t:'kana', s }         kanji replaced by its hiragana reading (for
+//                                  words above the grade); no box, no line
+//          { t:'furi', base, rt }  kanji kept, with furigana (ruby) alongside
 //   boxes: answer boxes for a PARALLEL column, each aligned to its word:
 //          { offset, cells }  offset = cell position (down the text column,
 //                             counting the leading number) where the word starts
@@ -86,27 +96,37 @@ function sentenceColumn(sentence, index) {
 
   let i = 0;
   while (i < toks.length) {
-    if (!toks[i].selected) {
+    const st = tokenState(toks[i]);
+    if (st === 'plain') {
       runs.push({ t: 'plain', s: toks[i].surface });
       pos += toks[i].surface.length;
       i++;
       continue;
     }
-    // Merge a run of consecutive selected tokens into one tested word, so an
-    // adjacent split like 図書 + 室 becomes a single 図書室 box.
+    // Merge consecutive tokens sharing a state, so an adjacent split like
+    // 図書 + 室 becomes one 図書室 unit (box, furigana, or kana together).
     let surface = '', reading = '';
-    while (i < toks.length && toks[i].selected) {
+    while (i < toks.length && tokenState(toks[i]) === st) {
       surface += toks[i].surface;
       reading += (toks[i].reading || toks[i].surface);
       i++;
     }
-    const show = mode === 'yomi' ? surface : (reading || surface);
-    const cells = mode === 'yomi'
-      ? Math.max(1, (reading || surface).length) // write the reading
-      : Math.max(1, surface.length);              // write the whole word
-    runs.push({ t: 'read', s: show });
-    boxes.push({ offset: pos, cells });
-    pos += show.length; // text stays tight; boxes get their spacing separately
+    if (st === 'kana') {
+      const s = reading || surface; // show the reading in place of the kanji
+      runs.push({ t: 'kana', s });
+      pos += s.length;
+    } else if (st === 'furigana') {
+      runs.push({ t: 'furi', base: surface, rt: reading || '' });
+      pos += surface.length; // ruby sits alongside; base keeps the column pitch
+    } else { // 'test'
+      const show = mode === 'yomi' ? surface : (reading || surface);
+      const cells = mode === 'yomi'
+        ? Math.max(1, (reading || surface).length) // write the reading
+        : Math.max(1, surface.length);              // write the whole word
+      runs.push({ t: 'read', s: show });
+      boxes.push({ offset: pos, cells });
+      pos += show.length; // text stays tight; boxes get their spacing separately
+    }
   }
   return { number: index + 1, runs, boxes, length: pos };
 }

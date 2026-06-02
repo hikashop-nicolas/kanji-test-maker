@@ -16,6 +16,20 @@ const FONT_TTF = {
   'Yuji Syuku': 'assets/fonts/YujiSyuku-Regular.ttf',
 };
 
+// per-word states and how a click cycles them (kanji words get all four)
+const STATE_LABEL = {
+  plain: 'そのまま（漢字）',
+  test: 'テスト（マス）',
+  furigana: 'ふりがなを付ける',
+  kana: 'ひらがなにする',
+};
+const CYCLE_KANJI = ['plain', 'test', 'furigana', 'kana'];
+const CYCLE_PLAIN = ['plain', 'test'];
+function nextState(cur, hasKanji) {
+  const cyc = hasKanji ? CYCLE_KANJI : CYCLE_PLAIN;
+  return cyc[(cyc.indexOf(cur) + 1) % cyc.length];
+}
+
 const $ = (id) => document.getElementById(id);
 const state = { sentences: [] };
 let tokenizer = null;
@@ -141,14 +155,21 @@ function hashStr(s) { let h = 0; for (let i = 0; i < s.length; i++) h = (h * 31 
 function addPickedSentences() {
   if (!tokenizer) return;
   const lessonSet = new Set(selectedKanji());
+  const G = baselineGrade();
   const existing = new Set(state.sentences.map(s => s.tokens.map(t => t.surface).join('')));
   const picked = [...new Set([...document.querySelectorAll('#picker input[type=checkbox]:checked')].map(cb => cb.dataset.text))];
   let added = 0;
   for (const text of picked) {
     if (existing.has(text)) continue;
     const tokens = normalizeTokens(tokenizer.tokenize(text));
-    // test only the lesson kanji; leave other kanji shown as-is
-    tokens.forEach(t => { t.selected = t.hasKanji && [...t.surface].some(c => lessonSet.has(c)); });
+    // auto-state: test the lesson kanji; render above-grade words as kana
+    // (red); everything else plain. Furigana (orange) is left for manual use.
+    tokens.forEach(t => {
+      const kanji = [...t.surface].filter(c => /\p{Script=Han}/u.test(c));
+      if (kanji.some(c => lessonSet.has(c))) t.state = 'test';
+      else if (kanji.some(c => { const g = gradeOf(c); return g == null || g > G; })) t.state = 'kana';
+      else t.state = 'plain';
+    });
     state.sentences.push({ tokens, mode: 'kaki' });
     existing.add(text); added++;
   }
@@ -218,12 +239,15 @@ function renderTable() {
     const chips = document.createElement('div');
     chips.className = 'chips';
     sent.tokens.forEach((tok) => {
+      if (!tok.state) tok.state = tok.selected ? 'test' : 'plain'; // migrate older data
       const chip = document.createElement('span');
-      chip.className = 'chip' + (tok.hasKanji ? ' kanji' : '') + (tok.selected ? ' sel' : '');
+      const st = tok.state;
+      chip.className = 'chip' + (tok.hasKanji ? ' kanji' : '') + (st !== 'plain' ? ' st-' + st : '');
+      chip.title = STATE_LABEL[st] || '';
       const surf = document.createElement('span');
       surf.textContent = tok.surface;
       chip.appendChild(surf);
-      if (tok.selected) {
+      if (st !== 'plain') {
         const rd = document.createElement('span');
         rd.className = 'rd';
         const inp = document.createElement('input');
@@ -235,7 +259,7 @@ function renderTable() {
         rd.appendChild(inp);
         chip.appendChild(rd);
       }
-      chip.onclick = () => { tok.selected = !tok.selected; renderTable(); refreshPreview(); };
+      chip.onclick = () => { tok.state = nextState(tok.state, tok.hasKanji); renderTable(); refreshPreview(); };
       chips.appendChild(chip);
     });
     tdS.appendChild(chips);

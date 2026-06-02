@@ -346,3 +346,23 @@ are constants to tune against real Tatoeba data, not fixed.
 
 Decided out of scope: textbook lesson presets (Genki/Minna kanji lists). The
 grade table + manual kanji selection covers it; no per-textbook maintenance.
+
+### 10.7 Per-word states (four)
+
+Each word in the editable table cycles through four states on click; colour in
+the editor, distinct rendering in the PDF/.docx output:
+
+- plain (grey): kanji shown as-is. Default.
+- test (blue): becomes an answer box (the original "selected"); kaki shows the
+  reading + box for the kanji, yomi shows the kanji + box for the reading.
+- furigana (orange): kanji kept, furigana added alongside. HTML uses <ruby>;
+  .docx injects a real w:ruby element (the docx lib has no Ruby type, so the
+  XML is built via ImportedXmlComponent.fromXmlString).
+- kana (red): the word's kanji are replaced by its hiragana reading (for words
+  above the student's grade).
+
+token.state on the model ('plain'|'test'|'furigana'|'kana'); sentenceColumn
+merges consecutive same-state tokens. When adding lesson sentences, states are
+auto-assigned: lesson kanji -> test, words containing an above-grade or
+non-jouyou kanji -> kana, else plain; furigana is left manual. Only the kanji
+characters of a word are inspected (okurigana kana are ignored).
