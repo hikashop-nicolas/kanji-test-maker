@@ -35,6 +35,7 @@ scripts in `tools/` (`build-data.mjs`, `build-sentences.mjs`).
 | Data | Derived from | License | Built into |
 |---|---|---|---|
 | Kanji grade / stroke count / radical / readings | [KANJIDIC2](https://www.edrdg.org/wiki/KANJIDIC_Project.html) (Electronic Dictionary Research and Development Group) | CC BY-SA 4.0 | `assets/data/kanji.json` |
+| Reconstructed JLPT level (N5–N1) per kanji | [davidluzgouveia/kanji-data](https://github.com/davidluzgouveia/kanji-data) (unofficial; no official JLPT list since 2010) | MIT | `assets/data/kanji.json` (`j` field) |
 | Example sentences | [Tatoeba Project](https://tatoeba.org/) (Japanese sentences) | CC BY 2.0 FR | `assets/data/lesson-kanji/*.json` |
 | ~39 authored example sentences (rare kanji with no Tatoeba example) | original, this project | MIT | `tools/manual-sentences.json` → merged into the above |
 

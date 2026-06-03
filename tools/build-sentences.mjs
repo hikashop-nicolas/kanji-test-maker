@@ -101,7 +101,7 @@ if (fs.existsSync(manualPath)) {
 // Fallback pass: a few rare (secondary) kanji never appear in a sentence that
 // passes the strict filters. For those, relax to allow up to one non-jouyou
 // kanji and a longer sentence, so the picker still has 1-2 examples.
-const empty = new Set(Object.keys(KANJI).filter(ch => !index[ch]));
+const empty = new Set(Object.keys(KANJI).filter(ch => KANJI[ch].g != null && !index[ch]));
 if (empty.size) {
   const RELAX_MAX = 40, RELAX_NEED = 2;
   for (const line of lines) {

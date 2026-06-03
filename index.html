@@ -115,16 +115,25 @@
   <div class="panel" id="lessonPanel">
     <div class="grid">
       <div>
-        <label data-i18n="lbl_pick_grade">学年から漢字を選ぶ</label>
+        <label data-i18n="lbl_pick_grade">学年・JLPT から漢字を選ぶ</label>
         <select id="lesson_grade">
-          <option value="" data-i18n="grade_placeholder">— 学年を選ぶ —</option>
-          <option value="1" data-i18n="grade_1">小1</option>
-          <option value="2" data-i18n="grade_2">小2</option>
-          <option value="3" data-i18n="grade_3">小3</option>
-          <option value="4" data-i18n="grade_4">小4</option>
-          <option value="5" data-i18n="grade_5">小5</option>
-          <option value="6" data-i18n="grade_6">小6</option>
-          <option value="secondary" data-i18n="grade_secondary">中学以降（常用漢字）</option>
+          <option value="" data-i18n="grade_placeholder">— レベルを選ぶ —</option>
+          <optgroup label="学年" data-i18n-label="og_school">
+            <option value="1" data-i18n="grade_1">小1</option>
+            <option value="2" data-i18n="grade_2">小2</option>
+            <option value="3" data-i18n="grade_3">小3</option>
+            <option value="4" data-i18n="grade_4">小4</option>
+            <option value="5" data-i18n="grade_5">小5</option>
+            <option value="6" data-i18n="grade_6">小6</option>
+            <option value="secondary" data-i18n="grade_secondary">中学以降（常用漢字）</option>
+          </optgroup>
+          <optgroup label="JLPT" data-i18n-label="og_jlpt">
+            <option value="N5">N5</option>
+            <option value="N4">N4</option>
+            <option value="N3">N3</option>
+            <option value="N2">N2</option>
+            <option value="N1">N1</option>
+          </optgroup>
         </select>
       </div>
     </div>

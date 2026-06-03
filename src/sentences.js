@@ -16,18 +16,16 @@ async function loadIndex(name) {
   return cache[name];
 }
 
-// Score one sentence given its text, kanji set, the lesson set, and grade G.
-//   current-lesson kanji: +4   (reinforces the week's set)
-//   known kanji g<=G:     +max(1, 3-(G-g))   (decays with distance below)
-//   future / non-jouyou:  -5*(g-G)            (escalates with distance above)
-// then a readability counterweight (vocab-level, text-only): reward kana-heavy
-// sentences, penalise long runs of kanji (advanced compounds like 新番組) and
-// overall length, so all-in-grade-but-wordy sentences rank lower.
-export function scoreSentence(text, kanjiSet, lessonSet, G) {
+// Score one sentence given its text, kanji set, the lesson set, the baseline
+// level G, and levelOf (school grade by default, or JLPT difficulty in JLPT
+// mode). The i+1 ranking: reward kanji the student already knows, penalise
+// kanji above the lesson level, weighted by distance; then a readability
+// counterweight (kana ratio, kanji-run penalty, length).
+export function scoreSentence(text, kanjiSet, lessonSet, G, levelOf = gradeOf) {
   let score = 0;
   for (const j of kanjiSet) {
     if (lessonSet.has(j)) { score += 4; continue; }
-    const g = gradeOf(j);
+    const g = levelOf(j);
     if (g != null && g <= G) score += Math.max(1, 3 - (G - g));
     else score += -5 * (((g != null) ? g : (G + 3)) - G);
   }
@@ -55,22 +53,23 @@ function similar(aSet, bSet, th = 0.6) {
   return inter / (aSet.size + bSet.size - inter || 1) >= th;
 }
 
-// Does the sentence stay within the grade ceiling (no kanji above G)?
-export function withinLevel(kanjiSet, G) {
+// Does the sentence stay within the level ceiling (no kanji above G)?
+export function withinLevel(kanjiSet, G, levelOf = gradeOf) {
   for (const j of kanjiSet) {
-    const g = gradeOf(j);
+    const g = levelOf(j);
     if (g == null || g > G) return false;
   }
   return true;
 }
 
 // Build ranked candidates per selected lesson kanji.
-//   lessonKanji: array of chosen kanji (any grades; non-jouyou are skipped)
-//   G: baseline grade (number)
-//   opts: { hideAboveLevel: bool, perKanji: number }
+//   lessonKanji: array of chosen kanji (non-jouyou ones have no sentences)
+//   G: baseline level (number, in the scale of opts.levelOf)
+//   opts: { hideAboveLevel, perKanji, levelOf } (levelOf defaults to school grade)
 // returns [{ kanji, sentences: [{ t, k, score }] }] in lessonKanji order.
 export async function buildCandidates(lessonKanji, G, opts = {}) {
   const perKanji = opts.perKanji || 20;
+  const levelOf = opts.levelOf || gradeOf;
   const lessonSet = new Set(lessonKanji);
 
   // load the one index file per distinct grade among the chosen kanji
@@ -84,8 +83,8 @@ export async function buildCandidates(lessonKanji, G, opts = {}) {
     const g = gradeOf(ch);
     if (g == null) { out.push({ kanji: ch, sentences: [], note: 'jouyou外' }); continue; }
     const pool = indices[gradeFileName(g)][ch] || [];
-    let rows = pool.map(([t, k]) => ({ t, k, score: scoreSentence(t, k, lessonSet, G) }));
-    if (opts.hideAboveLevel) rows = rows.filter(r => withinLevel(r.k, G));
+    let rows = pool.map(([t, k]) => ({ t, k, score: scoreSentence(t, k, lessonSet, G, levelOf) }));
+    if (opts.hideAboveLevel) rows = rows.filter(r => withinLevel(r.k, G, levelOf));
     rows.sort((a, b) => b.score - a.score);
     // greedily keep the top, skipping near-duplicates of already-kept sentences
     const kept = [], sigs = [];

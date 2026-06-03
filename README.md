@@ -20,9 +20,10 @@ You can paste your own sentences, **or build a sheet straight from a school
 grade** — pick the grade, choose this week's kanji, and the tool finds example
 sentences for you.
 
-**1. Pick a grade and choose the kanji.** The table is sorted by stroke count
-then radical (the order teachers scan). Click to select, or type kanji straight
-into the field — including kanji from other grades.
+**1. Pick a level and choose the kanji.** Choose a school grade or a JLPT level
+(N5–N1). The table is sorted by stroke count then radical (the order teachers
+scan). Click to select, or type kanji straight into the field — including kanji
+from other levels.
 
 ![Choose grade and kanji](docs/screenshots/01-pick-kanji.png)
 
@@ -57,11 +58,12 @@ Save the whole sheet with **セットを保存** and reopen it later with **セ�
 
 ## Features
 
-- **Lesson auto-fill.** Pick a grade (小1–小6 or secondary jōyō), choose the
-  week's kanji from a stroke/radical-sorted table, and get example sentences
-  ranked by readability — every jōyō kanji is covered. Sources: KANJIDIC2 and
-  the Tatoeba sentence corpus (see `THIRD_PARTY.md`); no copyrighted textbook
-  content.
+- **Lesson auto-fill.** Pick a school grade (小1–小6 or secondary jōyō) **or a
+  JLPT level (N5–N1)**, choose the kanji from a stroke/radical-sorted table, and
+  get example sentences ranked by readability for that scheme. Sources:
+  KANJIDIC2, reconstructed JLPT levels, and the Tatoeba sentence corpus (see
+  `THIRD_PARTY.md`); no copyrighted textbook content. The JLPT lists are
+  unofficial reconstructions (no official list since 2010).
 - **Paste & mark.** Paste sentences (one per line); kanji words are auto-detected
   and selected. Click a word to toggle it. Readings are editable.
 - **Four per-word states.** Click a word to cycle: plain (kanji as-is), test
@@ -166,7 +168,8 @@ npm run build:data     # tools/build-data.mjs (KANJIDIC2) + build-sentences.mjs 
 ```
 
 `build-data.mjs` writes `assets/data/kanji.json` (grade, strokes, radical,
-readings) from KANJIDIC2. `build-sentences.mjs` writes the per-grade sentence
+readings) from KANJIDIC2, plus a reconstructed JLPT level (N5–N1) per kanji from
+davidluzgouveia/kanji-data. `build-sentences.mjs` writes the per-grade sentence
 index from the Tatoeba Japanese corpus, plus ~39 original sentences from
 `tools/manual-sentences.json` for rare kanji with no Tatoeba example. Both cache
 their downloads under `tools/data-cache/` (gitignored); re-running refreshes the
