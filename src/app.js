@@ -3,8 +3,9 @@ import { normalizeTokens, buildLayout } from './model.js?v=2';
 import { buildHtml } from './htmlExport.js?v=2';
 import { buildDocx } from './docxExport.js?v=2';
 import { addFontEmbedFlag } from './docxEmbed.js?v=2';
-import { initLessonBuilder, onLessonChange, selectedKanji, gradeOf, setSelection, currentGrade } from './lesson.js?v=2';
+import { initLessonBuilder, onLessonChange, selectedKanji, gradeOf, setSelection, currentGrade, refreshLabels } from './lesson.js?v=2';
 import { buildCandidates } from './sentences.js?v=2';
+import { t, initLang, applyI18n, getLang, setLang } from './i18n.js?v=2';
 
 // fonts we ship a TTF for and can embed in the .docx (all OFL-licensed)
 const FONT_TTF = {
@@ -17,12 +18,6 @@ const FONT_TTF = {
 };
 
 // per-word states and how a click cycles them (kanji words get all four)
-const STATE_LABEL = {
-  plain: 'そのまま（漢字）',
-  test: 'テスト（マス）',
-  furigana: 'ふりがなを付ける',
-  kana: 'ひらがなにする',
-};
 const CYCLE_KANJI = ['plain', 'test', 'furigana', 'kana'];
 const CYCLE_PLAIN = ['plain', 'test'];
 function nextState(cur, hasKanji) {
@@ -48,6 +43,20 @@ function loadSettings() {
   SETTING_IDS.forEach(id => { if (o[id] !== undefined && $(id)) $(id).value = o[id]; });
 }
 loadSettings();
+
+// ---- i18n (interface language: ja / en / fr) -----------------------------
+initLang();
+$('lang_select').value = getLang();
+applyI18n();
+$('status').textContent = t('status_loading');
+$('lang_select').addEventListener('change', () => {
+  setLang($('lang_select').value);
+  applyI18n();
+  $('status').textContent = tokenizer ? '' : t('status_loading');
+  if (state.sentences.length) renderTable();
+  refreshLabels();
+  if ($('pickerPanel').style.display !== 'none') runPicker();
+});
 
 // ---- lesson builder (grade -> kanji table) -------------------------------
 initLessonBuilder({
@@ -83,12 +92,12 @@ async function runPicker() {
   if (!kanji.length) return;
   const G = baselineGrade();
   $('lesson_find').disabled = true;
-  $('lesson_find').textContent = 'さがしています…';
+  $('lesson_find').textContent = t('btn_finding');
   const groups = await buildCandidates(kanji, G, { hideAboveLevel: $('pick_easyonly').checked, perKanji: 20 });
   renderPicker(groups, G);
   $('pickerPanel').style.display = '';
   $('lesson_find').disabled = false;
-  $('lesson_find').textContent = '選んだ漢字で例文をさがす';
+  $('lesson_find').textContent = t('btn_find');
 }
 $('lesson_find').addEventListener('click', runPicker);
 $('pick_easyonly').addEventListener('change', () => { if ($('pickerPanel').style.display !== 'none') runPicker(); });
@@ -127,7 +136,7 @@ function renderPicker(groups, G) {
     if (!grp.sentences.length) {
       const e = document.createElement('div');
       e.className = 'empty';
-      e.textContent = grp.note === 'jouyou外' ? '常用漢字ではないため例文がありません。' : '条件に合う例文が見つかりませんでした。';
+      e.textContent = grp.note === 'jouyou外' ? t('empty_not_jouyou') : t('empty_none');
       block.appendChild(e);
     }
     for (const s of grp.sentences) {
@@ -146,7 +155,8 @@ function renderPicker(groups, G) {
     }
     root.appendChild(block);
   }
-  $('pick_summary').textContent = `${groups.length}字・${totalShown}文（学年基準：${G === 8 ? '中学以降' : '小' + G}）`;
+  const gradeLabel = G === 8 ? t('grade_secondary_short') : t('grade_short', { n: G });
+  $('pick_summary').textContent = t('pick_summary', { kanji: groups.length, sent: totalShown, grade: gradeLabel });
 }
 
 function hashStr(s) { let h = 0; for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) | 0; return h; }
@@ -183,7 +193,7 @@ function addPickedSentences() {
 
 // ---- init kuromoji -------------------------------------------------------
 window.kuromoji.builder({ dicPath: 'assets/dict' }).build((err, tok) => {
-  if (err) { $('status').textContent = '辞書の読み込みに失敗しました'; console.error(err); return; }
+  if (err) { $('status').textContent = t('status_failed'); console.error(err); return; }
   tokenizer = tok;
   $('status').textContent = ''; // clear the loading message once ready
   $('process').disabled = false;
@@ -224,7 +234,7 @@ function renderTable() {
     tdMode.className = 'modebtns';
     for (const m of ['kaki', 'yomi']) {
       const b = document.createElement('button');
-      b.textContent = m === 'kaki' ? '書き' : '読み';
+      b.textContent = m === 'kaki' ? t('mode_kaki') : t('mode_yomi');
       b.className = sent.mode === m ? 'on' : '';
       b.onclick = () => {
         sent.mode = m; // keep the current selection when switching modes
@@ -243,7 +253,7 @@ function renderTable() {
       const chip = document.createElement('span');
       const st = tok.state;
       chip.className = 'chip' + (tok.hasKanji ? ' kanji' : '') + (st !== 'plain' ? ' st-' + st : '');
-      chip.title = STATE_LABEL[st] || '';
+      chip.title = t('st_' + st);
       const surf = document.createElement('span');
       surf.textContent = tok.surface;
       chip.appendChild(surf);
@@ -252,7 +262,7 @@ function renderTable() {
         rd.className = 'rd';
         const inp = document.createElement('input');
         inp.value = tok.reading;
-        inp.title = 'よみ';
+        inp.title = t('lbl_reading');
         inp.onclick = (e) => e.stopPropagation();
         inp.oninput = () => { tok.reading = inp.value; };
         inp.onchange = refreshPreview;
@@ -375,7 +385,7 @@ function saveSet() {
 function loadSet(file) {
   const fr = new FileReader();
   fr.onload = () => {
-    let d; try { d = JSON.parse(fr.result); } catch (e) { alert('読み込みに失敗しました（JSONではありません）'); return; }
+    let d; try { d = JSON.parse(fr.result); } catch (e) { alert(t('alert_load_failed')); return; }
     const h = d.header || {}, o = d.options || {};
     if (h.classCode != null) $('h_class').value = h.classCode;
     if (h.title != null) $('h_title').value = h.title;

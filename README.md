@@ -84,6 +84,9 @@ Save the whole sheet with **セットを保存** and reopen it later with **セ�
 - **Fonts:** Google Japanese fonts (Klee One default — handwriting/textbook
   shapes suited to lower grades — plus LINE Seed JP, Zen Kaku/Maru Gothic,
   Kaisei Tokumin, Yuji Syuku), or upload your own.
+- **Interface languages.** The UI is available in Japanese, English, and French
+  (auto-detected from the browser, switchable from the top bar, saved in
+  localStorage). The worksheet content itself stays Japanese.
 - **Settings persist** (class, lesson, name, per-page count, font, sizes) via
   localStorage.
 
@@ -146,6 +149,7 @@ paste → kuromoji (tokens + readings) → editable table
 - `src/app.js` — UI glue (kuromoji, table, settings, exports, lesson picker).
 - `src/lesson.js` — grade → kanji table, selection (grid + editable field).
 - `src/sentences.js` — example-sentence scoring (i+1 ranking) + candidate lists.
+- `src/i18n.js` — interface translations (ja/en/fr) + the language switcher.
 - `vendor/` — kuromoji.js, docx, JSZip (no build step).
 - `assets/dict/` — kuromoji dictionary
 - `assets/fonts/` — embeddable TTFs.

@@ -63,11 +63,16 @@
 </head>
 <body>
 <header>
-  <h1>漢字テストメーカー</h1>
-  <span class="status" id="status">辞書を読み込み中…</span>
-  <div style="margin-left:auto; display:flex; gap:.5rem">
-    <button id="btnSave" class="secondary">セットを保存</button>
-    <button id="btnLoad" class="secondary">セットを読み込み</button>
+  <h1 data-i18n="appName">漢字テストメーカー</h1>
+  <span class="status" id="status"></span>
+  <div style="margin-left:auto; display:flex; gap:.5rem; align-items:center">
+    <select id="lang_select" class="secondary" data-i18n-title="lang_label" style="padding:.35rem .4rem;border-radius:6px;border:1px solid #d4d8de">
+      <option value="ja">日本語</option>
+      <option value="en">English</option>
+      <option value="fr">Français</option>
+    </select>
+    <button id="btnSave" class="secondary" data-i18n="save_set">セットを保存</button>
+    <button id="btnLoad" class="secondary" data-i18n="load_set">セットを読み込み</button>
     <input type="file" id="loadFile" accept=".json,application/json" style="display:none">
   </div>
 </header>
@@ -75,126 +80,126 @@
 <main>
   <div class="panel">
     <div class="grid">
-      <div><label>クラス</label><input type="text" id="h_class" value="小1"></div>
-      <div><label>タイトル</label><input type="text" id="h_title" value="こんしゅうのかんじ"></div>
-      <div><label>番号</label><input type="text" id="h_lesson" value="1"></div>
-      <div><label>名前ラベル</label><input type="text" id="h_name" value="なまえ"></div>
-      <div><label>1ページの文数</label><input type="number" id="o_perpage" value="10" min="1" max="20"></div>
-      <div><label>文字の大きさ (pt)</label><input type="number" id="o_fontsize" value="18" min="8" max="40"></div>
-      <div><label>マスの大きさ (mm)</label><input type="number" id="o_boxsize" value="10" min="4" max="20" step="0.5"></div>
+      <div><label data-i18n="f_class">クラス</label><input type="text" id="h_class" value="小1"></div>
+      <div><label data-i18n="f_title">タイトル</label><input type="text" id="h_title" value="こんしゅうのかんじ"></div>
+      <div><label data-i18n="f_number">番号</label><input type="text" id="h_lesson" value="1"></div>
+      <div><label data-i18n="f_name_label">名前ラベル</label><input type="text" id="h_name" value="なまえ"></div>
+      <div><label data-i18n="f_per_page">1ページの文数</label><input type="number" id="o_perpage" value="10" min="1" max="20"></div>
+      <div><label data-i18n="f_font_size">文字の大きさ (pt)</label><input type="number" id="o_fontsize" value="18" min="8" max="40"></div>
+      <div><label data-i18n="f_box_size">マスの大きさ (mm)</label><input type="number" id="o_boxsize" value="10" min="4" max="20" step="0.5"></div>
       <div>
-        <label>フォント</label>
+        <label data-i18n="f_font">フォント</label>
         <select id="o_font">
-          <optgroup label="Google Fonts">
-            <option value="Klee One">Klee One（おすすめ・手書きふう）</option>
+          <optgroup label="Google Fonts" data-i18n-label="og_google">
+            <option value="Klee One" data-i18n="opt_klee">Klee One（おすすめ・手書きふう）</option>
             <option value="LINE Seed JP">LINE Seed JP</option>
             <option value="Zen Kaku Gothic New">Zen Kaku Gothic</option>
-            <option value="Zen Maru Gothic">Zen Maru Gothic（丸ゴ）</option>
-            <option value="Kaisei Tokumin">Kaisei Tokumin（明朝）</option>
-            <option value="Yuji Syuku">Yuji Syuku（筆）</option>
+            <option value="Zen Maru Gothic" data-i18n="opt_zenmaru">Zen Maru Gothic（丸ゴ）</option>
+            <option value="Kaisei Tokumin" data-i18n="opt_kaisei">Kaisei Tokumin（明朝）</option>
+            <option value="Yuji Syuku" data-i18n="opt_yuji">Yuji Syuku（筆）</option>
           </optgroup>
-          <optgroup label="システム">
-            <option value="Hiragino Mincho ProN">ヒラギノ明朝</option>
-            <option value="Hiragino Kaku Gothic ProN">ヒラギノ角ゴ</option>
-            <option value="YuMincho">游明朝</option>
-            <option value="YuGothic">游ゴシック</option>
+          <optgroup label="システム" data-i18n-label="og_system">
+            <option value="Hiragino Mincho ProN" data-i18n="opt_hira_mincho">ヒラギノ明朝</option>
+            <option value="Hiragino Kaku Gothic ProN" data-i18n="opt_hira_kaku">ヒラギノ角ゴ</option>
+            <option value="YuMincho" data-i18n="opt_yumincho">游明朝</option>
+            <option value="YuGothic" data-i18n="opt_yugothic">游ゴシック</option>
             <option value="Noto Serif CJK JP">Noto Serif</option>
             <option value="Noto Sans CJK JP">Noto Sans</option>
           </optgroup>
         </select>
       </div>
-      <div><label>フォントファイル（PDF用）</label><input type="file" id="o_fontfile" accept=".ttf,.otf,.woff,.woff2"></div>
+      <div><label data-i18n="f_font_file">フォントファイル（PDF用）</label><input type="file" id="o_fontfile" accept=".ttf,.otf,.woff,.woff2"></div>
     </div>
   </div>
 
   <div class="panel" id="lessonPanel">
     <div class="grid">
       <div>
-        <label>学年から漢字を選ぶ</label>
+        <label data-i18n="lbl_pick_grade">学年から漢字を選ぶ</label>
         <select id="lesson_grade">
-          <option value="">— 学年を選ぶ —</option>
-          <option value="1">小1</option>
-          <option value="2">小2</option>
-          <option value="3">小3</option>
-          <option value="4">小4</option>
-          <option value="5">小5</option>
-          <option value="6">小6</option>
-          <option value="secondary">中学以降（常用漢字）</option>
+          <option value="" data-i18n="grade_placeholder">— 学年を選ぶ —</option>
+          <option value="1" data-i18n="grade_1">小1</option>
+          <option value="2" data-i18n="grade_2">小2</option>
+          <option value="3" data-i18n="grade_3">小3</option>
+          <option value="4" data-i18n="grade_4">小4</option>
+          <option value="5" data-i18n="grade_5">小5</option>
+          <option value="6" data-i18n="grade_6">小6</option>
+          <option value="secondary" data-i18n="grade_secondary">中学以降（常用漢字）</option>
         </select>
       </div>
     </div>
     <div id="kanji_grid" class="kanji-grid"></div>
     <div style="margin-top:.6rem">
-      <label>今週の漢字 <span id="lesson_count" class="muted"></span>（表をクリック、または直接入力・追加できます）</label>
-      <input type="text" id="lesson_field" placeholder="学年を選んで表から選ぶか、ここに漢字を直接入力します（例：花 空 字）">
+      <label><span data-i18n="lbl_week_kanji">今週の漢字</span> <span id="lesson_count" class="muted"></span> <span data-i18n="hint_week_kanji" class="muted">（表をクリック、または直接入力・追加できます）</span></label>
+      <input type="text" id="lesson_field" data-i18n-ph="ph_lesson_field" placeholder="学年を選んで表から選ぶか、ここに漢字を直接入力します（例：花 空 字）">
     </div>
     <div class="toolbar">
-      <button id="lesson_find" disabled>選んだ漢字で例文をさがす</button>
-      <button id="lesson_clear" class="secondary">選択をクリア</button>
+      <button id="lesson_find" disabled data-i18n="btn_find">選んだ漢字で例文をさがす</button>
+      <button id="lesson_clear" class="secondary" data-i18n="btn_clear">選択をクリア</button>
     </div>
   </div>
 
   <div class="panel" id="pickerPanel" style="display:none">
     <div class="row-actions">
-      <strong>例文をえらぶ</strong>
+      <strong data-i18n="lbl_pick_sentences">例文をえらぶ</strong>
       <label style="display:flex;align-items:center;gap:.35rem;margin:0;font-size:.85rem;color:#333">
-        <input type="checkbox" id="pick_easyonly" checked> やさしい文だけ（学年以下の漢字）
+        <input type="checkbox" id="pick_easyonly" checked> <span data-i18n="chk_easy_only">やさしい文だけ（学年以下の漢字）</span>
       </label>
       <span class="muted" id="pick_summary"></span>
     </div>
     <div id="picker"></div>
     <div class="toolbar">
-      <button id="pick_add">チェックした文を追加</button>
-      <span class="muted">チェックした文が下の表に入り、語の選択・読み・書き／読みを調整できます。</span>
+      <button id="pick_add" data-i18n="btn_add_checked">チェックした文を追加</button>
+      <span class="muted" data-i18n="hint_add">チェックした文が下の表に入り、語の選択・読み・書き／読みを調整できます。</span>
     </div>
   </div>
 
   <div class="panel">
-    <label for="input">文を貼り付け（1行に1文）</label>
+    <label for="input" data-i18n="lbl_paste">文を貼り付け（1行に1文）</label>
     <textarea id="input" placeholder="絵の具で、花の絵をかく。&#10;春休みに、雪がふった。"></textarea>
     <div class="toolbar">
-      <button id="process" disabled>解析する</button>
-      <span class="muted">漢字の語が自動で選択されます。語をクリックして選択／解除。</span>
+      <button id="process" disabled data-i18n="btn_process">解析する</button>
+      <span class="muted" data-i18n="hint_process">漢字の語が自動で選択されます。語をクリックして選択／解除。</span>
     </div>
   </div>
 
   <div class="panel" id="tablePanel" style="display:none">
     <div class="legend">
-      <span>語をクリックして切り替え：</span>
-      <span><span class="sw" style="background:#fafbfc;border:1px solid #d0d5dc"></span>そのまま</span>
-      <span><span class="sw" style="background:#3a7bd5"></span>テスト（マス）</span>
-      <span><span class="sw" style="background:#e8820e"></span>ふりがな</span>
-      <span><span class="sw" style="background:#d8392f"></span>ひらがなに置換</span>
+      <span data-i18n="legend_intro">語をクリックして切り替え：</span>
+      <span><span class="sw" style="background:#fafbfc;border:1px solid #d0d5dc"></span><span data-i18n="legend_plain">そのまま</span></span>
+      <span><span class="sw" style="background:#3a7bd5"></span><span data-i18n="legend_test">テスト（マス）</span></span>
+      <span><span class="sw" style="background:#e8820e"></span><span data-i18n="legend_furigana">ふりがな</span></span>
+      <span><span class="sw" style="background:#d8392f"></span><span data-i18n="legend_kana">ひらがなに置換</span></span>
     </div>
     <table class="sheet">
-      <thead><tr><th style="width:90px">モード</th><th>文（語をクリックで状態を切り替え）</th><th style="width:40px"></th></tr></thead>
+      <thead><tr><th style="width:90px" data-i18n="th_mode">モード</th><th data-i18n="th_sentence">文（語をクリックで状態を切り替え）</th><th style="width:40px"></th></tr></thead>
       <tbody id="rows"></tbody>
     </table>
     <div class="toolbar">
-      <button id="btnPreview" class="secondary">プレビュー更新</button>
-      <button id="btnPdf">PDF を保存</button>
-      <button id="btnDocx">Word (.docx) を保存</button>
-      <button id="btnSave2" class="secondary">セットを保存</button>
+      <button id="btnPreview" class="secondary" data-i18n="btn_preview">プレビュー更新</button>
+      <button id="btnPdf" data-i18n="btn_pdf">PDF を保存</button>
+      <button id="btnDocx" data-i18n="btn_docx">Word (.docx) を保存</button>
+      <button id="btnSave2" class="secondary" data-i18n="save_set">セットを保存</button>
     </div>
     <div class="toolbar" style="margin-top:.2rem">
       <label style="display:flex;align-items:center;gap:.35rem;margin:0;font-size:.9rem;color:#333">
-        <input type="checkbox" id="ans_enable"> 解答シートも作成する
+        <input type="checkbox" id="ans_enable"> <span data-i18n="chk_answer">解答シートも作成する</span>
       </label>
       <span id="ans_buttons" style="display:none">
-        <button id="btnPdfAns">解答 PDF</button>
-        <button id="btnDocxAns">解答 Word (.docx)</button>
+        <button id="btnPdfAns" data-i18n="btn_pdf_ans">解答 PDF</button>
+        <button id="btnDocxAns" data-i18n="btn_docx_ans">解答 Word (.docx)</button>
       </span>
     </div>
   </div>
 
   <div class="panel" id="previewPanel" style="display:none">
-    <label>プレビュー</label>
+    <label data-i18n="lbl_preview">プレビュー</label>
     <iframe id="preview"></iframe>
   </div>
 
   <p class="muted" style="margin-top:1.5rem">
-    漢字データ：<a href="https://www.edrdg.org/wiki/KANJIDIC_Project.html" target="_blank" rel="noopener">KANJIDIC2</a>（EDRDG, CC BY-SA 4.0）／
-    例文：<a href="https://tatoeba.org/" target="_blank" rel="noopener">Tatoeba</a>（CC BY 2.0 FR）
+    <span data-i18n="footer_kanji_data">漢字データ</span>：<a href="https://www.edrdg.org/wiki/KANJIDIC_Project.html" target="_blank" rel="noopener">KANJIDIC2</a>（EDRDG, CC BY-SA 4.0）／
+    <span data-i18n="footer_examples">例文</span>：<a href="https://tatoeba.org/" target="_blank" rel="noopener">Tatoeba</a>（CC BY 2.0 FR）
   </p>
 </main>
 
