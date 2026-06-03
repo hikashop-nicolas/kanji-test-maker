@@ -3,6 +3,8 @@
 // The selected kanji set drives sentence search (Phase B) and is exposed to the
 // rest of the app. Loads assets/data/kanji.json (built by tools/build-data.mjs).
 
+import { t } from './i18n.js?v=2';
+
 let KANJI = null;          // literal -> { g, s, rad, on, kun, mean }
 let selected = [];          // chosen kanji for the current lesson (typed order)
 let listeners = [];
@@ -83,7 +85,14 @@ function syncGrid(el) {
   el.grid.querySelectorAll('.kcell').forEach(c =>
     c.classList.toggle('sel', selected.includes(c.textContent)));
 }
-function updateCount(el) { if (el.count) el.count.textContent = selected.length ? `（${selected.length}）` : ''; }
+function updateCount(el) { if (el.count) el.count.textContent = selected.length ? t('count', { n: selected.length }) : ''; }
+
+// re-apply dynamic labels after a language change (count + the grid's stroke labels)
+export function refreshLabels() {
+  if (!EL) return;
+  updateCount(EL);
+  if (KANJI && EL.grade.value) renderGrid(EL, EL.grade.value);
+}
 
 function renderGrid(el, grade) {
   const list = gradeKanji(grade);
@@ -95,13 +104,13 @@ function renderGrid(el, grade) {
       curStroke = d.s;
       const lab = document.createElement('div');
       lab.className = 'stroke-label';
-      lab.textContent = `${d.s}画`;
+      lab.textContent = t('strokes', { n: d.s });
       el.grid.appendChild(lab);
     }
     const cell = document.createElement('button');
     cell.className = 'kcell' + (selected.includes(ch) ? ' sel' : '');
     cell.textContent = ch;
-    cell.title = `${radChar(d.rad)}  ${d.s}画\n${(d.on || []).join('・')}\n${(d.kun || []).join('・')}\n${(d.mean || []).join(', ')}`;
+    cell.title = `${radChar(d.rad)}  ${t('strokes', { n: d.s })}\n${(d.on || []).join('・')}\n${(d.kun || []).join('・')}\n${(d.mean || []).join(', ')}`;
     cell.onclick = () => {
       toggle(ch);
       cell.classList.toggle('sel');

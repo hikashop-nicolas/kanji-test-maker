@@ -74,6 +74,8 @@
 - **フォント。** Google の日本語フォント（標準は Klee One。低学年向けの手書き／
   教科書体。ほかに LINE Seed JP、Zen 角ゴ／丸ゴ、Kaisei Tokumin、Yuji Syuku）、
   または自分のフォントをアップロード。
+- **表示言語。** 画面表示は日本語・英語・フランス語に対応（ブラウザの言語を自動判定、
+  上部バーで切り替え、localStorage に保存）。テストの内容は日本語のままです。
 - **設定の保存。** クラス・レッスン・名前・1ページの文数・フォント・サイズを
   localStorage に保存。
 
@@ -136,6 +138,7 @@ push ごとにリポジトリ直下を公開するワークフロー（`.github/
 - `src/app.js` — UI（kuromoji、表、設定、書き出し、レッスン選択）。
 - `src/lesson.js` — 学年→漢字表、選択（グリッド＋編集できる入力欄）。
 - `src/sentences.js` — 例文のスコアリング（i+1 ランキング）＋候補一覧。
+- `src/i18n.js` — 画面の翻訳（ja/en/fr）＋言語切り替え。
 - `vendor/` — kuromoji.js、docx、JSZip（ビルド不要）。
 - `assets/dict/` — kuromoji 辞書
 - `assets/fonts/` — 埋め込み用 TTF。
