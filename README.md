@@ -78,9 +78,9 @@ Save the whole sheet with **セットを保存** and reopen it later with **セ�
   header, options) to a small `.ktm.json` file and reopen it later to tweak or
   reprint.
 - **Worksheet extras.** Optional points + parent's-seal boxes (on the last page,
-  below the name), a logo/image in the bottom-left corner (kept in your browser),
-  and an automatic page counter (1 / N) on multi-page sheets. The title shows
-  only on the first page.
+  below the name), a logo/image in the bottom-left corner (auto-resized to the
+  print size and kept in your browser), and an automatic page counter (1 / N) on
+  multi-page sheets. The title shows only on the first page.
 - **Vertical worksheet** matching the classic layout: title column, right-to-left
   sentences, side-lined tested words, an aligned answer-box column, circled
   sentence numbers (any value), and a name field.

@@ -231,6 +231,26 @@ function loadImageDims(url) {
   im.onload = () => { customImageDims = { w: im.naturalWidth, h: im.naturalHeight }; };
   im.src = url;
 }
+// Downscale an uploaded image to just the resolution the bottom-left slot needs
+// (~42x28mm at 300 DPI), so the stored data URL stays small. Never upscales.
+const IMG_MAX_W = 500, IMG_MAX_H = 340; // px
+function fitImageToDataUrl(file) {
+  return new Promise((resolve, reject) => {
+    const url = URL.createObjectURL(file);
+    const im = new Image();
+    im.onload = () => {
+      const scale = Math.min(IMG_MAX_W / im.naturalWidth, IMG_MAX_H / im.naturalHeight, 1);
+      const w = Math.max(1, Math.round(im.naturalWidth * scale));
+      const h = Math.max(1, Math.round(im.naturalHeight * scale));
+      const c = document.createElement('canvas'); c.width = w; c.height = h;
+      c.getContext('2d').drawImage(im, 0, 0, w, h);
+      URL.revokeObjectURL(url);
+      resolve({ url: c.toDataURL('image/png'), w, h });
+    };
+    im.onerror = (e) => { URL.revokeObjectURL(url); reject(e); };
+    im.src = url;
+  });
+}
 try { customImageDataUrl = localStorage.getItem('ktm_image') || null; } catch (e) {}
 if (customImageDataUrl) loadImageDims(customImageDataUrl);
 try { $('o_extras').checked = localStorage.getItem('ktm_extras') === '1'; } catch (e) {}
@@ -241,9 +261,12 @@ $('o_extras').addEventListener('change', () => {
 $('o_image').addEventListener('change', async (e) => {
   const f = e.target.files[0];
   if (!f) return;
-  customImageDataUrl = await blobToDataUrl(f);
-  loadImageDims(customImageDataUrl);
-  try { localStorage.setItem('ktm_image', customImageDataUrl); } catch (err) { alert(t('alert_image_too_big')); }
+  try {
+    const fit = await fitImageToDataUrl(f);
+    customImageDataUrl = fit.url;
+    customImageDims = { w: fit.w, h: fit.h };
+    try { localStorage.setItem('ktm_image', customImageDataUrl); } catch (err) { alert(t('alert_image_too_big')); }
+  } catch (err) { console.warn('image load failed', err); }
   refreshPreview();
 });
 $('o_image_clear').addEventListener('click', () => {
