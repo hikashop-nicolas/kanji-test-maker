@@ -11,9 +11,13 @@ const cache = {}; // name -> index object
 
 async function loadIndex(name) {
   if (cache[name]) return cache[name];
-  const res = await fetch(FILE(name));
-  cache[name] = res.ok ? await res.json() : {};
-  return cache[name];
+  try {
+    const res = await fetch(FILE(name));
+    if (res.ok) { cache[name] = await res.json(); return cache[name]; }
+  } catch (e) { /* transient failure: fall through */ }
+  // do NOT cache a failed load, so a later search retries instead of being
+  // stuck returning 0 sentences for everything in this grade.
+  return {};
 }
 
 // Score one sentence given its text, kanji set, the lesson set, the baseline
