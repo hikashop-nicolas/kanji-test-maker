@@ -359,11 +359,31 @@ function worksheet() {
 function refreshPreview() {
   if (!state.sentences.length) return;
   const html = buildHtml(buildLayout(worksheet()), { font: options().font, fontFace: customFontCss() });
-  const ifr = $('preview');
-  ifr.srcdoc = html;
-  $('previewPanel').style.display = '';
+  $('previewPanel').style.display = '';   // before srcdoc so the iframe width is known on load
+  $('preview').srcdoc = html;
 }
 $('btnPreview').addEventListener('click', refreshPreview);
+
+// scale the worksheet to fit the panel width and size the iframe to the scaled
+// content, so the preview shows whole pages with no scrollbars.
+function fitPreview() {
+  const ifr = $('preview');
+  const doc = ifr.contentDocument;
+  if (!doc || !doc.body) return;
+  const pages = doc.querySelectorAll('.page');
+  if (!pages.length) return;
+  doc.body.style.zoom = '1';                       // measure unscaled, from the page boxes (overflow-proof)
+  const first = pages[0].getBoundingClientRect();
+  const last = pages[pages.length - 1].getBoundingClientRect();
+  const PAD = 10;                                  // body padding (px), see htmlExport @media screen
+  const naturalW = first.width + 2 * PAD;
+  const naturalH = last.bottom + PAD;              // rects start at body padding-top
+  const scale = Math.max(0.1, ifr.clientWidth / naturalW);
+  doc.body.style.zoom = String(scale);
+  ifr.style.height = (Math.ceil(naturalH * scale) + 4) + 'px'; // small buffer so nothing clips
+}
+$('preview').addEventListener('load', fitPreview);
+window.addEventListener('resize', fitPreview);
 // live-refresh + persist when settings or header fields change
 SETTING_IDS.forEach(id => $(id).addEventListener('input', () => { saveSettings(); refreshPreview(); }));
 
