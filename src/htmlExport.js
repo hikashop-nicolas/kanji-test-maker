@@ -26,9 +26,23 @@ function sentenceHtml(col, fontPitchMm, boxSize, answers) {
   return `<div class="sentence">${text}<div class="boxcol">${boxes}</div></div>`;
 }
 
-function titleHtml(h) {
+// Title (class/lesson/name) shows only on the first page; the points/seal boxes
+// show only on the last page (both together when there is a single page).
+function titleHtml(h, extras, isFirst, isLast) {
+  const showText = isFirst;
+  const showBoxes = extras && isLast;
+  if (!showText && !showBoxes) return '';
   const lesson = h.lesson ? `<span class="num">${esc(h.lesson)}</span>` : '';
-  return `<div class="title col">${esc(h.pre)}${lesson}${esc(h.post)}</div>`;
+  const text = showText
+    ? `<div class="ttext">${esc(h.pre)}${lesson}${esc(h.post)}</div>`
+    : `<div class="tspacer"></div>`;
+  const boxes = showBoxes
+    ? `<div class="tboxes">` +
+      `<div class="tb"><span class="tb-label">点</span><span class="tb-box"></span></div>` +
+      `<div class="tb"><span class="tb-label">印</span><span class="tb-box"></span></div>` +
+      `</div>`
+    : '';
+  return `<div class="title${showBoxes ? ' with-extras' : ''}">${text}${boxes}</div>`;
 }
 
 export function buildHtml(layout, opts = {}) {
@@ -40,9 +54,12 @@ export function buildHtml(layout, opts = {}) {
   const header = layout.header || { pre: '', lesson: '', post: '' };
 
   const answers = !!opts.answers;
-  const pages = layout.pages.map(p => {
+  const total = layout.pageCount || layout.pages.length;
+  const imageHtml = layout.image ? `<img class="pimg" src="${layout.image}" alt="">` : '';
+  const pages = layout.pages.map((p, idx) => {
     const cols = p.columns.map(c => sentenceHtml(c, fontPitchMm, boxSize, answers)).join('');
-    return `<section class="page">${titleHtml(header)}${cols}</section>`;
+    const pnum = total > 1 ? `<div class="pnum">${idx + 1} / ${total}</div>` : '';
+    return `<section class="page">${titleHtml(header, layout.extras, idx === 0, idx === total - 1)}${cols}${imageHtml}${pnum}</section>`;
   }).join('');
 
   return `<!doctype html><html lang="ja"><head><meta charset="utf-8">
@@ -52,6 +69,7 @@ export function buildHtml(layout, opts = {}) {
   @page { size: A4 landscape; margin: 8mm; }
   html,body { margin:0; padding:0; }
   .page {
+    position: relative;
     display: flex; flex-direction: row-reverse; justify-content: space-between;
     align-items: flex-start;
     font-family: ${JSON.stringify(font)}, "Hiragino Mincho ProN", serif;
@@ -68,7 +86,18 @@ export function buildHtml(layout, opts = {}) {
      (level with the first character), not at the very top; and give the columns
      a little gap so a tested word's side line never touches the next column. */
   .sentence .col { text-indent: calc(1.5em + 1.2mm) hanging; line-height: 1.3; }
-  .title { writing-mode: vertical-rl; line-height: 1.0; height: var(--colH); font-weight: bold; font-size: ${titleFontSize}pt; }
+  .title { display: flex; flex-direction: column; align-items: flex-end; height: var(--colH); font-weight: bold; }
+  .ttext { writing-mode: vertical-rl; line-height: 1.0; font-size: ${titleFontSize}pt; height: 100%; }
+  .title.with-extras .ttext { height: auto; flex: 1 1 auto; }
+  .tspacer { flex: 1 1 auto; }
+  /* points (点) + parent's-seal (印) boxes, at the bottom of the title column */
+  .tboxes { display: flex; flex-direction: column; gap: 3mm; align-items: center; padding-bottom: 4mm; }
+  .tb { display: flex; flex-direction: column; align-items: center; gap: 1mm; }
+  .tb-label { writing-mode: horizontal-tb; font-size: 3.4mm; }
+  .tb-box { width: 14mm; height: 14mm; border: 1.4px solid #222; box-sizing: border-box; }
+  /* optional bottom-left image and the multi-page counter */
+  .pimg { position: absolute; left: 4mm; bottom: 2mm; max-width: 42mm; max-height: 28mm; }
+  .pnum { position: absolute; left: 2.5mm; top: 1mm; font-size: 3mm; color: #666; font-family: Arial, sans-serif; }
   /* tested word: a side line on the RIGHT of the characters (vertical 傍線) */
   .read { border-right: 1.6px solid #333; padding-right: 1px; }
   /* furigana: ruby to the right of the kanji in vertical writing */
