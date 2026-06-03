@@ -1,5 +1,7 @@
 # 漢字テストメーカー · Kanji Test Maker
 
+**English** | [日本語](README.ja.md)
+
 A browser tool for teachers: paste Japanese sentences, mark the words to test,
 and generate a vertical-writing (縦書き) kanji worksheet as a **PDF** and an
 editable **Word (.docx)**, with the font embedded so it looks right anywhere.
