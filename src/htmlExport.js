@@ -68,6 +68,14 @@ export function buildHtml(layout, opts = {}) {
   ${opts.fontFace || ''}
   @page { size: A4 landscape; margin: 8mm; }
   html,body { margin:0; padding:0; }
+  /* on-screen (preview) only: pages look like sheets on a desk. The parent
+     scales the body to fit the panel width; print is unaffected. */
+  @media screen {
+    html, body { overflow: hidden; }  /* no scrollbars; the parent sizes the iframe to fit */
+    body { background: #e9ecf1; padding: 10px; box-sizing: border-box; }
+    .page { box-shadow: 0 1px 8px rgba(0,0,0,.18); margin: 0 auto; }
+    .page + .page { margin-top: 6mm; }
+  }
   .page {
     position: relative;
     display: flex; flex-direction: row-reverse; justify-content: space-between;
