@@ -109,6 +109,15 @@
         </select>
       </div>
       <div><label data-i18n="f_font_file">フォントファイル（PDF用）</label><input type="file" id="o_fontfile" accept=".ttf,.otf,.woff,.woff2"></div>
+      <div>
+        <label data-i18n="f_extras">点数・サイン欄</label>
+        <label style="display:flex;align-items:center;gap:.4rem;font-size:.9rem;color:#333"><input type="checkbox" id="o_extras"> <span data-i18n="f_extras_hint">名前の下に追加</span></label>
+      </div>
+      <div>
+        <label data-i18n="f_image">画像（左下）</label>
+        <input type="file" id="o_image" accept="image/*">
+        <button type="button" id="o_image_clear" class="secondary" data-i18n="btn_image_clear" style="margin-top:.25rem;font-size:.72rem;padding:.18rem .45rem">画像をクリア</button>
+      </div>
     </div>
   </div>
 

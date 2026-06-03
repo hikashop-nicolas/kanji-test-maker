@@ -19,8 +19,15 @@ export function buildDocx(layout, docx, embeddedFonts = [], opts = {}) {
     Document, Paragraph, TextRun, Table, TableRow, TableCell,
     WidthType, BorderStyle, TextDirection, PageOrientation, HeightRule,
     VerticalAlign, UnderlineType, ImportedXmlComponent, AlignmentType, LineRuleType,
+    Footer, PageNumber, ImageRun, HorizontalPositionRelativeFrom, VerticalPositionRelativeFrom,
   } = docx;
   const answers = !!opts.answers; // fill the boxes with the answer (answer key)
+  const extras = !!layout.extras; // points + seal boxes beside the title
+  const total = layout.pageCount || layout.pages.length;
+  const EX_MM = 14;                              // points/seal box size, mm
+  const EX_TW = Math.round(EX_MM * 56.7);        // ... in twips
+  const mmEmu = mm => Math.round(mm * 36000);    // mm -> EMU
+  const mmPx = mm => Math.round(mm * 96 / 25.4); // mm -> px (docx image units)
 
   const fontSize = layout.fontSize || 16;       // pt
   const boxMm = layout.boxSize || 8;            // mm per writing cell
@@ -137,23 +144,67 @@ export function buildDocx(layout, docx, embeddedFonts = [], opts = {}) {
     return makeCell([new Paragraph({ children: runs })], TEXT_W + 200);
   }
 
+  // points (点) + parent's-seal (印) boxes, bottom-aligned in their own column
+  function extrasCell() {
+    const exLabel = (s) => new Paragraph({ alignment: AlignmentType.CENTER, spacing: { before: 80, after: 20 }, children: [new TextRun({ text: s, font, size: titleHalf, bold: true })] });
+    const exBox = () => new Table({
+      width: { size: EX_TW, type: WidthType.DXA }, borders: noBorders,
+      rows: [new TableRow({ height: { value: EX_TW, rule: HeightRule.EXACT }, children: [
+        new TableCell({ borders: allBorders, width: { size: EX_TW, type: WidthType.DXA }, margins: { top: 0, bottom: 0, left: 0, right: 0 }, children: [new Paragraph({ children: [] })] }),
+      ] })],
+    });
+    return new TableCell({
+      verticalAlign: VerticalAlign.BOTTOM,
+      width: { size: EX_TW + 200, type: WidthType.DXA }, borders: noBorders,
+      margins: { top: 60, bottom: 160, left: 40, right: 40 },
+      children: [exLabel('点'), exBox(), exLabel('印'), exBox()],
+    });
+  }
+
+  function dataUrlToBytes(u) {
+    const b64 = u.split(',')[1] || '';
+    const bin = atob(b64);
+    const a = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i++) a[i] = bin.charCodeAt(i);
+    return a;
+  }
+  // a floating image anchored to the bottom-left of the page
+  function imagePara() {
+    const u = layout.image;
+    const mime = u.substring(5, u.indexOf(';'));
+    const type = (mime.split('/')[1] || 'png').replace('jpeg', 'jpg');
+    const dims = layout.imageDims || { w: 5, h: 3 };
+    const wmm = 40, hmm = Math.max(8, Math.round(40 * dims.h / dims.w));
+    return new Paragraph({ children: [new ImageRun({
+      type, data: dataUrlToBytes(u),
+      transformation: { width: mmPx(wmm), height: mmPx(hmm) },
+      floating: {
+        horizontalPosition: { relative: HorizontalPositionRelativeFrom.PAGE, offset: mmEmu(6) },
+        verticalPosition: { relative: VerticalPositionRelativeFrom.PAGE, offset: mmEmu(210 - hmm - 6) },
+        allowOverlap: true, behindDocument: true,
+      },
+    })] });
+  }
+
   const spacerCell = (w) => new TableCell({
     width: { size: w, type: WidthType.DXA }, borders: noBorders,
     margins: { top: 0, bottom: 0, left: 0, right: 0 }, children: [new Paragraph({ children: [] })],
   });
 
-  function pageTable(page) {
+  // title only on the first page; points/seal boxes only on the last page.
+  function pageTable(page, isFirst, isLast) {
     const n = page.columns.length;
-    // Distribute the leftover width as equal gaps so the sentences fill the page.
-    const titleW = TEXT_W + 200;
-    const used = n * (TEXT_W + BOX_W) + titleW;
+    const hasTitle = isFirst, hasExtras = extras && isLast;
+    const used = n * (TEXT_W + BOX_W) + (hasTitle ? TEXT_W + 200 : 0) + (hasExtras ? EX_TW + 200 : 0);
     const gap = Math.max(120, Math.round((CONTENT_TW - used) / Math.max(1, n)));
-    // visual left-to-right: [box_n, text_n, gap, ..., box_1, text_1, gap, title]
+    // visual left-to-right: [box_n, text_n, gap, ..., box_1, text_1, gap, extras, title]
     const cells = [];
     for (let i = n - 1; i >= 0; i--) {
       cells.push(boxCell(page.columns[i]), textCell(page.columns[i]), spacerCell(gap));
     }
-    cells.push(titleCell(layout.header || { pre: '', lesson: '', post: '' }));
+    if (hasExtras) cells.push(extrasCell());
+    if (hasTitle) cells.push(titleCell(layout.header || { pre: '', lesson: '', post: '' }));
+    if (!cells.length) cells.push(spacerCell(CONTENT_TW));
     return new Table({
       width: { size: CONTENT_TW, type: WidthType.DXA },
       borders: noBorders,
@@ -161,13 +212,23 @@ export function buildDocx(layout, docx, embeddedFonts = [], opts = {}) {
     });
   }
 
-  const sections = layout.pages.map(page => ({
-    properties: { page: {
-      size: { orientation: PageOrientation.LANDSCAPE },
-      margin: { top: 600, bottom: 600, left: 600, right: 600 },
-    }},
-    children: [pageTable(page)],
-  }));
+  const sections = layout.pages.map((page, idx) => {
+    const children = [];
+    if (layout.image) children.push(imagePara());
+    children.push(pageTable(page, idx === 0, idx === layout.pages.length - 1));
+    const sec = {
+      properties: { page: {
+        size: { orientation: PageOrientation.LANDSCAPE },
+        margin: { top: 600, bottom: 600, left: 600, right: 600 },
+      }},
+      children,
+    };
+    if (total > 1) sec.footers = { default: new Footer({ children: [new Paragraph({
+      alignment: AlignmentType.RIGHT,
+      children: [new TextRun({ children: [PageNumber.CURRENT, ' / ', PageNumber.TOTAL_PAGES], font: 'Arial', size: 18 })],
+    })] }) };
+    return sec;
+  });
 
   const docOpts = { sections };
   if (embeddedFonts && embeddedFonts.length) docOpts.fonts = embeddedFonts;

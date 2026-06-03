@@ -217,8 +217,40 @@ function options() {
     font: customFontFamily || $('o_font').value,
     fontSize: parseFloat($('o_fontsize').value) || 18,
     boxSize: parseFloat($('o_boxsize').value) || 10,
+    extras: $('o_extras').checked,
+    image: customImageDataUrl,
+    imageDims: customImageDims,
   };
 }
+
+// ---- points/signature boxes + bottom-left image (persisted) --------------
+let customImageDataUrl = null;
+let customImageDims = null; // { w, h }, for sizing the .docx image
+function loadImageDims(url) {
+  const im = new Image();
+  im.onload = () => { customImageDims = { w: im.naturalWidth, h: im.naturalHeight }; };
+  im.src = url;
+}
+try { customImageDataUrl = localStorage.getItem('ktm_image') || null; } catch (e) {}
+if (customImageDataUrl) loadImageDims(customImageDataUrl);
+try { $('o_extras').checked = localStorage.getItem('ktm_extras') === '1'; } catch (e) {}
+$('o_extras').addEventListener('change', () => {
+  try { localStorage.setItem('ktm_extras', $('o_extras').checked ? '1' : '0'); } catch (e) {}
+  refreshPreview();
+});
+$('o_image').addEventListener('change', async (e) => {
+  const f = e.target.files[0];
+  if (!f) return;
+  customImageDataUrl = await blobToDataUrl(f);
+  loadImageDims(customImageDataUrl);
+  try { localStorage.setItem('ktm_image', customImageDataUrl); } catch (err) { alert(t('alert_image_too_big')); }
+  refreshPreview();
+});
+$('o_image_clear').addEventListener('click', () => {
+  customImageDataUrl = null; customImageDims = null; $('o_image').value = '';
+  try { localStorage.removeItem('ktm_image'); } catch (e) {}
+  refreshPreview();
+});
 
 // ---- processing ----------------------------------------------------------
 $('process').addEventListener('click', () => {

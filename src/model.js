@@ -159,17 +159,24 @@ export function buildLayout(worksheet) {
   const font = o.font || 'Klee One';
   const fontSize = o.fontSize || 18; // pt
   const boxSize = o.boxSize || 10;   // mm, one writing cell
+  const extras = !!o.extras;         // points + signature boxes under the name
+  const image = o.image || null;     // bottom-left image (data URL)
+  const imageDims = o.imageDims || null; // { w, h } natural size, for the .docx
   const header = headerParts(worksheet.header);
   const sentences = worksheet.sentences.map((s, i) => sentenceColumn(s, i));
 
   // The title shares the column height; shrink its font so the whole line
-  // (class, lesson, name field) always fits in a single column.
-  const headerLen = header.pre.length + (header.lesson ? 1 : 0) + header.post.length;
-  const COLH_PT = 182 / 0.35278;
-  const titleFontSize = Math.min(fontSize, Math.max(8, Math.floor(COLH_PT * 0.96 / Math.max(1, headerLen))));
-
+  // (class, lesson, name field) fits. When the extra boxes are on, the text
+  // gets less of the column, so shrink a bit more to leave room below.
   const pages = chunk(sentences, perPage).map(group => ({ columns: group }));
   if (pages.length === 0) pages.push({ columns: [] });
 
-  return { font, fontSize, boxSize, titleFontSize, header, pages };
+  const headerLen = header.pre.length + (header.lesson ? 1 : 0) + header.post.length;
+  const COLH_PT = 182 / 0.35278;
+  // the title (first page) and the boxes (last page) only share a column when
+  // there is a single page; otherwise the title keeps the full height.
+  const fill = (extras && pages.length === 1) ? 0.70 : 0.96;
+  const titleFontSize = Math.min(fontSize, Math.max(8, Math.floor(COLH_PT * fill / Math.max(1, headerLen))));
+
+  return { font, fontSize, boxSize, titleFontSize, header, pages, extras, image, imageDims, pageCount: pages.length };
 }
