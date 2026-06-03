@@ -17,8 +17,10 @@ function emit() { const k = selectedKanji(); listeners.forEach(fn => fn(k)); }
 
 export function selectedKanji() { return selected.slice(); }
 export function kanjiData() { return KANJI; }
-// grade of a kanji (number) or null if not jouyou / unknown.
+// school grade of a kanji (1-6, 8) or null if not jouyou / unknown.
 export function gradeOf(ch) { return KANJI && KANJI[ch] ? KANJI[ch].g : null; }
+// JLPT level as an N number (5..1) or null if the kanji is not in a JLPT list.
+export function jlptOf(ch) { return KANJI && KANJI[ch] ? (KANJI[ch].j ?? null) : null; }
 
 async function loadKanji() {
   if (KANJI) return KANJI;
@@ -30,10 +32,13 @@ async function loadKanji() {
 // Kangxi radical glyph for a radical number (U+2F00 block), for grouping hints.
 function radChar(n) { return n ? String.fromCodePoint(0x2EFF + n) : ''; }
 
-// All kanji of a grade, sorted by stroke count, then radical, then codepoint.
-function gradeKanji(grade) {
-  const g = grade === 'secondary' ? 8 : parseInt(grade, 10);
-  const list = Object.keys(KANJI).filter(ch => KANJI[ch].g === g);
+// All kanji of a level, sorted by stroke count, then radical, then codepoint.
+// value is a school grade ('1'..'6', 'secondary') or a JLPT level ('N5'..'N1').
+function gradeKanji(value) {
+  let pred;
+  if (value[0] === 'N') { const n = parseInt(value.slice(1), 10); pred = ch => KANJI[ch].j === n; }
+  else { const g = value === 'secondary' ? 8 : parseInt(value, 10); pred = ch => KANJI[ch].g === g; }
+  const list = Object.keys(KANJI).filter(pred);
   list.sort((a, b) => {
     const A = KANJI[a], B = KANJI[b];
     return A.s - B.s || A.rad - B.rad || a.codePointAt(0) - b.codePointAt(0);

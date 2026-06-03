@@ -3,7 +3,7 @@ import { normalizeTokens, buildLayout } from './model.js?v=2';
 import { buildHtml } from './htmlExport.js?v=2';
 import { buildDocx } from './docxExport.js?v=2';
 import { addFontEmbedFlag } from './docxEmbed.js?v=2';
-import { initLessonBuilder, onLessonChange, selectedKanji, gradeOf, setSelection, currentGrade, refreshLabels } from './lesson.js?v=2';
+import { initLessonBuilder, onLessonChange, selectedKanji, gradeOf, jlptOf, setSelection, currentGrade, refreshLabels } from './lesson.js?v=2';
 import { buildCandidates } from './sentences.js?v=2';
 import { t, initLang, applyI18n, getLang, setLang } from './i18n.js?v=2';
 
@@ -78,23 +78,32 @@ $('lesson_grade').addEventListener('change', saveLesson);
   if (o.grade || o.kanji) setSelection(o.grade || '', o.kanji || '');
 })();
 
-// baseline grade: the chosen dropdown grade, else the hardest selected kanji
-function baselineGrade() {
+// Baseline level for scoring: from the chosen dropdown value (a school grade or
+// a JLPT level), else the hardest selected kanji. Returns the level G, the
+// matching levelOf (school grade, or JLPT difficulty where N5 is easiest), and a
+// display label.
+function baselineLevel() {
   const v = $('lesson_grade').value;
-  if (v === 'secondary') return 8;
-  if (v) return parseInt(v, 10);
+  if (v && v[0] === 'N') {
+    const n = parseInt(v.slice(1), 10);
+    const levelOf = ch => { const j = jlptOf(ch); return j == null ? null : 6 - j; };
+    return { G: 6 - n, levelOf, label: 'N' + n };
+  }
+  if (v === 'secondary') return { G: 8, levelOf: gradeOf, label: t('grade_secondary_short') };
+  if (v) { const g = parseInt(v, 10); return { G: g, levelOf: gradeOf, label: t('grade_short', { n: g }) }; }
   const gs = selectedKanji().map(gradeOf).filter(g => g != null);
-  return gs.length ? Math.max(...gs) : 6;
+  const g = gs.length ? Math.max(...gs) : 6;
+  return { G: g, levelOf: gradeOf, label: t('grade_short', { n: g }) };
 }
 
 async function runPicker() {
   const kanji = selectedKanji();
   if (!kanji.length) return;
-  const G = baselineGrade();
+  const { G, levelOf, label } = baselineLevel();
   $('lesson_find').disabled = true;
   $('lesson_find').textContent = t('btn_finding');
-  const groups = await buildCandidates(kanji, G, { hideAboveLevel: $('pick_easyonly').checked, perKanji: 20 });
-  renderPicker(groups, G);
+  const groups = await buildCandidates(kanji, G, { hideAboveLevel: $('pick_easyonly').checked, perKanji: 20, levelOf });
+  renderPicker(groups, G, levelOf, label);
   $('pickerPanel').style.display = '';
   $('lesson_find').disabled = false;
   $('lesson_find').textContent = t('btn_find');
@@ -104,13 +113,13 @@ $('pick_easyonly').addEventListener('change', () => { if ($('pickerPanel').style
 $('pick_add').addEventListener('click', addPickedSentences);
 
 // render a sentence with each kanji coloured by its role for the current lesson
-function sentenceNodes(text, lessonSet, G, target) {
+function sentenceNodes(text, lessonSet, G, target, levelOf) {
   const frag = document.createDocumentFragment();
   for (const ch of text) {
     if (/\p{Script=Han}/u.test(ch)) {
       const s = document.createElement('span');
       s.textContent = ch;
-      const g = gradeOf(ch);
+      const g = levelOf(ch);
       if (ch === target) s.className = 'k-target';
       else if (lessonSet.has(ch)) s.className = 'k-lesson';
       else if (g == null || g > G) s.className = 'k-future';
@@ -122,7 +131,7 @@ function sentenceNodes(text, lessonSet, G, target) {
   return frag;
 }
 
-function renderPicker(groups, G) {
+function renderPicker(groups, G, levelOf, label) {
   const lessonSet = new Set(selectedKanji());
   const root = $('picker');
   root.innerHTML = '';
@@ -149,14 +158,13 @@ function renderPicker(groups, G) {
       const lab = document.createElement('label');
       lab.htmlFor = id;
       lab.title = `スコア ${s.score.toFixed(1)}`; // ranking score, on hover
-      lab.appendChild(sentenceNodes(s.t, lessonSet, G, grp.kanji));
+      lab.appendChild(sentenceNodes(s.t, lessonSet, G, grp.kanji, levelOf));
       row.appendChild(cb); row.appendChild(lab);
       block.appendChild(row);
     }
     root.appendChild(block);
   }
-  const gradeLabel = G === 8 ? t('grade_secondary_short') : t('grade_short', { n: G });
-  $('pick_summary').textContent = t('pick_summary', { kanji: groups.length, sent: totalShown, grade: gradeLabel });
+  $('pick_summary').textContent = t('pick_summary', { kanji: groups.length, sent: totalShown, grade: label });
 }
 
 function hashStr(s) { let h = 0; for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) | 0; return h; }
@@ -165,7 +173,7 @@ function hashStr(s) { let h = 0; for (let i = 0; i < s.length; i++) h = (h * 31 
 function addPickedSentences() {
   if (!tokenizer) return;
   const lessonSet = new Set(selectedKanji());
-  const G = baselineGrade();
+  const { G, levelOf } = baselineLevel();
   const existing = new Set(state.sentences.map(s => s.tokens.map(t => t.surface).join('')));
   const picked = [...new Set([...document.querySelectorAll('#picker input[type=checkbox]:checked')].map(cb => cb.dataset.text))];
   let added = 0;
@@ -177,7 +185,7 @@ function addPickedSentences() {
     tokens.forEach(t => {
       const kanji = [...t.surface].filter(c => /\p{Script=Han}/u.test(c));
       if (kanji.some(c => lessonSet.has(c))) t.state = 'test';
-      else if (kanji.some(c => { const g = gradeOf(c); return g == null || g > G; })) t.state = 'kana';
+      else if (kanji.some(c => { const g = levelOf(c); return g == null || g > G; })) t.state = 'kana';
       else t.state = 'plain';
     });
     state.sentences.push({ tokens, mode: 'kaki' });

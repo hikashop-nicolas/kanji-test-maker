@@ -38,8 +38,10 @@ const STR = {
   opt_yugothic: { ja: '游ゴシック', en: 'Yu Gothic', fr: 'Yu Gothic' },
 
   // lesson panel
-  lbl_pick_grade: { ja: '学年から漢字を選ぶ', en: 'Pick kanji by grade', fr: 'Choisir les kanji par niveau' },
-  grade_placeholder: { ja: '— 学年を選ぶ —', en: '— Pick a grade —', fr: '— Choisir un niveau —' },
+  lbl_pick_grade: { ja: '学年・JLPT から漢字を選ぶ', en: 'Pick kanji by grade or JLPT', fr: 'Choisir les kanji par niveau ou JLPT' },
+  grade_placeholder: { ja: '— レベルを選ぶ —', en: '— Pick a level —', fr: '— Choisir un niveau —' },
+  og_school: { ja: '学年', en: 'School grade', fr: 'Niveau scolaire' },
+  og_jlpt: { ja: 'JLPT（日本語能力試験・目安）', en: 'JLPT (proficiency, approx.)', fr: 'JLPT (niveau, approx.)' },
   grade_1: { ja: '小1', en: 'Grade 1', fr: 'Niveau 1' },
   grade_2: { ja: '小2', en: 'Grade 2', fr: 'Niveau 2' },
   grade_3: { ja: '小3', en: 'Grade 3', fr: 'Niveau 3' },
@@ -60,14 +62,14 @@ const STR = {
 
   // picker
   lbl_pick_sentences: { ja: '例文をえらぶ', en: 'Pick sentences', fr: 'Choisir les phrases' },
-  chk_easy_only: { ja: 'やさしい文だけ（学年以下の漢字）', en: 'Easy sentences only (kanji at/below grade)', fr: 'Phrases faciles seulement (kanji du niveau ou moins)' },
+  chk_easy_only: { ja: 'やさしい文だけ（レベル以下の漢字）', en: 'Easy sentences only (kanji at/below the level)', fr: 'Phrases faciles seulement (kanji du niveau ou moins)' },
   btn_add_checked: { ja: 'チェックした文を追加', en: 'Add checked sentences', fr: 'Ajouter les phrases cochées' },
   hint_add: {
     ja: 'チェックした文が下の表に入り、語の選択・読み・書き／読みを調整できます。',
     en: 'Checked sentences go into the table below, where you can adjust word selection, readings, and write/read.',
     fr: 'Les phrases cochées vont dans le tableau ci-dessous, où vous pouvez ajuster la sélection, les lectures et écrire/lire.',
   },
-  pick_summary: { ja: '{kanji}字・{sent}文（学年基準：{grade}）', en: '{kanji} kanji · {sent} sentences (grade: {grade})', fr: '{kanji} kanji · {sent} phrases (niveau : {grade})' },
+  pick_summary: { ja: '{kanji}字・{sent}文（レベル：{grade}）', en: '{kanji} kanji · {sent} sentences (level: {grade})', fr: '{kanji} kanji · {sent} phrases (niveau : {grade})' },
   empty_not_jouyou: { ja: '常用漢字ではないため例文がありません。', en: 'Not a jōyō kanji, so no example sentences.', fr: 'Pas un kanji jōyō, donc aucune phrase.' },
   empty_none: { ja: '条件に合う例文が見つかりませんでした。', en: 'No matching sentences found.', fr: 'Aucune phrase correspondante.' },
   grade_secondary_short: { ja: '中学以降', en: 'Secondary', fr: 'Collège+' },
