@@ -7,7 +7,8 @@
   "scripts": {
     "serve": "python3 tools/devserver.py",
     "gen": "node tools/gen.mjs",
-    "build:data": "node tools/build-data.mjs && node tools/build-sentences.mjs"
+    "build:data": "node tools/build-data.mjs && node tools/build-sentences.mjs",
+    "validate:authored": "node tools/validate-authored.mjs"
   },
   "keywords": ["kanji", "japanese", "worksheet", "education", "docx", "vertical-writing"],
   "devDependencies": {

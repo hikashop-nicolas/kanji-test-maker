@@ -181,7 +181,11 @@ davidluzgouveia/kanji-data. `build-sentences.mjs` writes the per-grade sentence
 index from the Tatoeba Japanese corpus, **kept only when the author is a
 native/fluent Japanese speaker (self-rated 4-5) or the sentence has recorded
 audio** (a strong naturalness signal), plus ~39 original sentences from
-`tools/manual-sentences.json` for rare kanji with no Tatoeba example. It uses
+`tools/manual-sentences.json` for rare kanji with no Tatoeba example, plus a
+**curated, grade-pure supplement** in `tools/authored-sentences.json` (original
+sentences whose every kanji is at or below the grade, added grade by grade and
+ranked first). Validate the curated set with `npm run validate:authored -- 1`
+(it rejects any above-grade kanji). It uses
 Tatoeba's `jpn_sentences_detailed.tsv`, `user_languages.csv` and
 `sentences_with_audio.csv`; all cache under `tools/data-cache/` (gitignored);
 re-running refreshes the data. See `THIRD_PARTY.md` for the data licenses
