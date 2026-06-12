@@ -32,7 +32,7 @@ let customFontFamily = null; // set when a font file is uploaded
 let customFontBytes = null;  // uploaded font bytes, for docx embedding
 
 // ---- persist settings ----------------------------------------------------
-const SETTING_IDS = ['h_class','h_title','h_lesson','h_name','o_perpage','o_font','o_fontsize','o_boxsize'];
+const SETTING_IDS = ['h_class','h_title','h_lesson','h_name','o_perpage','o_font','o_fontsize','o_boxsize','o_blankpos'];
 function saveSettings() {
   const o = {};
   SETTING_IDS.forEach(id => { if ($(id)) o[id] = $(id).value; });
@@ -217,6 +217,7 @@ function options() {
     font: customFontFamily || $('o_font').value,
     fontSize: parseFloat($('o_fontsize').value) || 18,
     boxSize: parseFloat($('o_boxsize').value) || 10,
+    blankPos: $('o_blankpos').value,
     extras: $('o_extras').checked,
     image: customImageDataUrl,
     imageDims: customImageDims,
@@ -456,7 +457,7 @@ function saveSet() {
   const data = {
     version: 1,
     header: header(),
-    options: { perPage: $('o_perpage').value, font: $('o_font').value, fontSize: $('o_fontsize').value, boxSize: $('o_boxsize').value },
+    options: { perPage: $('o_perpage').value, font: $('o_font').value, fontSize: $('o_fontsize').value, boxSize: $('o_boxsize').value, blankPos: $('o_blankpos').value },
     sentences: state.sentences.map(s => ({
       mode: s.mode,
       tokens: s.tokens.map(t => ({ surface: t.surface, reading: t.reading, hasKanji: t.hasKanji, state: t.state || (t.selected ? 'test' : 'plain') })),
@@ -478,6 +479,7 @@ function loadSet(file) {
     if (o.font != null) $('o_font').value = o.font;
     if (o.fontSize != null) $('o_fontsize').value = o.fontSize;
     if (o.boxSize != null) $('o_boxsize').value = o.boxSize;
+    if (o.blankPos != null) $('o_blankpos').value = o.blankPos;
     state.sentences = (d.sentences || []).map(s => ({ mode: s.mode || 'kaki', tokens: s.tokens || [] }));
     saveSettings();
     renderTable();

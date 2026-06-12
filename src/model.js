@@ -138,7 +138,9 @@ function sentenceColumn(sentence, index) {
       const cells = mode === 'yomi'
         ? Math.max(1, (reading || surface).length) // write the reading
         : Math.max(1, surface.length);              // write the whole word
-      runs.push({ t: 'read', s: show });
+      // s/show drive the side-column layout; surface/reading/answer/cells drive
+      // the inline layout (boxes in the sentence flow with the reading alongside).
+      runs.push({ t: 'read', s: show, mode, surface, reading: reading || '', answer, cells });
       boxes.push({ offset: pos, cells, answer });
       pos += show.length; // text stays tight; boxes get their spacing separately
     }
@@ -162,6 +164,9 @@ export function buildLayout(worksheet) {
   const extras = !!o.extras;         // points + signature boxes under the name
   const image = o.image || null;     // bottom-left image (data URL)
   const imageDims = o.imageDims || null; // { w, h } natural size, for the .docx
+  // blank-cell placement: 'inline' (boxes in the sentence flow, the Japanese
+  // norm) or 'column' (boxes in a parallel column beside the sentence).
+  const blankPos = o.blankPos === 'column' ? 'column' : 'inline';
   const header = headerParts(worksheet.header);
   const sentences = worksheet.sentences.map((s, i) => sentenceColumn(s, i));
 
@@ -178,5 +183,5 @@ export function buildLayout(worksheet) {
   const fill = (extras && pages.length === 1) ? 0.70 : 0.96;
   const titleFontSize = Math.min(fontSize, Math.max(8, Math.floor(COLH_PT * fill / Math.max(1, headerLen))));
 
-  return { font, fontSize, boxSize, titleFontSize, header, pages, extras, image, imageDims, pageCount: pages.length };
+  return { font, fontSize, boxSize, titleFontSize, header, pages, extras, image, imageDims, blankPos, pageCount: pages.length };
 }

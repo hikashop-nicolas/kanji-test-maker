@@ -22,6 +22,7 @@ export function buildDocx(layout, docx, embeddedFonts = [], opts = {}) {
     Footer, PageNumber, ImageRun, HorizontalPositionRelativeFrom, VerticalPositionRelativeFrom,
   } = docx;
   const answers = !!opts.answers; // fill the boxes with the answer (answer key)
+  const inline = (layout.blankPos || 'inline') === 'inline'; // boxes in the flow vs a side column
   const extras = !!layout.extras; // points + seal boxes beside the title
   const total = layout.pageCount || layout.pages.length;
   const EX_MM = 14;                              // points/seal box size, mm
@@ -39,7 +40,9 @@ export function buildDocx(layout, docx, embeddedFonts = [], opts = {}) {
   const BOX_INNER = Math.round(boxMm * MM);     // box width = box-size setting
   const BOX_W = BOX_INNER + 160;                // box column width
   const ansHalf = Math.max(16, Math.round(boxMm * 4.4)); // answer glyph size (half-pt), sized to the box
+  const boxHalf = Math.max(halfPt, Math.round(boxMm * 5.67)); // inline box glyph size (half-pt) ~ box-size mm
   const TEXT_W = fontTw + 240;                  // text column width (one glyph + margin)
+  const INLINE_W = BOX_INNER + 300;             // inline sentence column width (fits the boxes)
   const charSpace = 0;                           // text uses its natural pitch
 
   const none = { style: BorderStyle.NONE, size: 0, color: 'FFFFFF' };
@@ -60,6 +63,34 @@ export function buildDocx(layout, docx, embeddedFonts = [], opts = {}) {
       `<w:rt><w:r><w:rPr>${rf}<w:sz w:val="${rtHalf}"/><w:szCs w:val="${rtHalf}"/></w:rPr><w:t xml:space="preserve">${xmlEsc(rt)}</w:t></w:r></w:rt>` +
       `<w:rubyBase><w:r><w:rPr>${rf}<w:sz w:val="${halfPt}"/><w:szCs w:val="${halfPt}"/></w:rPr><w:t xml:space="preserve">${xmlEsc(base)}</w:t></w:r></w:rubyBase>` +
       `</w:ruby></w:r>`;
+    return ImportedXmlComponent.fromXmlString(xml);
+  }
+
+  // Inline tested word (文中 layout). 書き: a ruby whose base is the answer boxes
+  // (bordered runs, empty or holding the answer) with the reading as furigana.
+  // 読み: the kanji (side-lined) with the reading slot as the furigana.
+  const rf = `<w:rFonts w:ascii="${font}" w:eastAsia="${font}" w:hAnsi="${font}"/>`;
+  function inlineTestRun(r) {
+    if (r.mode === 'yomi') {
+      const rt = answers ? xmlEsc(r.answer || '') : '　'; // keep the slot height in the question
+      const base = `<w:r><w:rPr>${rf}<w:sz w:val="${halfPt}"/><w:szCs w:val="${halfPt}"/><w:u w:val="single" w:color="333333"/></w:rPr><w:t xml:space="preserve">${xmlEsc(r.surface)}</w:t></w:r>`;
+      const xml = `<w:r><w:ruby><w:rubyPr><w:rubyAlign w:val="distributeSpace"/><w:hps w:val="${rtHalf}"/><w:hpsRaise w:val="${halfPt}"/><w:hpsBaseText w:val="${halfPt}"/><w:lid w:val="ja-JP"/></w:rubyPr>` +
+        `<w:rt><w:r><w:rPr>${rf}<w:sz w:val="${rtHalf}"/><w:szCs w:val="${rtHalf}"/><w:color w:val="C0392B"/></w:rPr><w:t xml:space="preserve">${rt}</w:t></w:r></w:rt>` +
+        `<w:rubyBase>${base}</w:rubyBase></w:ruby></w:r>`;
+      return ImportedXmlComponent.fromXmlString(xml);
+    }
+    // Each cell is a literal box glyph (□), or the answer kanji in red on the key.
+    // (A real run-border / w:bdr is ignored by some readers, so use a glyph.)
+    const chars = answers ? [...(r.answer || '')] : null;
+    let base = '';
+    for (let i = 0; i < r.cells; i++) {
+      const ch = chars && chars[i] ? xmlEsc(chars[i]) : '□';
+      const col = chars && chars[i] ? '<w:color w:val="C0392B"/>' : '';
+      base += `<w:r><w:rPr>${rf}<w:sz w:val="${boxHalf}"/><w:szCs w:val="${boxHalf}"/>${col}</w:rPr><w:t xml:space="preserve">${ch}</w:t></w:r>`;
+    }
+    const xml = `<w:r><w:ruby><w:rubyPr><w:rubyAlign w:val="center"/><w:hps w:val="${rtHalf}"/><w:hpsRaise w:val="${boxHalf}"/><w:hpsBaseText w:val="${boxHalf}"/><w:lid w:val="ja-JP"/></w:rubyPr>` +
+      `<w:rt><w:r><w:rPr>${rf}<w:sz w:val="${rtHalf}"/><w:szCs w:val="${rtHalf}"/></w:rPr><w:t xml:space="preserve">${xmlEsc(r.reading || '')}</w:t></w:r></w:rt>` +
+      `<w:rubyBase>${base}</w:rubyBase></w:ruby></w:r>`;
     return ImportedXmlComponent.fromXmlString(xml);
   }
 
@@ -97,7 +128,9 @@ export function buildDocx(layout, docx, embeddedFonts = [], opts = {}) {
     for (const r of col.runs) {
       if (r.t === 'plain' || r.t === 'kana') kids.push(text(r.s));
       else if (r.t === 'furi') kids.push(rubyRun(r.base, r.rt));
-      else kids.push(text(r.s, { underline: { type: UnderlineType.SINGLE, color: '333333' } })); // 'read'
+      else if (r.t === 'read') kids.push(inline
+        ? inlineTestRun(r)
+        : text(r.s, { underline: { type: UnderlineType.SINGLE, color: '333333' } }));
     }
     // hanging indent so a wrapped sentence's extra columns start below the
     // circled number (level with the first character); 1.3 line spacing gives
@@ -106,7 +139,7 @@ export function buildDocx(layout, docx, embeddedFonts = [], opts = {}) {
       indent: { hanging: CELL_TW },
       spacing: { line: 312, lineRule: LineRuleType.AUTO }, // 312 = 1.3 x 240
       children: kids,
-    })], TEXT_W);
+    })], inline ? INLINE_W : TEXT_W);
   }
 
   function boxCell(col) {
@@ -195,12 +228,15 @@ export function buildDocx(layout, docx, embeddedFonts = [], opts = {}) {
   function pageTable(page, isFirst, isLast) {
     const n = page.columns.length;
     const hasTitle = isFirst, hasExtras = extras && isLast;
-    const used = n * (TEXT_W + BOX_W) + (hasTitle ? TEXT_W + 200 : 0) + (hasExtras ? EX_TW + 200 : 0);
+    const colW = inline ? INLINE_W : (TEXT_W + BOX_W);
+    const used = n * colW + (hasTitle ? TEXT_W + 200 : 0) + (hasExtras ? EX_TW + 200 : 0);
     const gap = Math.max(120, Math.round((CONTENT_TW - used) / Math.max(1, n)));
     // visual left-to-right: [box_n, text_n, gap, ..., box_1, text_1, gap, extras, title]
+    // (inline mode drops the separate box column: the boxes live in the text)
     const cells = [];
     for (let i = n - 1; i >= 0; i--) {
-      cells.push(boxCell(page.columns[i]), textCell(page.columns[i]), spacerCell(gap));
+      if (!inline) cells.push(boxCell(page.columns[i]));
+      cells.push(textCell(page.columns[i]), spacerCell(gap));
     }
     if (hasExtras) cells.push(extrasCell());
     if (hasTitle) cells.push(titleCell(layout.header || { pre: '', lesson: '', post: '' }));

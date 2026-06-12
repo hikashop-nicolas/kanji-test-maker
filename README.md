@@ -81,9 +81,13 @@ Save the whole sheet with **セットを保存** and reopen it later with **セ�
   below the name), a logo/image in the bottom-left corner (auto-resized to the
   print size and kept in your browser), and an automatic page counter (1 / N) on
   multi-page sheets. The title shows only on the first page.
+- **Blank-cell placement.** Choose where the answer blanks sit: **in the
+  sentence** (文中, the Japanese norm, default) with the box where the kanji goes
+  and the reading as furigana to its right, or in a **side column** (横の欄). Both
+  the PDF and the .docx follow the choice.
 - **Vertical worksheet** matching the classic layout: title column, right-to-left
-  sentences, side-lined tested words, an aligned answer-box column, circled
-  sentence numbers (any value), and a name field.
+  sentences, side-lined tested words, circled sentence numbers (any value), and a
+  name field.
 - **Two outputs:** a print-perfect **PDF** and an editable **.docx**. The chosen
   font is **embedded in the .docx**, so it displays even if the recipient does
   not have it installed.
