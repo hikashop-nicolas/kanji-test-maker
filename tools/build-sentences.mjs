@@ -155,6 +155,29 @@ if (fs.existsSync(manualPath)) {
   console.log(`merged ${n} authored sentences from manual-sentences.json`);
 }
 
+// Curated supplement: grade-pure authored sentences (every kanji at/below the
+// grade), keyed by grade. Validated by tools/validate-authored.mjs. Ranked top
+// (q = 9) and added to every jouyou kanji they contain.
+const authoredPath = path.join(__dirname, 'authored-sentences.json');
+if (fs.existsSync(authoredPath)) {
+  const authored = JSON.parse(fs.readFileSync(authoredPath, 'utf8'));
+  let n = 0;
+  for (const name of Object.keys(authored)) {
+    if (name.startsWith('_')) continue;
+    for (const t of authored[name]) {
+      if (seen.has(t)) continue;
+      const set = [...new Set(t.match(KANJI_RE) || [])].filter(ch => gradeOf(ch) != null);
+      if (!set.length) continue;
+      seen.add(t);
+      const mg = Math.max(...set.map(gradeOf));
+      const rec = { t, k: set.join(''), mg, len: [...t].length, q: 9 };
+      for (const ch of set) (index[ch] = index[ch] || []).push(rec);
+      n++;
+    }
+  }
+  console.log(`merged ${n} curated sentences from authored-sentences.json`);
+}
+
 // Fallback pass: a few rare kanji never appear in a quality-gated sentence. For
 // those, relax to ANY author, allow up to one non-jouyou kanji and a longer
 // sentence, so the picker still has 1-2 examples.
