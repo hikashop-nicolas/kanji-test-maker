@@ -22,6 +22,9 @@
   textarea { width:100%; min-height:120px; padding:.6rem; border:1px solid #ccc; border-radius:6px; font:15px/1.7 inherit; }
   button { font:inherit; padding:.45rem .9rem; border:0; border-radius:6px; background:var(--accent); color:#fff; cursor:pointer; }
   button.secondary { background:#eef1f5; color:#333; border:1px solid #d4d8de; }
+  /* header buttons size to their label (breakable JP/FR text would otherwise let
+     flexbox squeeze them to ~1 char and wrap to several lines) */
+  header button { white-space: nowrap; flex-shrink: 0; }
   button:disabled { opacity:.5; cursor:default; }
   .row-actions { display:flex; gap:.5rem; flex-wrap:wrap; align-items:center; }
   table.sheet { width:100%; border-collapse:collapse; }
