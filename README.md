@@ -178,11 +178,14 @@ npm run build:data     # tools/build-data.mjs (KANJIDIC2) + build-sentences.mjs 
 `build-data.mjs` writes `assets/data/kanji.json` (grade, strokes, radical,
 readings) from KANJIDIC2, plus a reconstructed JLPT level (N5–N1) per kanji from
 davidluzgouveia/kanji-data. `build-sentences.mjs` writes the per-grade sentence
-index from the Tatoeba Japanese corpus, plus ~39 original sentences from
-`tools/manual-sentences.json` for rare kanji with no Tatoeba example. Both cache
-their downloads under `tools/data-cache/` (gitignored); re-running refreshes the
-data. See `THIRD_PARTY.md` for the data licenses (KANJIDIC2 CC BY-SA 4.0,
-Tatoeba CC BY 2.0 FR).
+index from the Tatoeba Japanese corpus, **kept only when the author is a
+native/fluent Japanese speaker (self-rated 4-5) or the sentence has recorded
+audio** (a strong naturalness signal), plus ~39 original sentences from
+`tools/manual-sentences.json` for rare kanji with no Tatoeba example. It uses
+Tatoeba's `jpn_sentences_detailed.tsv`, `user_languages.csv` and
+`sentences_with_audio.csv`; all cache under `tools/data-cache/` (gitignored);
+re-running refreshes the data. See `THIRD_PARTY.md` for the data licenses
+(KANJIDIC2 CC BY-SA 4.0, Tatoeba CC BY 2.0 FR).
 
 ## Notes & limits
 

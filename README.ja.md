@@ -164,10 +164,12 @@ npm run build:data     # tools/build-data.mjs（KANJIDIC2）＋ build-sentences.
 `build-data.mjs` は KANJIDIC2 から `assets/data/kanji.json`（学年・画数・部首・読み）を
 生成し、davidluzgouveia/kanji-data から各漢字の JLPT レベル（N5〜N1、再構成版）を
 加えます。`build-sentences.mjs` は Tatoeba 日本語コーパスから学年別の例文インデックスを
-生成し、Tatoeba に例文のない稀な漢字には `tools/manual-sentences.json` のオリジナル例文
-（約39文）を加えます。どちらもダウンロードを `tools/data-cache/`（gitignore 済み）に
-キャッシュします。データのライセンスは `THIRD_PARTY.md` を参照（KANJIDIC2 は
-CC BY-SA 4.0、Tatoeba は CC BY 2.0 FR）。
+生成します。**作成者が日本語ネイティブ／上級（自己申告レベル4〜5）の文、または音声が
+ある文だけ**を採用します（音声は自然さの強い手がかり）。Tatoeba に例文のない稀な漢字には
+`tools/manual-sentences.json` のオリジナル例文（約39文）を加えます。Tatoeba の
+`jpn_sentences_detailed.tsv`・`user_languages.csv`・`sentences_with_audio.csv` を使い、
+ダウンロードは `tools/data-cache/`（gitignore 済み）にキャッシュします。データのライセンスは
+`THIRD_PARTY.md` を参照（KANJIDIC2 は CC BY-SA 4.0、Tatoeba は CC BY 2.0 FR）。
 
 ## 注意・制限
 
