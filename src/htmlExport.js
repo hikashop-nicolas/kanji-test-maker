@@ -8,6 +8,8 @@ function esc(s) {
   return String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 }
 
+// 'column' layout: the tested word is shown inline (side-lined) and its answer
+// box lives in a parallel column (see sentenceHtml).
 function runHtml(r) {
   if (r.t === 'plain') return `<span class="plain">${esc(r.s)}</span>`;
   if (r.t === 'kana') return `<span class="plain">${esc(r.s)}</span>`; // reading in place of kanji
@@ -15,8 +17,32 @@ function runHtml(r) {
   return `<span class="read">${esc(r.s)}</span>`; // 'read' (tested word, side-lined)
 }
 
-function sentenceHtml(col, fontPitchMm, boxSize, answers) {
+// 'inline' layout (the Japanese norm): the blank box sits in the sentence flow
+// where the word goes, with the reading as furigana to its right; 読み shows the
+// side-lined kanji with a blank reading slot to its right.
+function inlineRunHtml(r, answers) {
+  if (r.t === 'plain' || r.t === 'kana') return `<span class="plain">${esc(r.s)}</span>`;
+  if (r.t === 'furi') return `<ruby>${esc(r.base)}<rt>${esc(r.rt)}</rt></ruby>`;
+  if (r.t !== 'read') return '';
+  if (r.mode === 'yomi') {
+    const slot = answers ? esc(r.answer || '') : '';
+    return `<span class="yunit"><span class="ykk">${esc(r.surface)}</span><span class="yslot">${slot}</span></span>`;
+  }
+  const chars = answers ? [...(r.answer || '')] : null;
+  let cells = '';
+  for (let i = 0; i < r.cells; i++) {
+    const a = chars && chars[i] ? `<span class="a">${esc(chars[i])}</span>` : '';
+    cells += `<span class="ibox">${a}</span>`;
+  }
+  return `<span class="tunit"><span class="bgrp">${cells}</span><span class="tread">${esc(r.reading || '')}</span></span>`;
+}
+
+function sentenceHtml(col, fontPitchMm, boxSize, answers, inline) {
   const num = `<span class="num">${esc(col.number)}</span>`;
+  if (inline) {
+    const text = `<div class="col">${num}${col.runs.map(r => inlineRunHtml(r, answers)).join('')}</div>`;
+    return `<div class="sentence">${text}</div>`;
+  }
   const text = `<div class="col">${num}${col.runs.map(runHtml).join('')}</div>`;
   const pos = layoutBoxes(col.boxes, fontPitchMm, boxSize, 1, 190); // 190mm = --colH
   const boxes = pos.map((p, i) => {
@@ -54,10 +80,11 @@ export function buildHtml(layout, opts = {}) {
   const header = layout.header || { pre: '', lesson: '', post: '' };
 
   const answers = !!opts.answers;
+  const inline = (layout.blankPos || 'inline') === 'inline';
   const total = layout.pageCount || layout.pages.length;
   const imageHtml = layout.image ? `<img class="pimg" src="${layout.image}" alt="">` : '';
   const pages = layout.pages.map((p, idx) => {
-    const cols = p.columns.map(c => sentenceHtml(c, fontPitchMm, boxSize, answers)).join('');
+    const cols = p.columns.map(c => sentenceHtml(c, fontPitchMm, boxSize, answers, inline)).join('');
     const pnum = total > 1 ? `<div class="pnum">${idx + 1} / ${total}</div>` : '';
     return `<section class="page">${titleHtml(header, layout.extras, idx === 0, idx === total - 1)}${cols}${imageHtml}${pnum}</section>`;
   }).join('');
@@ -108,6 +135,24 @@ export function buildHtml(layout, opts = {}) {
   .pnum { position: absolute; left: 2.5mm; top: 1mm; font-size: 3mm; color: #666; font-family: Arial, sans-serif; }
   /* tested word: a side line on the RIGHT of the characters (vertical 傍線) */
   .read { border-right: 1.6px solid #333; padding-right: 1px; }
+  /* ---- inline blank cells (文中 / the Japanese norm) ----
+     a tested word becomes boxes stacked down the column with the reading set as
+     furigana to their right. The boxes are the only in-flow content, so they
+     centre on the column axis like the surrounding kana; the reading is absolute
+     and hangs into the gap on the right (as on a real worksheet). */
+  .tunit { position: relative; display: inline-block; writing-mode: horizontal-tb; vertical-align: top; }
+  .bgrp { display: flex; flex-direction: column; }
+  .ibox { width: var(--box); height: var(--box); border: 1.4px solid #222; box-sizing: border-box;
+          display: flex; align-items: center; justify-content: center; }
+  .ibox .a { writing-mode: vertical-rl; line-height: 1; font-size: calc(var(--box) * 0.72); color: #c0392b; }
+  .tread { position: absolute; left: 100%; top: 50%; transform: translateY(-50%);
+           writing-mode: vertical-rl; line-height: 1; font-size: .5em; color: #333;
+           margin-left: .3mm; white-space: nowrap; }
+  /* 読み: the kanji is shown (side-lined) with the reading slot hanging at its right */
+  .yunit { position: relative; display: inline-block; writing-mode: vertical-rl; vertical-align: top; }
+  .ykk { border-right: 1.6px solid #333; padding-right: 1px; }
+  .yslot { position: absolute; left: 100%; top: 0; bottom: 0; margin-left: 1px;
+           writing-mode: vertical-rl; line-height: 1; font-size: .5em; color: #c0392b; white-space: nowrap; }
   /* furigana: ruby to the right of the kanji in vertical writing */
   ruby { ruby-position: over; }
   rt { font-size: .5em; font-weight: normal; }
