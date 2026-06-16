@@ -25,8 +25,9 @@ function inlineRunHtml(r, answers) {
   if (r.t === 'furi') return `<ruby>${esc(r.base)}<rt>${esc(r.rt)}</rt></ruby>`;
   if (r.t !== 'read') return '';
   if (r.mode === 'yomi') {
+    const cells = Math.max(1, r.cells || 1);
     const slot = answers ? esc(r.answer || '') : '';
-    return `<span class="yunit"><span class="ykk">${esc(r.surface)}</span><span class="yslot">${slot}</span></span>`;
+    return `<span class="yunit"><span class="ykk">${esc(r.surface)}</span><span class="yslot" style="height:calc(${cells}em + 4px)">${slot}</span></span>`;
   }
   const chars = answers ? [...(r.answer || '')] : null;
   let cells = '';
@@ -148,10 +149,14 @@ export function buildHtml(layout, opts = {}) {
   .tread { position: absolute; left: 100%; top: 50%; transform: translateY(-50%);
            writing-mode: vertical-rl; line-height: 1; font-size: .5em; color: #333;
            margin-left: .3mm; white-space: nowrap; }
-  /* 読み: the kanji is shown (side-lined) with the reading slot hanging at its right */
+  /* 読み: the kanji is shown (side-lined); an empty reading box hangs at its right,
+     sized to the reading length. The pupil writes the furigana there; the answer
+     key fills it red. Without the box the empty slot collapsed and no blank showed. */
   .yunit { position: relative; display: inline-block; writing-mode: vertical-rl; vertical-align: top; }
   .ykk { border-right: 1.6px solid #333; padding-right: 1px; }
-  .yslot { position: absolute; left: 100%; top: 0; bottom: 0; margin-left: 1px;
+  .yslot { position: absolute; left: 100%; top: 0; margin-left: .6mm;
+           box-sizing: border-box; width: 1.5em; border: 1.2px solid #999;
+           display: flex; align-items: flex-start; justify-content: center;
            writing-mode: vertical-rl; line-height: 1; font-size: .5em; color: #c0392b; white-space: nowrap; }
   /* furigana: ruby to the right of the kanji in vertical writing */
   ruby { ruby-position: over; }
