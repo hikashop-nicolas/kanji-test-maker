@@ -72,10 +72,13 @@ export function buildDocx(layout, docx, embeddedFonts = [], opts = {}) {
   const rf = `<w:rFonts w:ascii="${font}" w:eastAsia="${font}" w:hAnsi="${font}"/>`;
   function inlineTestRun(r) {
     if (r.mode === 'yomi') {
-      const rt = answers ? xmlEsc(r.answer || '') : '　'; // keep the slot height in the question
+      // question: a row of box glyphs in the furigana slot (one per reading char)
+      // gives a clearly visible reading blank (an empty slot rendered nothing).
+      const rt = answers ? xmlEsc(r.answer || '') : '□'.repeat(Math.max(1, r.cells || 1));
+      const rtColor = answers ? 'C0392B' : '999999'; // answer in red; the empty blank boxes neutral
       const base = `<w:r><w:rPr>${rf}<w:sz w:val="${halfPt}"/><w:szCs w:val="${halfPt}"/><w:u w:val="single" w:color="333333"/></w:rPr><w:t xml:space="preserve">${xmlEsc(r.surface)}</w:t></w:r>`;
       const xml = `<w:r><w:ruby><w:rubyPr><w:rubyAlign w:val="distributeSpace"/><w:hps w:val="${rtHalf}"/><w:hpsRaise w:val="${halfPt}"/><w:hpsBaseText w:val="${halfPt}"/><w:lid w:val="ja-JP"/></w:rubyPr>` +
-        `<w:rt><w:r><w:rPr>${rf}<w:sz w:val="${rtHalf}"/><w:szCs w:val="${rtHalf}"/><w:color w:val="C0392B"/></w:rPr><w:t xml:space="preserve">${rt}</w:t></w:r></w:rt>` +
+        `<w:rt><w:r><w:rPr>${rf}<w:sz w:val="${rtHalf}"/><w:szCs w:val="${rtHalf}"/><w:color w:val="${rtColor}"/></w:rPr><w:t xml:space="preserve">${rt}</w:t></w:r></w:rt>` +
         `<w:rubyBase>${base}</w:rubyBase></w:ruby></w:r>`;
       return ImportedXmlComponent.fromXmlString(xml);
     }
