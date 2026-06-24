@@ -78,6 +78,8 @@ const STR = {
     fr: 'Les phrases cochées vont dans le tableau ci-dessous, où vous pouvez ajuster la sélection, les lectures et écrire/lire.',
   },
   pick_summary: { ja: '{kanji}字・{sent}文（レベル：{grade}）', en: '{kanji} kanji · {sent} sentences (level: {grade})', fr: '{kanji} kanji · {sent} phrases (niveau : {grade})' },
+  pick_more: { ja: 'もっと見る (+{n})', en: 'Show {n} more', fr: 'Voir {n} de plus' },
+  pick_less: { ja: 'とじる', en: 'Show less', fr: 'Réduire' },
   empty_not_jouyou: { ja: '常用漢字ではないため例文がありません。', en: 'Not a jōyō kanji, so no example sentences.', fr: 'Pas un kanji jōyō, donc aucune phrase.' },
   empty_none: { ja: '条件に合う例文が見つかりませんでした。', en: 'No matching sentences found.', fr: 'Aucune phrase correspondante.' },
   grade_secondary_short: { ja: '中学以降', en: 'Secondary', fr: 'Collège+' },
