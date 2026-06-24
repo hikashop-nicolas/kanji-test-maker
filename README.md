@@ -66,6 +66,10 @@ Save the whole sheet with **セットを保存** and reopen it later with **セ�
   unofficial reconstructions (no official list since 2010).
 - **Paste & mark.** Paste sentences (one per line); kanji words are auto-detected
   and selected. Click a word to toggle it. Readings are editable.
+- **From an image (OCR).** Read Japanese text off a photo or scan (e.g. a textbook
+  page) with a bundled, fully offline OCR engine (tesseract.js, horizontal or
+  vertical). The recognised lines land in an editable box so you can delete any
+  junk before adding them. The engine and trained data load only on first use.
 - **Four per-word states.** Click a word to cycle: plain (kanji as-is), test
   (answer box), furigana (kanji + ruby), or kana (kanji replaced by its reading,
   for words above the grade). Furigana renders as real ruby in both the PDF and

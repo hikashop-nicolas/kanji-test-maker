@@ -24,6 +24,14 @@ const STR = {
   tab_corpus: { ja: 'コーパスから選ぶ', en: 'From corpus', fr: 'Depuis le corpus' },
   tab_paste: { ja: '文を貼り付け', en: 'Paste', fr: 'Coller' },
   tab_ocr: { ja: '画像から (OCR)', en: 'From image (OCR)', fr: 'Depuis une image (OCR)' },
+  ocr_lbl_image: { ja: '画像を選ぶ（教科書のページなど）', en: 'Choose an image (e.g. a textbook page)', fr: 'Choisir une image (page de manuel, etc.)' },
+  ocr_vertical: { ja: '縦書きの画像', en: 'Vertical-writing image', fr: 'Image en écriture verticale' },
+  ocr_run: { ja: '画像から文字を読み取る', en: 'Read text from image', fr: 'Lire le texte de l’image' },
+  ocr_running: { ja: '認識中… {p}%', en: 'Recognizing… {p}%', fr: 'Reconnaissance… {p}%' },
+  ocr_add: { ja: 'この文を追加', en: 'Add these sentences', fr: 'Ajouter ces phrases' },
+  ocr_hint: { ja: '読み取り結果を確認し、いらない行を消してから追加してください。', en: 'Check the result and delete unwanted lines before adding.', fr: 'Vérifiez le résultat et supprimez les lignes inutiles avant d’ajouter.' },
+  ocr_ph: { ja: '読み取った文がここに出ます。1行に1文。', en: 'Recognized sentences appear here, one per line.', fr: 'Les phrases reconnues apparaissent ici, une par ligne.' },
+  ocr_no_text: { ja: '文字を読み取れませんでした。', en: 'No text could be read.', fr: 'Aucun texte n’a pu être lu.' },
 
   // header / option fields
   f_class: { ja: 'クラス', en: 'Class', fr: 'Classe' },

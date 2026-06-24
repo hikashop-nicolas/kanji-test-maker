@@ -314,13 +314,74 @@ $('o_image_clear').addEventListener('click', () => {
 });
 
 // ---- processing ----------------------------------------------------------
-$('process').addEventListener('click', () => {
-  if (!tokenizer) return;
-  const lines = $('input').value.split(/\r?\n/).map(s => s.trim()).filter(Boolean);
-  state.sentences = lines.map(line => ({ tokens: normalizeTokens(tokenizer.tokenize(line)), mode: 'kaki' }));
+// Tokenize one-sentence-per-line text into the editor. replace=true wipes the
+// current set (paste), replace=false appends (OCR). Returns how many were added.
+function addLinesAsSentences(text, replace) {
+  if (!tokenizer) return 0;
+  const made = text.split(/\r?\n/).map(s => s.trim()).filter(Boolean)
+    .map(line => ({ tokens: normalizeTokens(tokenizer.tokenize(line)), mode: 'kaki' }));
+  if (replace) state.sentences = made; else state.sentences.push(...made);
   renderTable();
   $('tablePanel').style.display = state.sentences.length ? '' : 'none';
   refreshPreview();
+  return made.length;
+}
+$('process').addEventListener('click', () => addLinesAsSentences($('input').value, true));
+
+// ---- OCR (image -> text via vendored tesseract.js) -----------------------
+let ocrScript = null; // promise: tesseract.min.js injected once, on first use
+function loadTesseract() {
+  if (ocrScript) return ocrScript;
+  ocrScript = new Promise((resolve, reject) => {
+    const s = document.createElement('script');
+    s.src = 'vendor/tesseract/tesseract.min.js';
+    s.onload = resolve; s.onerror = reject;
+    document.head.appendChild(s);
+  });
+  return ocrScript;
+}
+// split recognized text into candidate sentences: break on JP enders + newlines,
+// keep only lines that actually contain kana or kanji.
+// CJK space/punctuation, kana, kanji, fullwidth forms (Japanese has no word spaces)
+const JP_RUN = /([　-ヿ㐀-鿿＀-￯]) +([　-ヿ㐀-鿿＀-￯])/g;
+function splitOcrLines(text) {
+  // tesseract inserts a space between every CJK glyph; drop spaces that sit
+  // between two Japanese characters/punctuation, keeping spaces inside latin
+  // text. Looped (no lookbehind) so it works on older engines too.
+  return text.replace(/([。！？])/g, '$1\n').split(/\r?\n/)
+    .map(s => { let p; do { p = s; s = s.replace(JP_RUN, '$1$2'); } while (s !== p); return s.trim(); })
+    .filter(s => /[぀-ヿ㐀-鿿]/.test(s));
+}
+$('ocr_image').addEventListener('change', () => { $('ocr_run').disabled = !$('ocr_image').files[0]; });
+$('ocr_run').addEventListener('click', async () => {
+  const file = $('ocr_image').files[0];
+  if (!file) return;
+  const btn = $('ocr_run'), st = $('ocr_status');
+  btn.disabled = true;
+  st.textContent = t('ocr_running', { p: 0 });
+  try {
+    await loadTesseract();
+    const lang = $('ocr_vertical').checked ? 'jpn_vert' : 'jpn';
+    const worker = await window.Tesseract.createWorker(lang, 1, {
+      workerPath: 'vendor/tesseract/worker.min.js',
+      corePath: 'vendor/tesseract/tesseract-core-simd-lstm.wasm.js',
+      langPath: 'assets/tessdata',
+      logger: m => { if (m.status === 'recognizing text') st.textContent = t('ocr_running', { p: Math.round(m.progress * 100) }); },
+    });
+    const { data } = await worker.recognize(file);
+    await worker.terminate();
+    const lines = splitOcrLines(data.text);
+    $('ocr_text').value = lines.join('\n');
+    st.textContent = lines.length ? '' : t('ocr_no_text');
+  } catch (e) {
+    console.error('OCR failed', e);
+    st.textContent = t('ocr_no_text');
+  } finally {
+    btn.disabled = false;
+  }
+});
+$('ocr_add').addEventListener('click', () => {
+  if (addLinesAsSentences($('ocr_text').value, false)) $('tablePanel').scrollIntoView({ behavior: 'smooth', block: 'start' });
 });
 
 // ---- table ---------------------------------------------------------------
