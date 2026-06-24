@@ -16,6 +16,15 @@ const STR = {
   save_set: { ja: 'セットを保存', en: 'Save set', fr: 'Enregistrer le jeu' },
   load_set: { ja: 'セットを読み込み', en: 'Load set', fr: 'Charger un jeu' },
 
+  // section headers (accordion) + input tabs
+  sec_info: { ja: 'テスト情報', en: 'Worksheet info', fr: 'Informations' },
+  sec_appearance: { ja: '見た目・レイアウト', en: 'Appearance & layout', fr: 'Apparence et mise en page' },
+  sec_add: { ja: '文を追加', en: 'Add sentences', fr: 'Ajouter des phrases' },
+  sec_edit_words: { ja: '語を編集', en: 'Edit words', fr: 'Modifier les mots' },
+  tab_corpus: { ja: 'コーパスから選ぶ', en: 'From corpus', fr: 'Depuis le corpus' },
+  tab_paste: { ja: '文を貼り付け', en: 'Paste', fr: 'Coller' },
+  tab_ocr: { ja: '画像から (OCR)', en: 'From image (OCR)', fr: 'Depuis une image (OCR)' },
+
   // header / option fields
   f_class: { ja: 'クラス', en: 'Class', fr: 'Classe' },
   f_title: { ja: 'タイトル', en: 'Title', fr: 'Titre' },

@@ -58,6 +58,18 @@ $('lang_select').addEventListener('change', () => {
   if ($('pickerPanel').style.display !== 'none') runPicker();
 });
 
+// ---- input source tabs (corpus / paste / ocr) ----------------------------
+function showTab(name) {
+  document.querySelectorAll('.tabs button').forEach(b => b.classList.toggle('active', b.dataset.tab === name));
+  document.querySelectorAll('.tabpane').forEach(p => p.classList.toggle('active', p.id === 'tab_' + name));
+  try { localStorage.setItem('ktm_tab', name); } catch (e) {}
+}
+document.querySelectorAll('.tabs button').forEach(b => b.addEventListener('click', () => showTab(b.dataset.tab)));
+(function restoreTab() {
+  let n; try { n = localStorage.getItem('ktm_tab'); } catch (e) {}
+  if (n && $('tab_' + n)) showTab(n);
+})();
+
 // ---- lesson builder (grade -> kanji table) -------------------------------
 initLessonBuilder({
   grade: $('lesson_grade'),
@@ -385,10 +397,14 @@ function worksheet() {
 function refreshPreview() {
   if (!state.sentences.length) return;
   const html = buildHtml(buildLayout(worksheet()), { font: options().font, fontFace: customFontCss() });
-  $('previewPanel').style.display = '';   // before srcdoc so the iframe width is known on load
+  const pp = $('previewPanel');
+  pp.style.display = '';   // un-hide
+  pp.open = true;          // expand so the iframe has a measurable width for fitPreview
   $('preview').srcdoc = html;
 }
 $('btnPreview').addEventListener('click', refreshPreview);
+// re-fit when the preview section is reopened (a collapsed <details> has 0 width)
+$('previewPanel').addEventListener('toggle', () => { if ($('previewPanel').open) fitPreview(); });
 
 // scale the worksheet to fit the panel width and size the iframe to the scaled
 // content, so the preview shows whole pages with no scrollbars.

@@ -16,6 +16,20 @@
   header .status { font-size:.85rem; color:#777; }
   main { max-width:1100px; margin:1rem auto; padding:0 1rem 3rem; }
   .panel { background:#fff; border:1px solid #e2e4e8; border-radius:8px; padding:1rem; margin-bottom:1rem; }
+  /* collapsible sections (native <details>) + tabbed input area */
+  .acc { background:#fff; border:1px solid #e2e4e8; border-radius:8px; margin-bottom:1rem; }
+  .acc > summary { list-style:none; cursor:pointer; padding:.7rem 1rem; font-weight:600; font-size:.95rem; color:#333; display:flex; align-items:center; gap:.5rem; user-select:none; }
+  .acc > summary::-webkit-details-marker { display:none; }
+  .acc > summary::before { content:'\25B8'; color:#9aa0a8; font-size:.8em; transition:transform .15s; }
+  .acc[open] > summary::before { transform:rotate(90deg); }
+  .acc > summary:hover { color:var(--accent); }
+  .acc-body { padding:0 1rem 1rem; }
+  .tabs { display:flex; gap:.2rem; border-bottom:1px solid #e2e4e8; margin-bottom:.9rem; flex-wrap:wrap; }
+  .tabs button { background:none; color:#666; border:0; border-bottom:2px solid transparent; border-radius:0; padding:.45rem .8rem; font-size:.9rem; }
+  .tabs button.active { color:var(--accent); border-bottom-color:var(--accent); font-weight:600; }
+  .tabpane { display:none; }
+  .tabpane.active { display:block; }
+  .subhead { border-top:1px solid #eee; margin-top:1rem; padding-top:.7rem; }
   .grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); gap:.6rem 1rem; }
   label { display:block; font-size:.8rem; color:#555; margin-bottom:.15rem; }
   input[type=text], input[type=number], select { width:100%; padding:.35rem .5rem; border:1px solid #ccc; border-radius:5px; font:inherit; }
@@ -87,12 +101,22 @@
 </header>
 
 <main>
-  <div class="panel">
+  <details class="acc" id="secInfo" open>
+    <summary data-i18n="sec_info">テスト情報</summary>
+    <div class="acc-body">
     <div class="grid">
       <div><label data-i18n="f_class">クラス</label><input type="text" id="h_class" value="小1"></div>
       <div><label data-i18n="f_title">タイトル</label><input type="text" id="h_title" value="こんしゅうのかんじ"></div>
       <div><label data-i18n="f_number">番号</label><input type="text" id="h_lesson" value="1"></div>
       <div><label data-i18n="f_name_label">名前ラベル</label><input type="text" id="h_name" value="なまえ"></div>
+    </div>
+    </div>
+  </details>
+
+  <details class="acc" id="secAppearance">
+    <summary data-i18n="sec_appearance">見た目・レイアウト</summary>
+    <div class="acc-body">
+    <div class="grid">
       <div><label data-i18n="f_per_page">1ページの文数</label><input type="number" id="o_perpage" value="10" min="1" max="20"></div>
       <div><label data-i18n="f_font_size">文字の大きさ (pt)</label><input type="number" id="o_fontsize" value="18" min="8" max="40"></div>
       <div><label data-i18n="f_box_size">マスの大きさ (mm)</label><input type="number" id="o_boxsize" value="10" min="4" max="20" step="0.5"></div>
@@ -135,9 +159,18 @@
         <button type="button" id="o_image_clear" class="secondary" data-i18n="btn_image_clear" style="margin-top:.25rem;font-size:.72rem;padding:.18rem .45rem">画像をクリア</button>
       </div>
     </div>
-  </div>
+    </div>
+  </details>
 
-  <div class="panel" id="lessonPanel">
+  <details class="acc" id="secAdd" open>
+    <summary data-i18n="sec_add">文を追加</summary>
+    <div class="acc-body">
+      <div class="tabs">
+        <button data-tab="corpus" class="active" data-i18n="tab_corpus">コーパスから選ぶ</button>
+        <button data-tab="paste" data-i18n="tab_paste">文を貼り付け</button>
+      </div>
+      <div class="tabpane active" id="tab_corpus">
+  <div id="lessonPanel">
     <div class="grid">
       <div>
         <label data-i18n="lbl_pick_grade">学年・JLPT から漢字を選ぶ</label>
@@ -173,7 +206,7 @@
     </div>
   </div>
 
-  <div class="panel" id="pickerPanel" style="display:none">
+  <div id="pickerPanel" class="subhead" style="display:none">
     <div class="row-actions">
       <strong data-i18n="lbl_pick_sentences">例文をえらぶ</strong>
       <label style="display:flex;align-items:center;gap:.35rem;margin:0;font-size:.85rem;color:#333">
@@ -187,17 +220,22 @@
       <span class="muted" data-i18n="hint_add">チェックした文が下の表に入り、語の選択・読み・書き／読みを調整できます。</span>
     </div>
   </div>
+      </div><!-- /tab_corpus -->
 
-  <div class="panel">
+      <div class="tabpane" id="tab_paste">
     <label for="input" data-i18n="lbl_paste">文を貼り付け（1行に1文）</label>
     <textarea id="input" placeholder="絵の具で、花の絵をかく。&#10;春休みに、雪がふった。"></textarea>
     <div class="toolbar">
       <button id="process" disabled data-i18n="btn_process">解析する</button>
       <span class="muted" data-i18n="hint_process">漢字の語が自動で選択されます。語をクリックして選択／解除。</span>
     </div>
-  </div>
+      </div><!-- /tab_paste -->
+    </div>
+  </details>
 
-  <div class="panel" id="tablePanel" style="display:none">
+  <details class="acc" id="tablePanel" open style="display:none">
+    <summary data-i18n="sec_edit_words">語を編集</summary>
+    <div class="acc-body">
     <div class="legend">
       <span data-i18n="legend_intro">語をクリックして切り替え：</span>
       <span><span class="sw" style="background:#fafbfc;border:1px solid #d0d5dc"></span><span data-i18n="legend_plain">そのまま</span></span>
@@ -224,12 +262,15 @@
         <button id="btnDocxAns" data-i18n="btn_docx_ans">解答 Word (.docx)</button>
       </span>
     </div>
-  </div>
+    </div>
+  </details>
 
-  <div class="panel" id="previewPanel" style="display:none">
-    <label data-i18n="lbl_preview">プレビュー</label>
+  <details class="acc" id="previewPanel" open style="display:none">
+    <summary data-i18n="lbl_preview">プレビュー</summary>
+    <div class="acc-body">
     <iframe id="preview"></iframe>
-  </div>
+    </div>
+  </details>
 
   <p class="muted" style="margin-top:1.5rem">
     <span data-i18n="footer_kanji_data">漢字データ</span>：<a href="https://www.edrdg.org/wiki/KANJIDIC_Project.html" target="_blank" rel="noopener">KANJIDIC2</a>（EDRDG, CC BY-SA 4.0）／
