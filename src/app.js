@@ -131,6 +131,22 @@ function sentenceNodes(text, lessonSet, G, target, levelOf) {
   return frag;
 }
 
+const PICK_VISIBLE = 6; // sentences shown per kanji before the "more" link
+
+function sentRow(s, grp, lessonSet, G, levelOf) {
+  const row = document.createElement('div');
+  row.className = 'sent-row';
+  const id = `pk_${Math.abs(hashStr(grp.kanji + s.t))}`;
+  const cb = document.createElement('input');
+  cb.type = 'checkbox'; cb.id = id; cb.dataset.text = s.t;
+  const lab = document.createElement('label');
+  lab.htmlFor = id;
+  lab.title = `スコア ${s.score.toFixed(1)}`; // ranking score, on hover
+  lab.appendChild(sentenceNodes(s.t, lessonSet, G, grp.kanji, levelOf));
+  row.appendChild(cb); row.appendChild(lab);
+  return row;
+}
+
 function renderPicker(groups, G, levelOf, label) {
   const lessonSet = new Set(selectedKanji());
   const root = $('picker');
@@ -148,19 +164,28 @@ function renderPicker(groups, G, levelOf, label) {
       e.textContent = grp.note === 'jouyou外' ? t('empty_not_jouyou') : t('empty_none');
       block.appendChild(e);
     }
-    for (const s of grp.sentences) {
+    // first PICK_VISIBLE rows show; the rest go in a hidden list revealed by a
+    // "more" toggle (kept in the DOM so checked-then-hidden rows still add).
+    const head = document.createElement('div');
+    head.className = 'sent-list';
+    const rest = document.createElement('div');
+    rest.className = 'sent-list more';
+    grp.sentences.forEach((s, i) => {
       totalShown++;
-      const row = document.createElement('div');
-      row.className = 'sent-row';
-      const id = `pk_${Math.abs(hashStr(grp.kanji + s.t))}`;
-      const cb = document.createElement('input');
-      cb.type = 'checkbox'; cb.id = id; cb.dataset.text = s.t;
-      const lab = document.createElement('label');
-      lab.htmlFor = id;
-      lab.title = `スコア ${s.score.toFixed(1)}`; // ranking score, on hover
-      lab.appendChild(sentenceNodes(s.t, lessonSet, G, grp.kanji, levelOf));
-      row.appendChild(cb); row.appendChild(lab);
-      block.appendChild(row);
+      (i < PICK_VISIBLE ? head : rest).appendChild(sentRow(s, grp, lessonSet, G, levelOf));
+    });
+    block.appendChild(head);
+    if (grp.sentences.length > PICK_VISIBLE) {
+      block.appendChild(rest);
+      const extra = grp.sentences.length - PICK_VISIBLE;
+      const more = document.createElement('button');
+      more.type = 'button'; more.className = 'pick-more secondary';
+      more.textContent = t('pick_more', { n: extra });
+      more.onclick = () => {
+        const open = rest.classList.toggle('open');
+        more.textContent = open ? t('pick_less') : t('pick_more', { n: extra });
+      };
+      block.appendChild(more);
     }
     root.appendChild(block);
   }

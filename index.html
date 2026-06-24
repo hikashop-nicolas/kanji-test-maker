@@ -55,6 +55,12 @@
   .pick-block { margin:.4rem 0 1rem; }
   .pick-block h4 { margin:.3rem 0; font-size:1rem; border-bottom:2px solid var(--accent); display:inline-block; padding-bottom:.1rem; }
   .pick-block .empty { color:#999; font-size:.85rem; margin:.2rem 0; }
+  /* sentence rows flow into as many columns as the width allows (fills the
+     desktop blank space; collapses to one column when narrow) */
+  .sent-list { display:grid; grid-template-columns:repeat(auto-fill,minmax(260px,1fr)); gap:.1rem .8rem; }
+  .sent-list.more { display:none; }
+  .sent-list.more.open { display:grid; }
+  .pick-more { background:none; color:var(--accent); padding:.2rem .1rem; font-size:.82rem; }
   .sent-row { display:flex; gap:.5rem; align-items:baseline; padding:.18rem .2rem; border-bottom:1px solid #f1f2f4; }
   .sent-row:hover { background:#fafbfc; }
   .sent-row input { margin-top:.3rem; }
