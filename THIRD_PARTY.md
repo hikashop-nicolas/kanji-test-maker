@@ -9,6 +9,15 @@ This project bundles the following components, each under its own license.
 | [kuromoji.js](https://github.com/takuyaa/kuromoji.js) (+ `assets/dict/`) | Japanese tokenization / readings, in the browser | Apache-2.0 |
 | [docx](https://github.com/dolanmiu/docx) | `.docx` generation | MIT |
 | [JSZip](https://stuk.github.io/jszip/) | zip post-processing (font-embed flag) | MIT / GPLv3 (dual) |
+| [tesseract.js](https://github.com/naptha/tesseract.js) + [tesseract.js-core](https://github.com/naptha/tesseract.js-core) (in `vendor/tesseract/`) | OCR: read Japanese text from an image, in the browser | Apache-2.0 |
+
+## OCR trained data (in `assets/tessdata/`)
+
+Loaded only when the OCR feature is first used.
+
+| Data | Source | License |
+|---|---|---|
+| `jpn.traineddata.gz`, `jpn_vert.traineddata.gz` (horizontal + vertical Japanese) | [tesseract-ocr/tessdata](https://github.com/tesseract-ocr/tessdata) | Apache-2.0 |
 
 ## Fonts (in `assets/fonts/`)
 

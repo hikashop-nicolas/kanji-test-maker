@@ -168,6 +168,7 @@
       <div class="tabs">
         <button data-tab="corpus" class="active" data-i18n="tab_corpus">コーパスから選ぶ</button>
         <button data-tab="paste" data-i18n="tab_paste">文を貼り付け</button>
+        <button data-tab="ocr" data-i18n="tab_ocr">画像から (OCR)</button>
       </div>
       <div class="tabpane active" id="tab_corpus">
   <div id="lessonPanel">
@@ -230,6 +231,23 @@
       <span class="muted" data-i18n="hint_process">漢字の語が自動で選択されます。語をクリックして選択／解除。</span>
     </div>
       </div><!-- /tab_paste -->
+
+      <div class="tabpane" id="tab_ocr">
+    <label for="ocr_image" data-i18n="ocr_lbl_image">画像を選ぶ（教科書のページなど）</label>
+    <input type="file" id="ocr_image" accept="image/*">
+    <div class="toolbar">
+      <label style="display:flex;align-items:center;gap:.35rem;margin:0;font-size:.9rem;color:#333">
+        <input type="checkbox" id="ocr_vertical"> <span data-i18n="ocr_vertical">縦書きの画像</span>
+      </label>
+      <button id="ocr_run" disabled data-i18n="ocr_run">画像から文字を読み取る</button>
+      <span class="muted" id="ocr_status"></span>
+    </div>
+    <textarea id="ocr_text" data-i18n-ph="ocr_ph" placeholder="読み取った文がここに出ます。1行に1文。"></textarea>
+    <div class="toolbar">
+      <button id="ocr_add" data-i18n="ocr_add">この文を追加</button>
+      <span class="muted" data-i18n="ocr_hint">読み取り結果を確認し、いらない行を消してから追加してください。</span>
+    </div>
+      </div><!-- /tab_ocr -->
     </div>
   </details>
 
