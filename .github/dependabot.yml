@@ -1,0 +1,26 @@
+# The app has no build step: it runs the copies in vendor/ and assets/dict/,
+# which are taken from the npm packages below. Bumping a package here does not
+# by itself change what ships, so `npm run vendor` refreshes those copies and
+# the vendor-sync workflow fails any PR that forgets.
+#
+# Not covered by Dependabot: the fonts in assets/fonts/ (Google Fonts releases)
+# and the OCR models in assets/tessdata/ (tessdata_fast). Both change rarely and
+# are bumped by hand.
+version: 2
+updates:
+  - package-ecosystem: "npm"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 5
+    groups:
+      # One PR for the small stuff; majors come separately so each is reviewed
+      # on its own, which matters here because a major usually moves the file
+      # paths that tools/sync-vendor.mjs copies from.
+      minor-and-patch:
+        update-types: ["minor", "patch"]
+
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"

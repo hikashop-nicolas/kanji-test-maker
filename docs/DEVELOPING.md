@@ -50,6 +50,29 @@ The column geometry in `model.js` (used to fit sentences to the page
 automatically) mirrors the CSS in `htmlExport.js`. If you change the column
 widths there, change it in both.
 
+## Dependencies
+
+There is no bundler, so the browser loads the copies committed in `vendor/` and
+`assets/dict/`. Those are byte-for-byte copies of files inside the npm packages
+in `package.json`, which means **bumping a package does not change what ships**
+until the copies are refreshed:
+
+```bash
+npm install            # or accept a Dependabot PR
+npm run vendor         # recopy vendor/ and assets/dict/ from node_modules
+```
+
+`.github/workflows/vendor-sync.yml` runs `npm run vendor -- --check` on every
+pull request and fails when a copy is out of date, so a bump cannot be merged
+half-applied. If a major release moves a file, the script says which path it
+could no longer find; fix the mapping at the top of `tools/sync-vendor.mjs`.
+
+Dependabot (`.github/dependabot.yml`) watches the npm packages and the GitHub
+Actions, weekly, grouping minor and patch bumps into one PR and leaving majors
+on their own. It does not see the fonts in `assets/fonts/` (Google Fonts) or the
+OCR models in `assets/tessdata/` (tessdata_fast); both change rarely and are
+updated by hand.
+
 ## PWA
 
 `sw.js` is generated from what is actually in the repo by `tools/gen-sw.mjs`,
