@@ -2,226 +2,136 @@
 
 **English** | [日本語](README.ja.md)
 
-A browser tool for teachers: paste Japanese sentences, mark the words to test,
-and generate a vertical-writing (縦書き) kanji worksheet as a **PDF** and an
-editable **Word (.docx)**, with the font embedded so it looks right anywhere.
+A free tool for teachers. Choose this week's kanji, or paste your own sentences,
+and get a vertical-writing (縦書き) kanji worksheet as a **PDF** and as an
+editable **Word (.docx)**, with an answer key if you want one.
 
-No accounts, no server-side processing, no build step. Everything (tokenizing,
-layout, PDF, .docx, font embedding) runs in the browser.
+Everything happens in your browser. There is no account, nothing is uploaded,
+and your sentences never leave your computer.
 
 ## Use it now
 
-**https://hikashop-nicolas.github.io/kanji-test-maker/** — open it in your
-browser, nothing to install.
+**https://hikashop-nicolas.github.io/kanji-test-maker/**
 
-It is also a PWA, so you can install it as a desktop app: open the link and use
-your browser's install action (the icon in Chrome's address bar, or File ▸ Add
-to Dock in Safari). It then opens in its own window and keeps working offline.
-The dictionary, fonts and OCR models are large, so they are not downloaded on
-install: they are kept the first time you use them, and are available offline
-from then on.
+Nothing to install. You can also add it to your computer as an app: open the
+link and use your browser's install button (the icon at the right of Chrome's
+address bar, or File ▸ Add to Dock in Safari). It then opens in its own window,
+like any other app, and keeps working without an internet connection.
 
-## What it does
+The dictionary, fonts and text-recognition models are large, so they are not
+downloaded up front. They are kept the first time you use them, and are
+available offline from then on.
 
-You can paste your own sentences, **or build a sheet straight from a school
-grade** — pick the grade, choose this week's kanji, and the tool finds example
-sentences for you.
+## Making a worksheet
 
-**1. Pick a level and choose the kanji.** Choose a school grade or a JLPT level
-(N5–N1). The table is sorted by stroke count then radical (the order teachers
-scan). Click to select, or type kanji straight into the field — including kanji
-from other levels.
+You can build a sheet straight from a school grade, or paste your own sentences
+(see [Your own sentences](#your-own-sentences) below).
+
+**1. Choose a level, then the kanji.** Pick a school grade (小1 to 小6, or
+secondary jōyō) or a JLPT level (N5 to N1). The table is ordered by stroke count
+then radical, the order teachers scan. Click to select, or type kanji straight
+into the field, including kanji from other levels.
 
 ![Choose grade and kanji](docs/screenshots/01-pick-kanji.png)
 
-**2. Pick from ranked example sentences.** For each kanji you get example
-sentences ranked so the easiest, most reinforcing ones come first; the target
-kanji is highlighted. "やさしい文だけ" keeps only sentences within the grade.
+**2. Choose example sentences.** For each kanji you get example sentences with
+the easiest, most useful ones first, and the target kanji highlighted. Tick
+やさしい文だけ to keep only sentences that stay within the level.
 
 ![Pick example sentences](docs/screenshots/02-pick-sentences.png)
 
-**3. Fine-tune in the table.** Checked sentences drop into the editable table
-with only the lesson kanji marked. Click a word to cycle its state, fix a
-reading, switch a sentence between 書き (write the kanji) and 読み (write the
-reading). You can also paste extra sentences of your own. Each word has four
-states:
+**3. Adjust in the table.** The sentences you ticked land in an editable table
+with the lesson kanji already marked. Click any word to change what happens to
+it:
 
-- そのまま (grey): the kanji is shown as-is.
-- テスト (blue): the word becomes an answer box.
-- ふりがな (orange): the kanji is kept, with furigana added.
-- ひらがな (red): the kanji is replaced by its reading (for words above the
-  grade). Above-grade words are auto-set to this when you add lesson sentences.
+- そのまま (grey): shown as written.
+- テスト (blue): becomes an answer box.
+- ふりがな (orange): kanji kept, with furigana added.
+- ひらがな (red): kanji replaced by its reading. Sentences added from the picker
+  start with words above the chosen level already in this state.
+
+Each sentence is either 書き (the reading is shown, the pupil writes the kanji)
+or 読み (the kanji is shown, the pupil writes the reading). The buttons above the
+table switch **every** sentence at once, so one set of sentences gives you a
+write sheet and a read sheet without clicking through them one by one.
+
+Readings can be corrected in place if the analysis gets one wrong.
 
 ![Edit the table](docs/screenshots/03-edit-table.png)
 
-**4. Get the worksheet.** Save a print-perfect PDF or an editable .docx, in the
-classic vertical layout with answer boxes and circled numbers. Tick 解答シートも
-作成する to also export an answer key (the same sheet with the boxes filled in).
+**4. Save the worksheet.** **PDF を保存** gives a print-ready PDF, **Word
+(.docx) を保存** an editable document with the font embedded, so it looks right
+even on a computer that does not have that font. Tick **解答シートも作成する**
+to also get an answer key: the same sheet with every box filled in.
 
 ![Generated worksheet](docs/screenshots/04-worksheet.png)
 
-Save the whole sheet with **セットを保存** and reopen it later with **セットを
-読み込み**.
+## Your own sentences
 
-## Features
+**Paste them.** In the 文を貼り付け tab, put one sentence per line, written
+normally with kanji, and click 解析する. Kanji words are detected and marked for
+you; from there it is the same table as above. `test_sentences.md` has
+ready-made sets to try.
 
-- **Lesson auto-fill.** Pick a school grade (小1–小6 or secondary jōyō) **or a
-  JLPT level (N5–N1)**, choose the kanji from a stroke/radical-sorted table, and
-  get example sentences ranked by readability for that scheme. Sources:
-  KANJIDIC2, reconstructed JLPT levels, and the Tatoeba sentence corpus (see
-  `THIRD_PARTY.md`); no copyrighted textbook content. The JLPT lists are
-  unofficial reconstructions (no official list since 2010).
-- **Paste & mark.** Paste sentences (one per line); kanji words are auto-detected
-  and selected. Click a word to toggle it. Readings are editable.
-- **From an image (OCR).** Read Japanese text off a photo or scan (e.g. a textbook
-  page) with a bundled, fully offline OCR engine (tesseract.js, horizontal or
-  vertical). The recognised lines land in an editable box so you can delete any
-  junk before adding them. The engine and trained data load only on first use.
-- **Four per-word states.** Click a word to cycle: plain (kanji as-is), test
-  (answer box), furigana (kanji + ruby), or kana (kanji replaced by its reading,
-  for words above the grade). Furigana renders as real ruby in both the PDF and
-  the .docx.
-- **書き / 読み per sentence.** *Write* mode shows the reading and a box to write
-  the word; *read* mode shows the kanji and a box to write the reading.
-- **Answer key.** One tick exports a second sheet with every box filled in (the
-  kanji in 書き, the reading in 読み), as its own PDF or .docx.
-- **Save / load sheets.** Save the whole worksheet (sentences, word states,
-  header, options) to a small `.ktm.json` file and reopen it later to tweak or
-  reprint.
-- **Worksheet extras.** Optional points + parent's-seal boxes (on the last page,
-  below the name), a logo/image in the bottom-left corner (auto-resized to the
-  print size and kept in your browser), and an automatic page counter (1 / N) on
-  multi-page sheets. The title shows only on the first page.
-- **Blank-cell placement.** Choose where the answer blanks sit: **in the
-  sentence** (文中, the Japanese norm, default) with the box where the kanji goes
-  and the reading as furigana to its right, or in a **side column** (横の欄). Both
-  the PDF and the .docx follow the choice.
-- **Vertical worksheet** matching the classic layout: title column, right-to-left
-  sentences, side-lined tested words, circled sentence numbers (any value), and a
-  name field.
-- **Two outputs:** a print-perfect **PDF** and an editable **.docx**. The chosen
-  font is **embedded in the .docx**, so it displays even if the recipient does
-  not have it installed.
-- **Fonts:** Google Japanese fonts (Klee One default — handwriting/textbook
-  shapes suited to lower grades — plus LINE Seed JP, Zen Kaku/Maru Gothic,
-  Kaisei Tokumin, Yuji Syuku), or upload your own.
-- **Interface languages.** The UI is available in Japanese, English, and French
-  (auto-detected from the browser, switchable from the top bar, saved in
-  localStorage). The worksheet content itself stays Japanese.
-- **Settings persist** (class, lesson, name, per-page count, font, sizes) via
-  localStorage.
+**Read them off a photo.** The 画像から (OCR) tab reads Japanese from a photo or
+a scan, a textbook page or an old worksheet, without sending the image anywhere.
+If the page is written vertically, tick 縦書きの画像 first: it changes how the
+page is read, and makes the difference between sentences and gibberish.
 
-## Quick start (local)
+Recognition is not perfect on a home scan. The recognised lines land in an
+editable box, so read them over and fix or delete what came out wrong before
+adding them.
 
-The app is static, but the kuromoji dictionary and the fonts are fetched, so it
-must be served over HTTP (opening the file directly will not work):
+## Layout
 
-```bash
-npm run serve
-# python3 tools/devserver.py  (serves on :8799, no-cache)
-# open http://localhost:8799/index.html
-```
+Under 見た目・レイアウト:
 
-Any static server works (`python3 -m http.server`, etc.); `serve` just adds
-no-cache headers, handy while editing, and regenerates `sw.js` first.
+- **Sentences per page.** Left on 自動, the sheet fits as many as the page takes.
+  Untick it to set an exact number.
+- **Bands per page.** One band of full-height columns, or two shorter ones
+  stacked, which suits short sentences: with one band they leave the bottom half
+  of the sheet empty.
+- **Blank position.** In the sentence (文中, the usual Japanese layout, and the
+  default), with the box where the kanji goes and the reading alongside it, or in
+  a side column (横の欄).
+- **Font and sizes.** Six Japanese fonts (Klee One by default, whose handwriting
+  shapes suit lower grades), the fonts on your own computer, or a font file you
+  upload. Font size and box size are separate settings.
+- **Extras.** Score and parent's-seal boxes below the name, and a logo in the
+  bottom-left corner. Multi-page sheets are numbered automatically.
 
-`sw.js` is generated from what is in the repo, not committed
-(`npm run build:sw`). The PWA icons come from `npm run build:icons`, which needs
-`rsvg-convert` (`brew install librsvg`); the generated PNGs are committed.
+If a sentence will not fit on the page, the preview says so in red rather than
+dropping it silently. Reduce the font or box size, or add a band.
 
-## Deploy (GitHub Pages)
+## Saving and reopening
 
-It is a static site — push the repo and enable Pages. A workflow is included
-(`.github/workflows/deploy.yml`) that publishes the repo root to Pages on every
-push to `main`. `node_modules/` is gitignored and not needed at runtime (the
-libraries are vendored in `vendor/`).
+**セットを保存** saves the whole sheet, sentences, word states, header and
+options, as a small `.ktm.json` file. **セットを読み込み** opens it again later
+to adjust or reprint. Your header and layout settings are also remembered
+between visits.
 
-The workflow regenerates `sw.js` before publishing, so the service worker always
-matches what ships and an update reaches installed copies.
+## Good to know
 
-Note: the Google Fonts used for on-screen display load from Google's CDN, so the
-preview needs internet the first time; the service worker keeps them afterwards.
-The `.docx` font embedding uses the local copies in `assets/fonts/`, so it works
-offline.
+- The example sentences come from the Tatoeba corpus, filtered to sentences
+  written by native or fluent speakers, plus some written for this project. No
+  textbook content is copied.
+- The JLPT lists are unofficial reconstructions. No official list has been
+  published since 2010.
+- The interface is in Japanese, English and French, switchable from the top bar.
+  The worksheets themselves are of course in Japanese.
+- A `.docx` carries a full copy of the font, which adds 1.5 to 5 MB to the file.
+  The PDF is much lighter.
+- Very long sentences may not fit one column at large font or box sizes. Reduce
+  the sizes, add a band, or split the sentence.
 
-## How to use
+## For developers
 
-(For the grade → kanji → sentence flow, see **What it does** above. The steps
-below cover pasting your own sentences.)
-
-1. Fill the header (class, weekly title, lesson number, name label).
-2. Paste sentences, one per line, written naturally with kanji.
-3. Click **解析する**. In the table, click a word to cycle its state (plain /
-   test / furigana / kana) and switch each sentence between 書き / 読み. Fix any
-   reading inline.
-4. Adjust options: sentences per page, font, font size, box size.
-5. **PDF を保存** (browser print → Save as PDF) or **Word (.docx) を保存**.
-   Tick **解答シートも作成する** for an answer key. Use **セットを保存** /
-   **セットを読み込み** to keep a sheet for later.
-
-See `test_sentences.md` for ready-to-paste example sets.
-
-## How it works
-
-```
-paste → kuromoji (tokens + readings) → editable table
-      → buildLayout() (abstract worksheet)
-      → htmlExport (vertical-rl HTML)  → preview / print → PDF
-      → docxExport (vertical RTL table) → docx.js → JSZip (embed-font flag) → .docx
-```
-
-- `src/model.js` — pure: tokens → worksheet layout (auto-select, merge adjacent
-  kanji, kaki/yomi, box positions, circled numbers, full-width title digits).
-- `src/htmlExport.js` — pure: layout → vertical HTML (preview + PDF).
-- `src/docxExport.js` — layout → `.docx` (vertical table, embedded font).
-- `src/docxEmbed.js` — adds the `<w:embedTrueTypeFonts/>` flag Word needs.
-- `src/app.js` — UI glue (kuromoji, table, settings, exports, lesson picker).
-- `src/lesson.js` — grade → kanji table, selection (grid + editable field).
-- `src/sentences.js` — example-sentence scoring (i+1 ranking) + candidate lists.
-- `src/i18n.js` — interface translations (ja/en/fr) + the language switcher.
-- `vendor/` — kuromoji.js, docx, JSZip (no build step).
-- `assets/dict/` — kuromoji dictionary
-- `assets/fonts/` — embeddable TTFs.
-- `assets/data/` — generated lesson data (kanji index + per-grade sentences).
-- `tools/gen.mjs` — Node harness to render outputs without a browser.
-
-### Regenerating the lesson data
-
-The files in `assets/data/` are generated and committed (GitHub Pages serves
-them directly). To rebuild from source:
-
-```bash
-npm run build:data     # tools/build-data.mjs (KANJIDIC2) + build-sentences.mjs (Tatoeba)
-```
-
-`build-data.mjs` writes `assets/data/kanji.json` (grade, strokes, radical,
-readings) from KANJIDIC2, plus a reconstructed JLPT level (N5–N1) per kanji from
-davidluzgouveia/kanji-data. `build-sentences.mjs` writes the per-grade sentence
-index from the Tatoeba Japanese corpus, **kept only when the author is a
-native/fluent Japanese speaker (self-rated 4-5) or the sentence has recorded
-audio** (a strong naturalness signal), plus ~39 original sentences from
-`tools/manual-sentences.json` for rare kanji with no Tatoeba example, plus a
-**curated, grade-pure supplement** in `tools/authored-sentences.json` (original
-sentences whose every kanji is at or below the grade, added grade by grade and
-ranked first). Validate the curated set with `npm run validate:authored -- 1`
-(it rejects any above-grade kanji). It uses
-Tatoeba's `jpn_sentences_detailed.tsv`, `user_languages.csv` and
-`sentences_with_audio.csv`; all cache under `tools/data-cache/` (gitignored);
-re-running refreshes the data. See `THIRD_PARTY.md` for the data licenses
-(KANJIDIC2 CC BY-SA 4.0, Tatoeba CC BY 2.0 FR).
-
-## Notes & limits
-
-- `.docx` font embedding adds the full font (~1.5–5 MB) to each file; it is not
-  subsetted. The PDF is the lightest faithful output.
-- A `.docx` references a font by name; the embedded copy covers recipients who
-  do not have it installed.
-- Very long sentences may not fit one column at large font/box sizes; reduce the
-  sizes or split the sentence.
+Running it locally, the project layout, and how the lesson data is generated:
+see [docs/DEVELOPING.md](docs/DEVELOPING.md).
 
 ## License
 
-Source code: MIT (see `LICENSE`). Bundled libraries, dictionary, fonts, and
-lesson data keep their own licenses — see `THIRD_PARTY.md` (fonts are SIL OFL
-1.1, `assets/fonts/OFL.txt`; kanji data is KANJIDIC2 CC BY-SA 4.0; example
-sentences are Tatoeba CC BY 2.0 FR).
+Source code: MIT (see `LICENSE`). The bundled libraries, dictionary, fonts and
+lesson data keep their own licenses, listed in `THIRD_PARTY.md`: fonts are SIL
+OFL 1.1, kanji data is KANJIDIC2 (CC BY-SA 4.0), example sentences are Tatoeba
+(CC BY 2.0 FR).
