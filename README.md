@@ -14,6 +14,13 @@ layout, PDF, .docx, font embedding) runs in the browser.
 **https://hikashop-nicolas.github.io/kanji-test-maker/** — open it in your
 browser, nothing to install.
 
+It is also a PWA, so you can install it as a desktop app: open the link and use
+your browser's install action (the icon in Chrome's address bar, or File ▸ Add
+to Dock in Safari). It then opens in its own window and keeps working offline.
+The dictionary, fonts and OCR models are large, so they are not downloaded on
+install: they are kept the first time you use them, and are available offline
+from then on.
+
 ## What it does
 
 You can paste your own sentences, **or build a sheet straight from a school
@@ -116,7 +123,11 @@ npm run serve
 ```
 
 Any static server works (`python3 -m http.server`, etc.); `serve` just adds
-no-cache headers, handy while editing.
+no-cache headers, handy while editing, and regenerates `sw.js` first.
+
+`sw.js` is generated from what is in the repo, not committed
+(`npm run build:sw`). The PWA icons come from `npm run build:icons`, which needs
+`rsvg-convert` (`brew install librsvg`); the generated PNGs are committed.
 
 ## Deploy (GitHub Pages)
 
@@ -125,9 +136,13 @@ It is a static site — push the repo and enable Pages. A workflow is included
 push to `main`. `node_modules/` is gitignored and not needed at runtime (the
 libraries are vendored in `vendor/`).
 
+The workflow regenerates `sw.js` before publishing, so the service worker always
+matches what ships and an update reaches installed copies.
+
 Note: the Google Fonts used for on-screen display load from Google's CDN, so the
-preview needs internet. The `.docx` font embedding uses the local copies in
-`assets/fonts/`, so it works offline.
+preview needs internet the first time; the service worker keeps them afterwards.
+The `.docx` font embedding uses the local copies in `assets/fonts/`, so it works
+offline.
 
 ## How to use
 
