@@ -341,20 +341,37 @@ function loadTesseract() {
   return ocrScript;
 }
 // split recognized text into candidate sentences: break on JP enders + newlines,
-// keep only lines that actually contain kana or kanji.
+// clean up the marks a scan leaves behind, keep only lines carrying kanji.
 // CJK space/punctuation, kana, kanji, fullwidth forms (Japanese has no word spaces)
 const JP_RUN = /([　-ヿ㐀-鿿＀-￯]) +([　-ヿ㐀-鿿＀-￯])/g;
-// worksheet question numbers and table rules land in front of the sentence as one
-// or two latin characters; longer runs may be real text (TCLカード) so keep those.
-const LEAD_NOISE = /^[!-~｜]{1,2}\s+(?=[぀-ヿ㐀-鿿])/;
-function splitOcrLines(text) {
+// ruled lines and creases come back as these ascii symbols, never as real text
+const STRAY = /[<>|｜_^~`\\]/g;
+// worksheet question numbers land in front of the sentence as one or two latin
+// characters; longer runs may be real text (TCLカード) so keep those.
+const LEAD_ASCII = /^[!-~｜]{1,2}\s+(?=[぀-ヿ㐀-鿿])/;
+// nothing in Japanese opens on a small kana, a長音符 or a stray quote/mark
+const LEAD_KANA = /^[ぁぃぅぇぉっゃゅょァィゥェォッャュョーヽヾ゛゜]+/;
+const LEAD_PUNCT = /^[\s"“”‘’*+,.:;・、。!?！？=-]+/;
+const HAS_KANJI = /[㐀-鿿]/;
+// below this a tesseract line is a table rule or a speck, not text; real
+// sentences on a home scan score 50-90.
+const MIN_LINE_CONF = 30;
+function cleanOcrLine(s) {
   // tesseract inserts a space between every CJK glyph; drop spaces that sit
   // between two Japanese characters/punctuation, keeping spaces inside latin
   // text. Looped (no lookbehind) so it works on older engines too.
-  return text.replace(/([。！？])/g, '$1\n').split(/\r?\n/)
-    .map(s => { let p; do { p = s; s = s.replace(JP_RUN, '$1$2'); } while (s !== p); return s.trim(); })
-    .map(s => s.replace(LEAD_NOISE, ''))
-    .filter(s => /[぀-ヿ㐀-鿿]/.test(s));
+  let p;
+  do { p = s; s = s.replace(JP_RUN, '$1$2'); } while (s !== p);
+  return s.replace(LEAD_ASCII, '').replace(LEAD_KANA, '').replace(LEAD_PUNCT, '').trim();
+}
+// rows: {text, confidence} from tesseract, or a single row holding the whole page
+function splitOcrLines(rows) {
+  return rows
+    .filter(r => !(r.confidence < MIN_LINE_CONF))
+    .flatMap(r => r.text.replace(STRAY, '').replace(/([。！？])/g, '$1\n').split(/\r?\n/))
+    .map(cleanOcrLine)
+    // a line with no kanji is the answer column or a caption: nothing to quiz on
+    .filter(s => HAS_KANJI.test(s));
 }
 $('ocr_image').addEventListener('change', () => { $('ocr_run').disabled = !$('ocr_image').files[0]; });
 $('ocr_run').addEventListener('click', async () => {
@@ -375,9 +392,12 @@ $('ocr_run').addEventListener('click', async () => {
     // the vertical model only makes sense with page layout analysis; the default
     // "one horizontal block" mode reads the columns crosswise and returns noise.
     if (vertical) await worker.setParameters({ tessedit_pageseg_mode: window.Tesseract.PSM.AUTO });
-    const { data } = await worker.recognize(file);
+    const { data } = await worker.recognize(file, {}, { text: true, blocks: true });
     await worker.terminate();
-    const lines = splitOcrLines(data.text);
+    const rows = [];
+    for (const b of data.blocks || [])
+      for (const p of b.paragraphs || []) rows.push(...(p.lines || []));
+    const lines = splitOcrLines(rows.length ? rows : [{ text: data.text }]);
     $('ocr_text').value = lines.join('\n');
     st.textContent = lines.length ? '' : t('ocr_no_text');
   } catch (e) {
