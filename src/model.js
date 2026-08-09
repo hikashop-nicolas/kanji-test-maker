@@ -154,6 +154,62 @@ function chunk(arr, n) {
   return out;
 }
 
+// ---- auto pagination -----------------------------------------------------
+// How wide a sentence sits on the page, and how far it runs down its column.
+// The numbers mirror the HTML export's CSS (htmlExport.js) and were checked
+// against the rendered page: a text column is 1.3em wide, the box column adds
+// the box size plus its 2mm margin, and in 文中 mode the boxes set the width
+// whenever they are wider than the text.
+const PAGE_W_MM = 281, PAGE_PAD_MM = 6; // .page width and its left/right padding
+const EXTRAS_W_MM = 14;                 // the 点 / 印 boxes beside the title
+const COL_GAP_MM = 2;                   // keep neighbouring sentences apart
+
+function columnWidthMm(wrap, pitch, boxSize, inline) {
+  return inline
+    ? Math.max(1.3 * pitch, boxSize) * wrap
+    : 1.3 * pitch * wrap + boxSize + 2;
+}
+
+// A trailing 。 is allowed to hang past the end of the column, so it does not
+// count towards the height.
+function columnRunMm(col, pitch, boxSize, inline) {
+  let h = 1.2 * pitch; // the circled number
+  let last = '';
+  for (const r of col.runs) {
+    if (r.t === 'read') { h += inline ? Math.max(1, r.cells) * boxSize : r.s.length * pitch; last = inline ? '' : r.s; }
+    else if (r.t === 'furi') { h += r.base.length * pitch; last = r.base; }
+    else { h += r.s.length * pitch; last = r.s; }
+  }
+  if (/[。！？]$/.test(last)) h -= pitch;
+  return h;
+}
+
+// Spread the sentences over the fewest whole pages they fit on, evenly rather
+// than cramming the first band and leaving the last one nearly empty. The first
+// band also carries the title column and the last one the points/seal boxes, so
+// any odd sentence out goes to a band in between.
+function autoBands(cols, widthOf, rows, titleW, extrasW) {
+  if (!cols.length) return [{ columns: [] }];
+  const avail = PAGE_W_MM - 2 * PAGE_PAD_MM;
+  const fits = (bands) => bands.every((b, i) => {
+    const reserve = (i === 0 ? titleW : 0) + (i === bands.length - 1 ? extrasW : 0);
+    return b.reduce((w, c) => w + widthOf(c) + COL_GAP_MM, reserve) <= avail;
+  });
+  for (let B = rows; B <= cols.length; B += rows) {
+    const base = Math.floor(cols.length / B), extra = cols.length % B;
+    if (!base) break; // more bands than sentences
+    const bands = [];
+    let i = 0;
+    for (let b = 0; b < B; b++) {
+      const n = base + (b >= 1 && b <= extra ? 1 : 0);
+      bands.push(cols.slice(i, i + n));
+      i += n;
+    }
+    if (i === cols.length && fits(bands)) return bands.map(columns => ({ columns }));
+  }
+  return cols.map(c => ({ columns: [c] })); // last resort: one sentence per band
+}
+
 // Split one page's columns into `rows` bands of near-equal width. An odd
 // sentence out goes to a later band: the first one also carries the title
 // column, so it has the least room.
@@ -198,10 +254,19 @@ export function buildLayout(worksheet) {
   // each page splits its sentences into `rows` bands, balanced so the last page
   // never leaves a whole band empty
   const colH = (PAGE_COL_MM - (rows - 1) * BAND_GAP_MM) / rows;
-  const pages = chunk(sentences, perPage).map(group => ({
-    columns: group,
-    bands: splitBands(group, rows),
-  }));
+  let pages;
+  if (o.autoPerPage) {
+    // fit as many sentences as the page takes, rather than a fixed count
+    const pitch = fontSize * 0.35278;
+    const inline = blankPos === 'inline';
+    const widthOf = (c) => columnWidthMm(
+      Math.max(1, Math.ceil(columnRunMm(c, pitch, boxSize, inline) / colH)), pitch, boxSize, inline);
+    // titleFontSize is at most fontSize, so this reserves enough for the title
+    const bands = autoBands(sentences, widthOf, rows, extras ? EXTRAS_W_MM : pitch, extras ? EXTRAS_W_MM : 0);
+    pages = chunk(bands, rows).map(bs => ({ bands: bs, columns: bs.flatMap(b => b.columns) }));
+  } else {
+    pages = chunk(sentences, perPage).map(group => ({ columns: group, bands: splitBands(group, rows) }));
+  }
   if (pages.length === 0) pages.push({ columns: [], bands: [{ columns: [] }] });
 
   const headerLen = header.pre.length + (header.lesson ? 1 : 0) + header.post.length;
