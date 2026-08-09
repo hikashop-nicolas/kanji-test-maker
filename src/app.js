@@ -344,12 +344,16 @@ function loadTesseract() {
 // keep only lines that actually contain kana or kanji.
 // CJK space/punctuation, kana, kanji, fullwidth forms (Japanese has no word spaces)
 const JP_RUN = /([　-ヿ㐀-鿿＀-￯]) +([　-ヿ㐀-鿿＀-￯])/g;
+// worksheet question numbers and table rules land in front of the sentence as one
+// or two latin characters; longer runs may be real text (TCLカード) so keep those.
+const LEAD_NOISE = /^[!-~｜]{1,2}\s+(?=[぀-ヿ㐀-鿿])/;
 function splitOcrLines(text) {
   // tesseract inserts a space between every CJK glyph; drop spaces that sit
   // between two Japanese characters/punctuation, keeping spaces inside latin
   // text. Looped (no lookbehind) so it works on older engines too.
   return text.replace(/([。！？])/g, '$1\n').split(/\r?\n/)
     .map(s => { let p; do { p = s; s = s.replace(JP_RUN, '$1$2'); } while (s !== p); return s.trim(); })
+    .map(s => s.replace(LEAD_NOISE, ''))
     .filter(s => /[぀-ヿ㐀-鿿]/.test(s));
 }
 $('ocr_image').addEventListener('change', () => { $('ocr_run').disabled = !$('ocr_image').files[0]; });
@@ -361,13 +365,16 @@ $('ocr_run').addEventListener('click', async () => {
   st.textContent = t('ocr_running', { p: 0 });
   try {
     await loadTesseract();
-    const lang = $('ocr_vertical').checked ? 'jpn_vert' : 'jpn';
-    const worker = await window.Tesseract.createWorker(lang, 1, {
+    const vertical = $('ocr_vertical').checked;
+    const worker = await window.Tesseract.createWorker(vertical ? 'jpn_vert' : 'jpn', 1, {
       workerPath: 'vendor/tesseract/worker.min.js',
       corePath: 'vendor/tesseract/tesseract-core-simd-lstm.wasm.js',
       langPath: 'assets/tessdata',
       logger: m => { if (m.status === 'recognizing text') st.textContent = t('ocr_running', { p: Math.round(m.progress * 100) }); },
     });
+    // the vertical model only makes sense with page layout analysis; the default
+    // "one horizontal block" mode reads the columns crosswise and returns noise.
+    if (vertical) await worker.setParameters({ tessedit_pageseg_mode: window.Tesseract.PSM.AUTO });
     const { data } = await worker.recognize(file);
     await worker.terminate();
     const lines = splitOcrLines(data.text);
