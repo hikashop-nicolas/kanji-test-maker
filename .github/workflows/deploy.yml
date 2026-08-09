@@ -28,7 +28,7 @@ jobs:
       # sw.js is generated, not committed, so it always matches what ships
       - run: node tools/gen-sw.mjs
       - uses: actions/configure-pages@v6
-      - uses: actions/upload-pages-artifact@v3
+      - uses: actions/upload-pages-artifact@v5
         with:
           path: "."
       - id: deployment
