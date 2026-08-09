@@ -32,7 +32,7 @@ let customFontFamily = null; // set when a font file is uploaded
 let customFontBytes = null;  // uploaded font bytes, for docx embedding
 
 // ---- persist settings ----------------------------------------------------
-const SETTING_IDS = ['h_class','h_title','h_lesson','h_name','o_perpage','o_font','o_fontsize','o_boxsize','o_blankpos'];
+const SETTING_IDS = ['h_class','h_title','h_lesson','h_name','o_perpage','o_rows','o_font','o_fontsize','o_boxsize','o_blankpos'];
 function saveSettings() {
   const o = {};
   SETTING_IDS.forEach(id => { if ($(id)) o[id] = $(id).value; });
@@ -251,6 +251,7 @@ function header() {
 function options() {
   return {
     perPage: parseInt($('o_perpage').value, 10) || 10,
+    rows: parseInt($('o_rows').value, 10) || 1,
     font: customFontFamily || $('o_font').value,
     fontSize: parseFloat($('o_fontsize').value) || 18,
     boxSize: parseFloat($('o_boxsize').value) || 10,
@@ -412,6 +413,16 @@ $('ocr_add').addEventListener('click', () => {
 });
 
 // ---- table ---------------------------------------------------------------
+// switch every sentence at once, so one set gives a 書き sheet and a 読み sheet
+function setAllModes(mode) {
+  if (!state.sentences.length) return;
+  state.sentences.forEach(s => { s.mode = mode; });
+  renderTable();
+  refreshPreview();
+}
+$('btnAllKaki').addEventListener('click', () => setAllModes('kaki'));
+$('btnAllYomi').addEventListener('click', () => setAllModes('yomi'));
+
 function renderTable() {
   const tbody = $('rows');
   tbody.innerHTML = '';
@@ -511,6 +522,22 @@ function fitPreview() {
   const scale = Math.max(0.1, ifr.clientWidth / naturalW);
   doc.body.style.zoom = String(scale);
   ifr.style.height = (Math.ceil(naturalH * scale) + 4) + 'px'; // small buffer so nothing clips
+  warnOverflow(doc);
+}
+
+// A band only holds so many columns; past that they run off the left edge and
+// the sentences are silently lost. Count them and say so.
+function warnOverflow(doc) {
+  let lost = 0;
+  doc.querySelectorAll('.page').forEach(page => {
+    const left = page.getBoundingClientRect().left;
+    page.querySelectorAll('.sentence').forEach(s => {
+      if (s.getBoundingClientRect().left < left - 1) lost++;
+    });
+  });
+  const w = $('fitWarn');
+  w.textContent = lost ? t('warn_overflow', { n: lost }) : '';
+  w.style.display = lost ? '' : 'none';
 }
 $('preview').addEventListener('load', fitPreview);
 window.addEventListener('resize', fitPreview);
@@ -586,7 +613,7 @@ function saveSet() {
   const data = {
     version: 1,
     header: header(),
-    options: { perPage: $('o_perpage').value, font: $('o_font').value, fontSize: $('o_fontsize').value, boxSize: $('o_boxsize').value, blankPos: $('o_blankpos').value },
+    options: { perPage: $('o_perpage').value, rows: $('o_rows').value, font: $('o_font').value, fontSize: $('o_fontsize').value, boxSize: $('o_boxsize').value, blankPos: $('o_blankpos').value },
     sentences: state.sentences.map(s => ({
       mode: s.mode,
       tokens: s.tokens.map(t => ({ surface: t.surface, reading: t.reading, hasKanji: t.hasKanji, state: t.state || (t.selected ? 'test' : 'plain') })),
@@ -605,6 +632,7 @@ function loadSet(file) {
     if (h.lessonNo != null) $('h_lesson').value = h.lessonNo;
     if (h.nameLabel != null) $('h_name').value = h.nameLabel;
     if (o.perPage != null) $('o_perpage').value = o.perPage;
+    if (o.rows != null) $('o_rows').value = o.rows;
     if (o.font != null) $('o_font').value = o.font;
     if (o.fontSize != null) $('o_fontsize').value = o.fontSize;
     if (o.boxSize != null) $('o_boxsize').value = o.boxSize;

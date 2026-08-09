@@ -117,7 +117,14 @@
     <summary data-i18n="sec_appearance">見た目・レイアウト</summary>
     <div class="acc-body">
     <div class="grid">
-      <div><label data-i18n="f_per_page">1ページの文数</label><input type="number" id="o_perpage" value="10" min="1" max="20"></div>
+      <div><label data-i18n="f_per_page">1ページの文数</label><input type="number" id="o_perpage" value="10" min="1" max="40"></div>
+      <div>
+        <label data-i18n="f_rows">1ページの段数</label>
+        <select id="o_rows">
+          <option value="1" data-i18n="rows_1">1段</option>
+          <option value="2" data-i18n="rows_2">2段（短い文むき）</option>
+        </select>
+      </div>
       <div><label data-i18n="f_font_size">文字の大きさ (pt)</label><input type="number" id="o_fontsize" value="18" min="8" max="40"></div>
       <div><label data-i18n="f_box_size">マスの大きさ (mm)</label><input type="number" id="o_boxsize" value="10" min="4" max="20" step="0.5"></div>
       <div>
@@ -261,6 +268,11 @@
       <span><span class="sw" style="background:#e8820e"></span><span data-i18n="legend_furigana">ふりがな</span></span>
       <span><span class="sw" style="background:#d8392f"></span><span data-i18n="legend_kana">ひらがなに置換</span></span>
     </div>
+    <div class="toolbar" style="margin:0 0 .4rem">
+      <span data-i18n="all_modes">ぜんぶの文を：</span>
+      <button id="btnAllKaki" class="secondary" data-i18n="btn_all_kaki">書きにする</button>
+      <button id="btnAllYomi" class="secondary" data-i18n="btn_all_yomi">読みにする</button>
+    </div>
     <table class="sheet">
       <thead><tr><th style="width:90px" data-i18n="th_mode">モード</th><th data-i18n="th_sentence">文（語をクリックで状態を切り替え）</th><th style="width:40px"></th></tr></thead>
       <tbody id="rows"></tbody>
@@ -286,6 +298,7 @@
   <details class="acc" id="previewPanel" open style="display:none">
     <summary data-i18n="lbl_preview">プレビュー</summary>
     <div class="acc-body">
+    <div id="fitWarn" style="display:none;margin-bottom:.4rem;color:#c0392b;font-size:.9rem"></div>
     <iframe id="preview"></iframe>
     </div>
   </details>

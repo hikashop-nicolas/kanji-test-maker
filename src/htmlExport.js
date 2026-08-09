@@ -38,14 +38,14 @@ function inlineRunHtml(r, answers) {
   return `<span class="tunit"><span class="bgrp">${cells}</span><span class="tread">${esc(r.reading || '')}</span></span>`;
 }
 
-function sentenceHtml(col, fontPitchMm, boxSize, answers, inline) {
+function sentenceHtml(col, fontPitchMm, boxSize, answers, inline, colH) {
   const num = `<span class="num">${esc(col.number)}</span>`;
   if (inline) {
     const text = `<div class="col">${num}${col.runs.map(r => inlineRunHtml(r, answers)).join('')}</div>`;
     return `<div class="sentence">${text}</div>`;
   }
   const text = `<div class="col">${num}${col.runs.map(runHtml).join('')}</div>`;
-  const pos = layoutBoxes(col.boxes, fontPitchMm, boxSize, 1, 190); // 190mm = --colH
+  const pos = layoutBoxes(col.boxes, fontPitchMm, boxSize, 1, colH); // colH mm = --colH
   const boxes = pos.map((p, i) => {
     const ans = answers ? `<span class="ans">${esc(col.boxes[i].answer || '')}</span>` : '';
     return `<span class="box" style="top:${p.top.toFixed(2)}mm;height:${p.height.toFixed(2)}mm">${ans}</span>`;
@@ -83,11 +83,21 @@ export function buildHtml(layout, opts = {}) {
   const answers = !!opts.answers;
   const inline = (layout.blankPos || 'inline') === 'inline';
   const total = layout.pageCount || layout.pages.length;
+  const colH = layout.colH || 190;                   // one band's column height, mm
+  const bandGap = layout.bandGap != null ? layout.bandGap : 5;
   const imageHtml = layout.image ? `<img class="pimg" src="${layout.image}" alt="">` : '';
   const pages = layout.pages.map((p, idx) => {
-    const cols = p.columns.map(c => sentenceHtml(c, fontPitchMm, boxSize, answers, inline)).join('');
+    const bands = p.bands || [{ columns: p.columns }];
+    // the title heads the first band of the first page; the points/seal boxes
+    // sit in the last band of the last page
+    const html = bands.map((b, bi) => {
+      const cols = b.columns.map(c => sentenceHtml(c, fontPitchMm, boxSize, answers, inline, colH)).join('');
+      const title = titleHtml(header, layout.extras,
+        idx === 0 && bi === 0, idx === total - 1 && bi === bands.length - 1);
+      return `<div class="band">${title}${cols}</div>`;
+    }).join('');
     const pnum = total > 1 ? `<div class="pnum">${idx + 1} / ${total}</div>` : '';
-    return `<section class="page">${titleHtml(header, layout.extras, idx === 0, idx === total - 1)}${cols}${imageHtml}${pnum}</section>`;
+    return `<section class="page">${html}${imageHtml}${pnum}</section>`;
   }).join('');
 
   return `<!doctype html><html lang="ja"><head><meta charset="utf-8">
@@ -106,15 +116,20 @@ export function buildHtml(layout, opts = {}) {
   }
   .page {
     position: relative;
-    display: flex; flex-direction: row-reverse; justify-content: space-between;
-    align-items: flex-start;
+    display: flex; flex-direction: column;
     font-family: ${JSON.stringify(font)}, "Hiragino Mincho ProN", serif;
     font-size: ${fontSize}pt;
     --box: ${boxSize}mm;
-    --colH: 190mm;
+    --colH: ${colH}mm;
     box-sizing: border-box; padding: 1.5mm 6mm;
     width: 281mm; height: 193mm; overflow: hidden;
   }
+  /* one band of sentence columns, right to left across the page */
+  .band {
+    display: flex; flex-direction: row-reverse; justify-content: space-between;
+    align-items: flex-start; height: var(--colH);
+  }
+  .band + .band { margin-top: ${bandGap}mm; }
   .page + .page { page-break-before: always; }
   .sentence { display: flex; flex-direction: row-reverse; align-items: flex-start; }
   .col { writing-mode: vertical-rl; line-height: 1.0; height: var(--colH); }

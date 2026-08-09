@@ -7,8 +7,9 @@
 import { circledExtended, layoutBoxes } from './model.js';
 
 const VERT = 'TOP_TO_BOTTOM_RIGHT_TO_LEFT';
-const ROW_H  = 10650; // column height, twips (~188mm, near the page limit)
+const PAGE_H = 10650; // all bands together, twips (~188mm, near the page limit)
 const MM = 56.7;      // twips per mm
+const BAND_GAP_TW = 280; // gap between two bands of sentences, twips (~5mm)
 const CONTENT_TW = 16838 - 1200; // A4 landscape width minus L/R margins, twips
 
 // embeddedFonts: optional [{ name, data }] to embed the font in the .docx so it
@@ -25,6 +26,8 @@ export function buildDocx(layout, docx, embeddedFonts = [], opts = {}) {
   const inline = (layout.blankPos || 'inline') === 'inline'; // boxes in the flow vs a side column
   const extras = !!layout.extras; // points + seal boxes beside the title
   const total = layout.pageCount || layout.pages.length;
+  const rows = Math.max(1, layout.rows || 1);      // bands of sentences per page
+  const ROW_H = Math.round((PAGE_H - (rows - 1) * BAND_GAP_TW) / rows); // one band
   const EX_MM = 14;                              // points/seal box size, mm
   const EX_TW = Math.round(EX_MM * 56.7);        // ... in twips
   const mmEmu = mm => Math.round(mm * 36000);    // mm -> EMU
@@ -227,10 +230,10 @@ export function buildDocx(layout, docx, embeddedFonts = [], opts = {}) {
     margins: { top: 0, bottom: 0, left: 0, right: 0 }, children: [new Paragraph({ children: [] })],
   });
 
-  // title only on the first page; points/seal boxes only on the last page.
-  function pageTable(page, isFirst, isLast) {
-    const n = page.columns.length;
-    const hasTitle = isFirst, hasExtras = extras && isLast;
+  // title only on the first band of the first page; points/seal boxes only on
+  // the last band of the last page.
+  function bandTable(band, hasTitle, hasExtras) {
+    const n = band.columns.length;
     const colW = inline ? INLINE_W : (TEXT_W + BOX_W);
     const used = n * colW + (hasTitle ? TEXT_W + 200 : 0) + (hasExtras ? EX_TW + 200 : 0);
     const gap = Math.max(120, Math.round((CONTENT_TW - used) / Math.max(1, n)));
@@ -238,8 +241,8 @@ export function buildDocx(layout, docx, embeddedFonts = [], opts = {}) {
     // (inline mode drops the separate box column: the boxes live in the text)
     const cells = [];
     for (let i = n - 1; i >= 0; i--) {
-      if (!inline) cells.push(boxCell(page.columns[i]));
-      cells.push(textCell(page.columns[i]), spacerCell(gap));
+      if (!inline) cells.push(boxCell(band.columns[i]));
+      cells.push(textCell(band.columns[i]), spacerCell(gap));
     }
     if (hasExtras) cells.push(extrasCell());
     if (hasTitle) cells.push(titleCell(layout.header || { pre: '', lesson: '', post: '' }));
@@ -254,7 +257,14 @@ export function buildDocx(layout, docx, embeddedFonts = [], opts = {}) {
   const sections = layout.pages.map((page, idx) => {
     const children = [];
     if (layout.image) children.push(imagePara());
-    children.push(pageTable(page, idx === 0, idx === layout.pages.length - 1));
+    const bands = page.bands || [{ columns: page.columns }];
+    bands.forEach((band, bi) => {
+      // Word merges two tables that touch, so keep a thin paragraph between them
+      if (bi) children.push(new Paragraph({ spacing: { before: 0, after: 0, line: BAND_GAP_TW, lineRule: 'exact' }, children: [] }));
+      children.push(bandTable(band,
+        idx === 0 && bi === 0,
+        extras && idx === layout.pages.length - 1 && bi === bands.length - 1));
+    });
     const sec = {
       properties: { page: {
         size: { orientation: PageOrientation.LANDSCAPE },
