@@ -39,6 +39,7 @@ const STR = {
   f_number: { ja: '番号', en: 'Number', fr: 'Numéro' },
   f_name_label: { ja: '名前ラベル', en: 'Name label', fr: 'Étiquette « nom »' },
   f_per_page: { ja: '1ページの文数', en: 'Sentences per page', fr: 'Phrases par page' },
+  f_auto: { ja: '自動', en: 'Auto', fr: 'Auto' },
   f_rows: { ja: '1ページの段数', en: 'Bands per page', fr: 'Bandes par page' },
   rows_1: { ja: '1段', en: '1 band', fr: '1 bande' },
   rows_2: { ja: '2段（短い文むき）', en: '2 bands (short sentences)', fr: '2 bandes (phrases courtes)' },

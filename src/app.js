@@ -251,6 +251,7 @@ function header() {
 function options() {
   return {
     perPage: parseInt($('o_perpage').value, 10) || 10,
+    autoPerPage: $('o_perpage_auto').checked,
     rows: parseInt($('o_rows').value, 10) || 1,
     font: customFontFamily || $('o_font').value,
     fontSize: parseFloat($('o_fontsize').value) || 18,
@@ -292,6 +293,17 @@ function fitImageToDataUrl(file) {
 }
 try { customImageDataUrl = localStorage.getItem('ktm_image') || null; } catch (e) {}
 if (customImageDataUrl) loadImageDims(customImageDataUrl);
+// auto page filling: the sentence count is derived, so grey the field out
+try { $('o_perpage_auto').checked = localStorage.getItem('ktm_autoperpage') !== '0'; } catch (e) {}
+function syncAutoPerPage() {
+  $('o_perpage').disabled = $('o_perpage_auto').checked;
+}
+$('o_perpage_auto').addEventListener('change', () => {
+  try { localStorage.setItem('ktm_autoperpage', $('o_perpage_auto').checked ? '1' : '0'); } catch (e) {}
+  syncAutoPerPage();
+  refreshPreview();
+});
+syncAutoPerPage();
 try { $('o_extras').checked = localStorage.getItem('ktm_extras') === '1'; } catch (e) {}
 $('o_extras').addEventListener('change', () => {
   try { localStorage.setItem('ktm_extras', $('o_extras').checked ? '1' : '0'); } catch (e) {}
@@ -613,7 +625,7 @@ function saveSet() {
   const data = {
     version: 1,
     header: header(),
-    options: { perPage: $('o_perpage').value, rows: $('o_rows').value, font: $('o_font').value, fontSize: $('o_fontsize').value, boxSize: $('o_boxsize').value, blankPos: $('o_blankpos').value },
+    options: { perPage: $('o_perpage').value, autoPerPage: $('o_perpage_auto').checked, rows: $('o_rows').value, font: $('o_font').value, fontSize: $('o_fontsize').value, boxSize: $('o_boxsize').value, blankPos: $('o_blankpos').value },
     sentences: state.sentences.map(s => ({
       mode: s.mode,
       tokens: s.tokens.map(t => ({ surface: t.surface, reading: t.reading, hasKanji: t.hasKanji, state: t.state || (t.selected ? 'test' : 'plain') })),
@@ -633,6 +645,7 @@ function loadSet(file) {
     if (h.nameLabel != null) $('h_name').value = h.nameLabel;
     if (o.perPage != null) $('o_perpage').value = o.perPage;
     if (o.rows != null) $('o_rows').value = o.rows;
+    if (o.autoPerPage != null) { $('o_perpage_auto').checked = !!o.autoPerPage; syncAutoPerPage(); }
     if (o.font != null) $('o_font').value = o.font;
     if (o.fontSize != null) $('o_fontsize').value = o.fontSize;
     if (o.boxSize != null) $('o_boxsize').value = o.boxSize;
