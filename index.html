@@ -4,6 +4,11 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>漢字テストメーカー</title>
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#3a7bd5">
+<link rel="icon" type="image/svg+xml" href="assets/icons/icon.svg">
+<link rel="icon" type="image/png" sizes="32x32" href="assets/icons/favicon-32.png">
+<link rel="apple-touch-icon" href="assets/icons/icon-192.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=LINE+Seed+JP:wght@400;700&family=Klee+One:wght@400;600&family=Zen+Kaku+Gothic+New:wght@400;500;700&family=Zen+Maru+Gothic:wght@400;500;700&family=Kaisei+Tokumin:wght@400;700&family=Yuji+Syuku&display=swap" rel="stylesheet">
@@ -85,6 +90,10 @@
 </style>
 </head>
 <body>
+<div id="swUpdate" style="display:none;background:#1f3a63;color:#fff;padding:.5rem 1.2rem;display:none;align-items:center;gap:.8rem;font-size:.9rem">
+  <span data-i18n="sw_update">新しいバージョンがあります。</span>
+  <button id="swUpdateBtn" style="padding:.25rem .7rem" data-i18n="sw_update_btn">更新する</button>
+</div>
 <header>
   <h1 data-i18n="appName">漢字テストメーカー</h1>
   <span class="status" id="status"></span>

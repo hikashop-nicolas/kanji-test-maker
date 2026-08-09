@@ -669,3 +669,32 @@ function downloadBlob(blob, name) {
   a.href = url; a.download = name; document.body.appendChild(a); a.click();
   setTimeout(() => { URL.revokeObjectURL(url); a.remove(); }, 1000);
 }
+
+// ---- service worker (installable app, works offline) ---------------------
+// A never-quit installed window would otherwise keep serving the cached build
+// for good, so a waiting worker is surfaced rather than applied silently: the
+// teacher decides when to reload, mid-worksheet is a bad moment.
+if ('serviceWorker' in navigator && location.protocol !== 'file:') {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('sw.js').then(reg => {
+      const offer = (worker) => {
+        if (!worker) return;
+        const show = () => {
+          if (worker.state !== 'installed' || !navigator.serviceWorker.controller) return;
+          $('swUpdate').style.display = 'flex';
+          $('swUpdateBtn').onclick = () => { worker.postMessage('ktm-skip-waiting'); };
+        };
+        show();
+        worker.addEventListener('statechange', show);
+      };
+      offer(reg.waiting);
+      reg.addEventListener('updatefound', () => offer(reg.installing));
+    }).catch(e => console.warn('service worker not registered', e));
+    let reloading = false;
+    navigator.serviceWorker.addEventListener('controllerchange', () => {
+      if (reloading) return;
+      reloading = true;
+      location.reload();
+    });
+  });
+}

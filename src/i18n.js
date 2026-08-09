@@ -131,6 +131,8 @@ const STR = {
   btn_pdf_ans: { ja: '解答 PDF', en: 'Answer PDF', fr: 'Corrigé PDF' },
   btn_docx_ans: { ja: '解答 Word (.docx)', en: 'Answer Word (.docx)', fr: 'Corrigé Word (.docx)' },
   lbl_preview: { ja: 'プレビュー', en: 'Preview', fr: 'Aperçu' },
+  sw_update: { ja: '新しいバージョンがあります。', en: 'A new version is available.', fr: 'Une nouvelle version est disponible.' },
+  sw_update_btn: { ja: '更新する', en: 'Update', fr: 'Mettre à jour' },
   warn_overflow: {
     ja: '⚠ {n}文がページの幅に入りきりません。1ページの文数を減らすか、段数を増やしてください。',
     en: "⚠ {n} sentence(s) run off the page. Lower the sentences per page, or add a band.",
