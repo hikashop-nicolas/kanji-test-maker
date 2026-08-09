@@ -1,0 +1,22 @@
+name: Vendor sync
+
+# The app loads vendor/*.js and assets/dict/ directly, so a package bump only
+# reaches it once those copies are refreshed. This fails the PR when they are
+# not, which is mainly what keeps Dependabot's npm updates honest.
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - run: node tools/sync-vendor.mjs --check

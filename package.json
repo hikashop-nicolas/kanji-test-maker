@@ -10,7 +10,8 @@
     "build:data": "node tools/build-data.mjs && node tools/build-sentences.mjs",
     "validate:authored": "node tools/validate-authored.mjs",
     "build:sw": "node tools/gen-sw.mjs",
-    "build:icons": "node tools/gen-icons.mjs"
+    "build:icons": "node tools/gen-icons.mjs",
+    "vendor": "node tools/sync-vendor.mjs"
   },
   "keywords": [
     "kanji",
