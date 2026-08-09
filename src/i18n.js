@@ -39,6 +39,9 @@ const STR = {
   f_number: { ja: '番号', en: 'Number', fr: 'Numéro' },
   f_name_label: { ja: '名前ラベル', en: 'Name label', fr: 'Étiquette « nom »' },
   f_per_page: { ja: '1ページの文数', en: 'Sentences per page', fr: 'Phrases par page' },
+  f_rows: { ja: '1ページの段数', en: 'Bands per page', fr: 'Bandes par page' },
+  rows_1: { ja: '1段', en: '1 band', fr: '1 bande' },
+  rows_2: { ja: '2段（短い文むき）', en: '2 bands (short sentences)', fr: '2 bandes (phrases courtes)' },
   f_font_size: { ja: '文字の大きさ (pt)', en: 'Font size (pt)', fr: 'Taille du texte (pt)' },
   f_box_size: { ja: 'マスの大きさ (mm)', en: 'Box size (mm)', fr: 'Taille des cases (mm)' },
   f_blank_pos: { ja: 'マスの位置', en: 'Blank position', fr: 'Position des cases' },
@@ -113,6 +116,9 @@ const STR = {
   legend_test: { ja: 'テスト（マス）', en: 'Test (box)', fr: 'Test (case)' },
   legend_furigana: { ja: 'ふりがな', en: 'Furigana', fr: 'Furigana' },
   legend_kana: { ja: 'ひらがなに置換', en: 'Replace with kana', fr: 'Remplacer par kana' },
+  all_modes: { ja: 'ぜんぶの文を：', en: 'All sentences:', fr: 'Toutes les phrases :' },
+  btn_all_kaki: { ja: '書きにする', en: 'Write mode', fr: 'Mode écrire' },
+  btn_all_yomi: { ja: '読みにする', en: 'Read mode', fr: 'Mode lire' },
   th_mode: { ja: 'モード', en: 'Mode', fr: 'Mode' },
   th_sentence: { ja: '文（語をクリックで状態を切り替え）', en: 'Sentence (click a word to change its state)', fr: 'Phrase (cliquez un mot pour changer son état)' },
 
@@ -124,6 +130,11 @@ const STR = {
   btn_pdf_ans: { ja: '解答 PDF', en: 'Answer PDF', fr: 'Corrigé PDF' },
   btn_docx_ans: { ja: '解答 Word (.docx)', en: 'Answer Word (.docx)', fr: 'Corrigé Word (.docx)' },
   lbl_preview: { ja: 'プレビュー', en: 'Preview', fr: 'Aperçu' },
+  warn_overflow: {
+    ja: '⚠ {n}文がページの幅に入りきりません。1ページの文数を減らすか、段数を増やしてください。',
+    en: "⚠ {n} sentence(s) run off the page. Lower the sentences per page, or add a band.",
+    fr: "⚠ {n} phrase(s) dépassent de la page. Réduisez les phrases par page, ou ajoutez une bande.",
+  },
 
   // mode buttons + per-word states + misc dynamic
   mode_kaki: { ja: '書き', en: 'Write', fr: 'Écrire' },

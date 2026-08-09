@@ -154,10 +154,32 @@ function chunk(arr, n) {
   return out;
 }
 
+// Split one page's columns into `rows` bands of near-equal width. An odd
+// sentence out goes to a later band: the first one also carries the title
+// column, so it has the least room.
+function splitBands(cols, rows) {
+  const base = Math.floor(cols.length / rows), extra = cols.length % rows;
+  const bands = [];
+  let i = 0;
+  for (let b = 0; b < rows; b++) {
+    const n = base + (b >= rows - extra ? 1 : 0);
+    if (n) bands.push({ columns: cols.slice(i, i + n) });
+    i += n;
+  }
+  return bands.length ? bands : [{ columns: [] }];
+}
+
+// the sentence columns fill this much of the page height, minus band gaps
+const PAGE_COL_MM = 190;
+const BAND_GAP_MM = 5;
+
 // worksheet: { header, options:{perPage, font}, sentences:[{tokens, mode}] }
 export function buildLayout(worksheet) {
   const o = worksheet.options || {};
   const perPage = Math.max(1, o.perPage || 10);
+  // stack the sentences in this many bands down the page. Short sentences leave
+  // the bottom half of a one-band page empty; two bands fill it.
+  const rows = Math.max(1, Math.min(3, o.rows || 1));
   const font = o.font || 'Klee One';
   const fontSize = o.fontSize || 18; // pt
   const boxSize = o.boxSize || 10;   // mm, one writing cell
@@ -173,15 +195,22 @@ export function buildLayout(worksheet) {
   // The title shares the column height; shrink its font so the whole line
   // (class, lesson, name field) fits. When the extra boxes are on, the text
   // gets less of the column, so shrink a bit more to leave room below.
-  const pages = chunk(sentences, perPage).map(group => ({ columns: group }));
-  if (pages.length === 0) pages.push({ columns: [] });
+  // each page splits its sentences into `rows` bands, balanced so the last page
+  // never leaves a whole band empty
+  const colH = (PAGE_COL_MM - (rows - 1) * BAND_GAP_MM) / rows;
+  const pages = chunk(sentences, perPage).map(group => ({
+    columns: group,
+    bands: splitBands(group, rows),
+  }));
+  if (pages.length === 0) pages.push({ columns: [], bands: [{ columns: [] }] });
 
   const headerLen = header.pre.length + (header.lesson ? 1 : 0) + header.post.length;
-  const COLH_PT = 182 / 0.35278;
+  const COLH_PT = (colH - 8) / 0.35278;
   // the title (first page) and the boxes (last page) only share a column when
   // there is a single page; otherwise the title keeps the full height.
   const fill = (extras && pages.length === 1) ? 0.70 : 0.96;
   const titleFontSize = Math.min(fontSize, Math.max(8, Math.floor(COLH_PT * fill / Math.max(1, headerLen))));
 
-  return { font, fontSize, boxSize, titleFontSize, header, pages, extras, image, imageDims, blankPos, pageCount: pages.length };
+  return { font, fontSize, boxSize, titleFontSize, header, pages, extras, image, imageDims, blankPos,
+    rows, colH, bandGap: BAND_GAP_MM, pageCount: pages.length };
 }
