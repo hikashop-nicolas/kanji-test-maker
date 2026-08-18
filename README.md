@@ -73,20 +73,24 @@ normally with kanji, and click 解析する. Kanji words are detected and marked
 you; from there it is the same table as above. `test_sentences.md` has
 ready-made sets to try.
 
-**Take them from a file.** The ファイルから tab reads Japanese out of a PDF, or
-out of a photo or scan of a textbook page or an old worksheet. Nothing is sent
-anywhere; the file is read on your own computer.
+**Take them from a file.** The ファイルから tab takes a PDF, a Word document
+(`.docx` or the older `.doc`), an OpenDocument `.odt`, a plain `.txt`, or a
+photo or scan of a textbook page or an old worksheet. Nothing is sent anywhere;
+the file is read on your own computer.
 
-A PDF written by Word, Excel or the like carries its own text, so the sentences
-come out exactly as they were typed, vertical writing included. A PDF that is
-just a scan has no text to read, so those pages go through recognition like a
-photo, as does an image.
+Anything carrying its own text gives it up exactly as it was typed, vertical
+writing included: a PDF made by Word or Excel, a Word or OpenDocument file, a
+text file. Older text saved in Shift_JIS or EUC is recognised as such, so it
+does not come out as mojibake.
 
-For anything recognised rather than read, tick 縦書き first if the writing is
-vertical: it changes how the page is read, and makes the difference between
-sentences and gibberish. Recognition is not perfect on a home scan either way.
-The lines land in an editable box, so read them over and fix or delete what came
-out wrong before adding them.
+Only a scan has no text to read. Those pages, and any image, go through
+character recognition instead. Tick 縦書き first when the writing is vertical:
+it changes how the page is read, and makes the difference between sentences and
+gibberish. Recognition is not perfect on a home scan.
+
+Either way the lines land in an editable box, so read them over and fix or
+delete what came out wrong before adding them. A long document stops at the
+first 300 sentences.
 
 ## Layout
 

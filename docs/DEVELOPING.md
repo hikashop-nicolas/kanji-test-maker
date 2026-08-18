@@ -42,6 +42,8 @@ paste → kuromoji (tokens + readings) → editable table
 | `src/sentences.js` | Example-sentence scoring (i+1 ranking) and candidate lists. |
 | `src/i18n.js` | Interface translations (ja/en/fr) and the language switcher. |
 | `src/pdfText.js` | Pure: pdf.js text items to lines, columns of vertical writing included. |
+| `src/fileText.js` | Pure: `.txt` decoding (UTF-8, Shift_JIS, EUC-JP) and paragraphs out of `.docx` / `.odt` XML. |
+| `src/msDoc.js` | Pure: the Word 97-2003 `.doc` container and piece table. No dependency; JSZip covers the zipped formats. |
 | `assets/dict/` | kuromoji dictionary. |
 | `assets/fonts/` | TTFs, embedded into the `.docx`. |
 | `assets/data/` | Generated lesson data: kanji index and per-grade sentences. |
@@ -52,6 +54,12 @@ paste → kuromoji (tokens + readings) → editable table
 The column geometry in `model.js` (used to fit sentences to the page
 automatically) mirrors the CSS in `htmlExport.js`. If you change the column
 widths there, change it in both.
+
+The ファイルから tab decides what a file is from its first bytes, not its
+extension, then routes it: text layer for a PDF, XML for a zipped office
+document, the piece table for a `.doc`, and tesseract for an image or a PDF page
+that turns out to be a scan. Whatever comes back goes through the same line
+cleanup, which keeps only lines carrying kanji.
 
 ## Dependencies
 

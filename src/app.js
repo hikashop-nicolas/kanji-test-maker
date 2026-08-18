@@ -7,6 +7,8 @@ import { initLessonBuilder, onLessonChange, selectedKanji, gradeOf, jlptOf, setS
 import { buildCandidates } from './sentences.js?v=2';
 import { t, initLang, applyI18n, getLang, setLang } from './i18n.js?v=2';
 import { pageLines } from './pdfText.js?v=2';
+import { decodeText, docxLines, odtLines } from './fileText.js?v=2';
+import { docText } from './msDoc.js?v=2';
 
 // fonts we ship a TTF for and can embed in the .docx (all OFL-licensed)
 const FONT_TTF = {
@@ -342,9 +344,10 @@ function addLinesAsSentences(text, replace) {
 }
 $('process').addEventListener('click', () => addLinesAsSentences($('input').value, true));
 
-// ---- sentences out of a file (PDF text layer, or OCR) --------------------
-// Both engines are big and most sessions never open this tab, so each is
-// fetched the first time a file actually needs it.
+// ---- sentences out of a file --------------------------------------------
+// Documents give their text up directly; a photo, and a PDF page that turns out
+// to be a scan, have to be recognized. Both engines are big and most sessions
+// never open this tab, so each is fetched the first time a file needs it.
 let ocrScript = null; // promise: tesseract.min.js injected once, on first use
 function loadTesseract() {
   if (ocrScript) return ocrScript;
@@ -376,7 +379,8 @@ const STRAY = /[<>|｜_^~`\\]/g;
 const LEAD_ASCII = /^[!-~｜]{1,2}\s+(?=[぀-ヿ㐀-鿿])/;
 // nothing in Japanese opens on a small kana, a長音符 or a stray quote/mark
 const LEAD_KANA = /^[ぁぃぅぇぉっゃゅょァィゥェォッャュョーヽヾ゛゜]+/;
-const LEAD_PUNCT = /^[\s"“”‘’*+,.:;・、。!?！？=-]+/;
+// a worksheet numbers its questions, ours included, before the sentence starts
+const LEAD_PUNCT = /^[\s"“”‘’*+,.:;・、。!?！？=-]+|^[\u2460-\u24ff]+\s*/;
 const HAS_KANJI = /[㐀-鿿]/;
 // below this a tesseract line is a table rule or a speck, not text; real
 // sentences on a home scan score 50-90. A PDF text layer has no confidence,
@@ -446,10 +450,10 @@ async function renderPage(page, dpi = 200) {
 // A PDF written by a word processor carries its text, which beats recognizing a
 // picture of it. A scan carries none, so those pages are rendered and read the
 // same way an image is.
-async function linesFromPdf(file, vertical, st) {
+async function linesFromPdf(buf, vertical, st) {
   const pdfjs = await loadPdfjs();
   const task = pdfjs.getDocument({
-    data: new Uint8Array(await file.arrayBuffer()),
+    data: new Uint8Array(buf),
     cMapUrl: 'vendor/pdfjs/cmaps/',
     cMapPacked: true,
     wasmUrl: 'vendor/pdfjs/wasm/',
@@ -475,6 +479,33 @@ async function linesFromPdf(file, vertical, st) {
   return lines;
 }
 
+// A zipped office document: .docx and .odt differ only in which part holds the
+// body and how it marks a paragraph.
+async function linesFromZip(buf) {
+  const zip = await window.JSZip.loadAsync(buf);
+  const docx = zip.file('word/document.xml');
+  if (docx) return docxLines(await docx.async('string'));
+  const odt = zip.file('content.xml');
+  if (odt) return odtLines(await odt.async('string'));
+  return [];
+}
+
+// What a file is, by its first bytes rather than its name: a .doc that is
+// really a .docx, or a .txt saved as .doc, is common enough to be worth
+// getting right, and an extension is only ever a claim.
+function sniff(buf, file) {
+  const b = new Uint8Array(buf, 0, Math.min(8, buf.byteLength));
+  const starts = (...bytes) => bytes.every((v, i) => b[i] === v);
+  if (starts(0x25, 0x50, 0x44, 0x46)) return 'pdf';                              // %PDF
+  if (starts(0x50, 0x4b, 0x03, 0x04)) return 'zip';                              // PK..
+  if (starts(0xd0, 0xcf, 0x11, 0xe0, 0xa1, 0xb1, 0x1a, 0xe1)) return 'doc';      // compound file
+  return file.type.startsWith('image/') || /\.(png|jpe?g|gif|bmp|webp|tiff?)$/i.test(file.name) ? 'image' : 'text';
+}
+
+// Long enough that no worksheet reaches it, short enough that a book does not
+// hand kuromoji more sentences than a browser can tokenize in one go.
+const MAX_LINES = 300;
+
 $('src_file').addEventListener('change', () => { $('src_run').disabled = !$('src_file').files[0]; });
 $('src_run').addEventListener('click', async () => {
   const file = $('src_file').files[0];
@@ -482,15 +513,22 @@ $('src_run').addEventListener('click', async () => {
   const btn = $('src_run'), st = $('src_status');
   const vertical = $('src_vertical').checked;
   btn.disabled = true;
-  st.textContent = t('src_running', { p: 0 });
+  st.textContent = t('src_reading');
   try {
-    const isPdf = file.type === 'application/pdf' || /\.pdf$/i.test(file.name);
-    const rows = isPdf
-      ? await linesFromPdf(file, vertical, st)
-      : await recognize([file], vertical, (n, p) => st.textContent = t('src_running', { p }));
+    const buf = await file.arrayBuffer();
+    let rows;
+    switch (sniff(buf, file)) {
+      case 'pdf': rows = await linesFromPdf(buf, vertical, st); break;
+      case 'zip': rows = (await linesFromZip(buf)).map(text => ({ text })); break;
+      case 'doc': rows = (docText(buf) || '').split('\n').map(text => ({ text })); break;
+      case 'image': rows = await recognize([file], vertical, (n, p) => st.textContent = t('src_running', { p })); break;
+      default: rows = decodeText(buf).split(/\r?\n/).map(text => ({ text }));
+    }
     const lines = splitTextLines(rows);
-    $('src_text').value = lines.join('\n');
-    st.textContent = lines.length ? '' : t('src_no_text');
+    $('src_text').value = lines.slice(0, MAX_LINES).join('\n');
+    st.textContent = !lines.length ? t('src_no_text')
+      : lines.length > MAX_LINES ? t('src_truncated', { n: MAX_LINES, total: lines.length })
+      : '';
   } catch (e) {
     console.error('reading the file failed', e);
     st.textContent = t('src_no_text');
