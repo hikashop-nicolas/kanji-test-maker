@@ -23,9 +23,18 @@ const FILES = [
   ['node_modules/tesseract.js/dist/worker.min.js.LICENSE.txt', 'vendor/tesseract/worker.min.js.LICENSE.txt'],
   ['node_modules/tesseract.js-core/tesseract-core-simd-lstm.wasm.js', 'vendor/tesseract/tesseract-core-simd-lstm.wasm.js'],
   ['node_modules/tesseract.js-core/LICENSE', 'vendor/tesseract/CORE-LICENSE.txt'],
+  ['node_modules/pdfjs-dist/build/pdf.min.mjs', 'vendor/pdfjs/pdf.min.mjs'],
+  ['node_modules/pdfjs-dist/build/pdf.worker.min.mjs', 'vendor/pdfjs/pdf.worker.min.mjs'],
+  ['node_modules/pdfjs-dist/LICENSE', 'vendor/pdfjs/LICENSE.txt'],
 ];
-// the kuromoji dictionary, copied whole
-const DIRS = [['node_modules/kuromoji/dict', 'assets/dict', /\.gz$/]];
+// the kuromoji dictionary, and pdf.js's side files: the character maps a
+// Japanese PDF needs to give up its text, and the image decoders a scan needs
+// to render. Both are fetched one at a time, only when a file asks for them.
+const DIRS = [
+  ['node_modules/kuromoji/dict', 'assets/dict', /\.gz$/],
+  ['node_modules/pdfjs-dist/cmaps', 'vendor/pdfjs/cmaps', /\.bcmap$|^LICENSE$/],
+  ['node_modules/pdfjs-dist/wasm', 'vendor/pdfjs/wasm', /\.(wasm|js)$|^LICENSE/],
+];
 
 const stale = [];
 const missing = [];

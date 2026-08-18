@@ -73,14 +73,20 @@ normally with kanji, and click 解析する. Kanji words are detected and marked
 you; from there it is the same table as above. `test_sentences.md` has
 ready-made sets to try.
 
-**Read them off a photo.** The 画像から (OCR) tab reads Japanese from a photo or
-a scan, a textbook page or an old worksheet, without sending the image anywhere.
-If the page is written vertically, tick 縦書きの画像 first: it changes how the
-page is read, and makes the difference between sentences and gibberish.
+**Take them from a file.** The ファイルから tab reads Japanese out of a PDF, or
+out of a photo or scan of a textbook page or an old worksheet. Nothing is sent
+anywhere; the file is read on your own computer.
 
-Recognition is not perfect on a home scan. The recognised lines land in an
-editable box, so read them over and fix or delete what came out wrong before
-adding them.
+A PDF written by Word, Excel or the like carries its own text, so the sentences
+come out exactly as they were typed, vertical writing included. A PDF that is
+just a scan has no text to read, so those pages go through recognition like a
+photo, as does an image.
+
+For anything recognised rather than read, tick 縦書き first if the writing is
+vertical: it changes how the page is read, and makes the difference between
+sentences and gibberish. Recognition is not perfect on a home scan either way.
+The lines land in an editable box, so read them over and fix or delete what came
+out wrong before adding them.
 
 ## Layout
 

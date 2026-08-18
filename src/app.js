@@ -6,6 +6,7 @@ import { addFontEmbedFlag } from './docxEmbed.js?v=2';
 import { initLessonBuilder, onLessonChange, selectedKanji, gradeOf, jlptOf, setSelection, currentGrade, refreshLabels } from './lesson.js?v=2';
 import { buildCandidates } from './sentences.js?v=2';
 import { t, initLang, applyI18n, getLang, setLang } from './i18n.js?v=2';
+import { pageLines } from './pdfText.js?v=2';
 
 // fonts we ship a TTF for and can embed in the .docx (all OFL-licensed)
 const FONT_TTF = {
@@ -341,7 +342,9 @@ function addLinesAsSentences(text, replace) {
 }
 $('process').addEventListener('click', () => addLinesAsSentences($('input').value, true));
 
-// ---- OCR (image -> text via vendored tesseract.js) -----------------------
+// ---- sentences out of a file (PDF text layer, or OCR) --------------------
+// Both engines are big and most sessions never open this tab, so each is
+// fetched the first time a file actually needs it.
 let ocrScript = null; // promise: tesseract.min.js injected once, on first use
 function loadTesseract() {
   if (ocrScript) return ocrScript;
@@ -352,6 +355,15 @@ function loadTesseract() {
     document.head.appendChild(s);
   });
   return ocrScript;
+}
+let pdfModule = null; // promise: pdf.min.mjs imported once, on first PDF
+function loadPdfjs() {
+  if (pdfModule) return pdfModule;
+  pdfModule = import('../vendor/pdfjs/pdf.min.mjs').then(m => {
+    m.GlobalWorkerOptions.workerSrc = 'vendor/pdfjs/pdf.worker.min.mjs';
+    return m;
+  });
+  return pdfModule;
 }
 // split recognized text into candidate sentences: break on JP enders + newlines,
 // clean up the marks a scan leaves behind, keep only lines carrying kanji.
@@ -367,9 +379,10 @@ const LEAD_KANA = /^[ぁぃぅぇぉっゃゅょァィゥェォッャュョー�
 const LEAD_PUNCT = /^[\s"“”‘’*+,.:;・、。!?！？=-]+/;
 const HAS_KANJI = /[㐀-鿿]/;
 // below this a tesseract line is a table rule or a speck, not text; real
-// sentences on a home scan score 50-90.
+// sentences on a home scan score 50-90. A PDF text layer has no confidence,
+// and undefined fails the test, which is what we want.
 const MIN_LINE_CONF = 30;
-function cleanOcrLine(s) {
+function cleanTextLine(s) {
   // tesseract inserts a space between every CJK glyph; drop spaces that sit
   // between two Japanese characters/punctuation, keeping spaces inside latin
   // text. Looped (no lookbehind) so it works on older engines too.
@@ -377,51 +390,116 @@ function cleanOcrLine(s) {
   do { p = s; s = s.replace(JP_RUN, '$1$2'); } while (s !== p);
   return s.replace(LEAD_ASCII, '').replace(LEAD_KANA, '').replace(LEAD_PUNCT, '').trim();
 }
-// rows: {text, confidence} from tesseract, or a single row holding the whole page
-function splitOcrLines(rows) {
+// rows: {text, confidence} from tesseract, or {text} per line of a PDF
+function splitTextLines(rows) {
   return rows
     .filter(r => !(r.confidence < MIN_LINE_CONF))
     .flatMap(r => r.text.replace(STRAY, '').replace(/([。！？])/g, '$1\n').split(/\r?\n/))
-    .map(cleanOcrLine)
+    .map(cleanTextLine)
     // a line with no kanji is the answer column or a caption: nothing to quiz on
     .filter(s => HAS_KANJI.test(s));
 }
-$('ocr_image').addEventListener('change', () => { $('ocr_run').disabled = !$('ocr_image').files[0]; });
-$('ocr_run').addEventListener('click', async () => {
-  const file = $('ocr_image').files[0];
-  if (!file) return;
-  const btn = $('ocr_run'), st = $('ocr_status');
-  btn.disabled = true;
-  st.textContent = t('ocr_running', { p: 0 });
+
+// images (a file, or canvases rendered from a scanned PDF) -> tesseract rows
+async function recognize(images, vertical, onProgress) {
+  await loadTesseract();
+  let page = 0;
+  const worker = await window.Tesseract.createWorker(vertical ? 'jpn_vert' : 'jpn', 1, {
+    workerPath: 'vendor/tesseract/worker.min.js',
+    corePath: 'vendor/tesseract/tesseract-core-simd-lstm.wasm.js',
+    langPath: 'assets/tessdata',
+    logger: m => { if (m.status === 'recognizing text') onProgress(page, Math.round(m.progress * 100)); },
+  });
+  // the vertical model only makes sense with page layout analysis; the default
+  // "one horizontal block" mode reads the columns crosswise and returns noise.
+  if (vertical) await worker.setParameters({ tessedit_pageseg_mode: window.Tesseract.PSM.AUTO });
+  const rows = [];
   try {
-    await loadTesseract();
-    const vertical = $('ocr_vertical').checked;
-    const worker = await window.Tesseract.createWorker(vertical ? 'jpn_vert' : 'jpn', 1, {
-      workerPath: 'vendor/tesseract/worker.min.js',
-      corePath: 'vendor/tesseract/tesseract-core-simd-lstm.wasm.js',
-      langPath: 'assets/tessdata',
-      logger: m => { if (m.status === 'recognizing text') st.textContent = t('ocr_running', { p: Math.round(m.progress * 100) }); },
-    });
-    // the vertical model only makes sense with page layout analysis; the default
-    // "one horizontal block" mode reads the columns crosswise and returns noise.
-    if (vertical) await worker.setParameters({ tessedit_pageseg_mode: window.Tesseract.PSM.AUTO });
-    const { data } = await worker.recognize(file, {}, { text: true, blocks: true });
+    for (const image of images) {
+      const { data } = await worker.recognize(image, {}, { text: true, blocks: true });
+      const before = rows.length;
+      for (const b of data.blocks || [])
+        for (const p of b.paragraphs || []) rows.push(...(p.lines || []));
+      if (rows.length === before && data.text) rows.push({ text: data.text });
+      page++;
+    }
+  } finally {
     await worker.terminate();
-    const rows = [];
-    for (const b of data.blocks || [])
-      for (const p of b.paragraphs || []) rows.push(...(p.lines || []));
-    const lines = splitOcrLines(rows.length ? rows : [{ text: data.text }]);
-    $('ocr_text').value = lines.join('\n');
-    st.textContent = lines.length ? '' : t('ocr_no_text');
+  }
+  return rows;
+}
+
+// 200 dpi is what tesseract's Japanese models were trained around; above it the
+// recognition does not improve and a multi-page file gets slow.
+async function renderPage(page, dpi = 200) {
+  const viewport = page.getViewport({ scale: dpi / 72 });
+  const canvas = document.createElement('canvas');
+  canvas.width = Math.round(viewport.width);
+  canvas.height = Math.round(viewport.height);
+  // print intent, because the display path drives itself off requestAnimationFrame
+  // and would stall for as long as the teacher looks at another tab. It also
+  // leaves out the on-screen annotation layer, which is not part of the scan.
+  await page.render({ canvas, viewport, intent: 'print' }).promise;
+  return canvas;
+}
+
+// A PDF written by a word processor carries its text, which beats recognizing a
+// picture of it. A scan carries none, so those pages are rendered and read the
+// same way an image is.
+async function linesFromPdf(file, vertical, st) {
+  const pdfjs = await loadPdfjs();
+  const task = pdfjs.getDocument({
+    data: new Uint8Array(await file.arrayBuffer()),
+    cMapUrl: 'vendor/pdfjs/cmaps/',
+    cMapPacked: true,
+    wasmUrl: 'vendor/pdfjs/wasm/',
+  });
+  const doc = await task.promise;
+  const lines = [];
+  const scans = [];
+  try {
+    for (let n = 1; n <= doc.numPages; n++) {
+      st.textContent = t('src_pdf_page', { n, total: doc.numPages });
+      const page = await doc.getPage(n);
+      const found = pageLines((await page.getTextContent()).items, page.getViewport({ scale: 1 }).transform);
+      if (found.length) lines.push(...found.map(text => ({ text })));
+      else scans.push(await renderPage(page));
+    }
+    if (scans.length) {
+      lines.push(...await recognize(scans, vertical, (n, p) =>
+        st.textContent = t('src_ocr_page', { n: n + 1, total: scans.length, p })));
+    }
+  } finally {
+    await task.destroy();
+  }
+  return lines;
+}
+
+$('src_file').addEventListener('change', () => { $('src_run').disabled = !$('src_file').files[0]; });
+$('src_run').addEventListener('click', async () => {
+  const file = $('src_file').files[0];
+  if (!file) return;
+  const btn = $('src_run'), st = $('src_status');
+  const vertical = $('src_vertical').checked;
+  btn.disabled = true;
+  st.textContent = t('src_running', { p: 0 });
+  try {
+    const isPdf = file.type === 'application/pdf' || /\.pdf$/i.test(file.name);
+    const rows = isPdf
+      ? await linesFromPdf(file, vertical, st)
+      : await recognize([file], vertical, (n, p) => st.textContent = t('src_running', { p }));
+    const lines = splitTextLines(rows);
+    $('src_text').value = lines.join('\n');
+    st.textContent = lines.length ? '' : t('src_no_text');
   } catch (e) {
-    console.error('OCR failed', e);
-    st.textContent = t('ocr_no_text');
+    console.error('reading the file failed', e);
+    st.textContent = t('src_no_text');
   } finally {
     btn.disabled = false;
   }
 });
-$('ocr_add').addEventListener('click', () => {
-  if (addLinesAsSentences($('ocr_text').value, false)) $('tablePanel').scrollIntoView({ behavior: 'smooth', block: 'start' });
+$('src_add').addEventListener('click', () => {
+  if (addLinesAsSentences($('src_text').value, false)) $('tablePanel').scrollIntoView({ behavior: 'smooth', block: 'start' });
 });
 
 // ---- table ---------------------------------------------------------------

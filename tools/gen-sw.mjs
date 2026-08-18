@@ -1,9 +1,9 @@
 // Generates sw.js from what is actually in the repo. Run before serving or
 // deploying (npm run serve does it; so does the Pages workflow).
 //
-// The app ships ~65MB of data: the kuromoji dictionary, six TTFs for the .docx
-// embedding, the OCR models and the tesseract wasm. Precaching all of that
-// would make installing the app a 65MB download, so only the shell is
+// The app ships ~70MB of data: the kuromoji dictionary, six TTFs for the .docx
+// embedding, the OCR models, and the tesseract and pdf.js engines. Precaching
+// all of that would make installing the app a 70MB download, so only the shell is
 // precached and the heavy files are kept as they are fetched. Whatever the
 // teacher has actually used is then available offline.
 import { createHash } from 'node:crypto';
@@ -20,7 +20,7 @@ const CORE_FILES = ['index.html', 'manifest.webmanifest'];
 // the per-grade example corpus is only read when the picker asks for a grade
 const LAZY_PREFIXES = [
   'assets/dict/', 'assets/fonts/', 'assets/tessdata/', 'vendor/tesseract/',
-  'assets/data/lesson-kanji/',
+  'vendor/pdfjs/', 'assets/data/lesson-kanji/',
 ];
 
 function walk(dir, out = []) {

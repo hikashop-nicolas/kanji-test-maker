@@ -192,7 +192,7 @@
       <div class="tabs">
         <button data-tab="corpus" class="active" data-i18n="tab_corpus">コーパスから選ぶ</button>
         <button data-tab="paste" data-i18n="tab_paste">文を貼り付け</button>
-        <button data-tab="ocr" data-i18n="tab_ocr">画像から (OCR)</button>
+        <button data-tab="file" data-i18n="tab_file">ファイルから</button>
       </div>
       <div class="tabpane active" id="tab_corpus">
   <div id="lessonPanel">
@@ -256,22 +256,22 @@
     </div>
       </div><!-- /tab_paste -->
 
-      <div class="tabpane" id="tab_ocr">
-    <label for="ocr_image" data-i18n="ocr_lbl_image">画像を選ぶ（教科書のページなど）</label>
-    <input type="file" id="ocr_image" accept="image/*">
+      <div class="tabpane" id="tab_file">
+    <label for="src_file" data-i18n="src_lbl_file">ファイルを選ぶ（PDF、または教科書のページなどの画像）</label>
+    <input type="file" id="src_file" accept="application/pdf,.pdf,image/*">
     <div class="toolbar">
       <label style="display:flex;align-items:center;gap:.35rem;margin:0;font-size:.9rem;color:#333">
-        <input type="checkbox" id="ocr_vertical"> <span data-i18n="ocr_vertical">縦書きの画像</span>
+        <input type="checkbox" id="src_vertical"> <span data-i18n="src_vertical">縦書き（画像・スキャンのみ）</span>
       </label>
-      <button id="ocr_run" disabled data-i18n="ocr_run">画像から文字を読み取る</button>
-      <span class="muted" id="ocr_status"></span>
+      <button id="src_run" disabled data-i18n="src_run">文字を読み取る</button>
+      <span class="muted" id="src_status"></span>
     </div>
-    <textarea id="ocr_text" data-i18n-ph="ocr_ph" placeholder="読み取った文がここに出ます。1行に1文。"></textarea>
+    <textarea id="src_text" data-i18n-ph="src_ph" placeholder="読み取った文がここに出ます。1行に1文。"></textarea>
     <div class="toolbar">
-      <button id="ocr_add" data-i18n="ocr_add">この文を追加</button>
-      <span class="muted" data-i18n="ocr_hint">読み取り結果を確認し、いらない行を消してから追加してください。</span>
+      <button id="src_add" data-i18n="src_add">この文を追加</button>
+      <span class="muted" data-i18n="src_hint">読み取り結果を確認し、いらない行を消してから追加してください。</span>
     </div>
-      </div><!-- /tab_ocr -->
+      </div><!-- /tab_file -->
     </div>
   </details>
 

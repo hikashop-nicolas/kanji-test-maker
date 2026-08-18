@@ -10,6 +10,7 @@ This project bundles the following components, each under its own license.
 | [docx](https://github.com/dolanmiu/docx) | `.docx` generation | MIT |
 | [JSZip](https://stuk.github.io/jszip/) | zip post-processing (font-embed flag) | MIT / GPLv3 (dual) |
 | [tesseract.js](https://github.com/naptha/tesseract.js) + [tesseract.js-core](https://github.com/naptha/tesseract.js-core) (in `vendor/tesseract/`) | OCR: read Japanese text from an image, in the browser | Apache-2.0 |
+| [pdf.js](https://github.com/mozilla/pdf.js) (in `vendor/pdfjs/`, with its `cmaps/` and `wasm/`) | Read the text of a PDF, and render a scanned one for OCR | Apache-2.0 |
 
 ## OCR trained data (in `assets/tessdata/`)
 

@@ -19,7 +19,8 @@ the no-cache headers that make editing bearable, and rebuilds the service worker
 first.
 
 There is no build step for the app code. `vendor/` holds kuromoji.js, docx and
-JSZip as plain scripts, and `src/` is loaded as ES modules.
+JSZip as plain scripts, and `src/` is loaded as ES modules. tesseract.js and
+pdf.js are fetched from `vendor/` on demand, the first time a file needs them.
 
 ## Project layout
 
@@ -36,14 +37,16 @@ paste → kuromoji (tokens + readings) → editable table
 | `src/htmlExport.js` | Pure: layout to vertical HTML, used for both the preview and the PDF. |
 | `src/docxExport.js` | Layout to `.docx`: a vertical right-to-left table, one per band. |
 | `src/docxEmbed.js` | Adds the `<w:embedTrueTypeFonts/>` flag Word needs. |
-| `src/app.js` | UI glue: kuromoji, the table, settings, exports, OCR, service worker. |
+| `src/app.js` | UI glue: kuromoji, the table, settings, exports, reading files, service worker. |
 | `src/lesson.js` | Grade to kanji table, and the selection grid. |
 | `src/sentences.js` | Example-sentence scoring (i+1 ranking) and candidate lists. |
 | `src/i18n.js` | Interface translations (ja/en/fr) and the language switcher. |
+| `src/pdfText.js` | Pure: pdf.js text items to lines, columns of vertical writing included. |
 | `assets/dict/` | kuromoji dictionary. |
 | `assets/fonts/` | TTFs, embedded into the `.docx`. |
 | `assets/data/` | Generated lesson data: kanji index and per-grade sentences. |
 | `assets/tessdata/`, `vendor/tesseract/` | OCR models and engine, loaded on first use. |
+| `vendor/pdfjs/` | pdf.js, loaded the first time a PDF is opened. Its `cmaps/` are what lets a Japanese PDF give up its text, its `wasm/` what decodes a scan's images. |
 | `tools/gen.mjs` | Node harness that renders the outputs without a browser. |
 
 The column geometry in `model.js` (used to fit sentences to the page
@@ -79,9 +82,9 @@ updated by hand.
 and is **not** committed: `npm run serve` and the deploy workflow both rebuild
 it, so it cannot drift from what ships.
 
-Only the shell is precached, about 1.9 MB. The dictionary, fonts, OCR models and
-per-grade sentence files are kept as they are fetched instead, because
-precaching them would turn installing the app into a 65 MB download.
+Only the shell is precached, about 1.9 MB. The dictionary, fonts, OCR models,
+pdf.js and the per-grade sentence files are kept as they are fetched instead,
+because precaching them would turn installing the app into a 70 MB download.
 
 The cache name is a digest of the precached files, so a changed deploy triggers
 an update and an identical rebuild does not. A waiting worker raises a banner
