@@ -22,7 +22,7 @@ export function gradeOf(ch) { return KANJI && KANJI[ch] ? KANJI[ch].g : null; }
 // JLPT level as an N number (5..1) or null if the kanji is not in a JLPT list.
 export function jlptOf(ch) { return KANJI && KANJI[ch] ? (KANJI[ch].j ?? null) : null; }
 
-async function loadKanji() {
+export async function loadKanji() {
   if (KANJI) return KANJI;
   const res = await fetch('assets/data/kanji.json');
   KANJI = await res.json();

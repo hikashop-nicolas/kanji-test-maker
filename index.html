@@ -56,6 +56,9 @@
   .chip.st-furigana { background:#e8820e; color:#fff; border-color:#e8820e; }
   .chip.st-kana { background:#d8392f; color:#fff; border-color:#d8392f; }
   .chip .rd { display:block; font-size:.7rem; opacity:.85; }
+  /* an alternative reading the dictionary suggests for a half-kana spelling */
+  .chip .rd .hint { font:inherit; margin-left:.2rem; padding:0 .25rem; border:1px dashed currentColor; border-radius:3px; background:transparent; color:inherit; opacity:.8; cursor:pointer; }
+  .chip .rd .hint:hover { opacity:1; background:#0002; }
   .chip.st-test .rd input, .chip.st-furigana .rd input, .chip.st-kana .rd input { width:4.5em; font-size:.72rem; border:0; border-bottom:1px solid #fff8; background:transparent; color:#fff; text-align:center; }
   .legend { display:flex; flex-wrap:wrap; gap:.8rem; font-size:.78rem; color:#555; margin-bottom:.5rem; }
   .legend .sw { display:inline-block; width:.85em; height:.85em; border-radius:3px; vertical-align:-1px; margin-right:.25rem; }

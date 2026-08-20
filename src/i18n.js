@@ -26,6 +26,7 @@ const STR = {
   tab_file: { ja: 'ファイルから', en: 'From a file', fr: 'Depuis un fichier' },
   src_lbl_file: { ja: 'ファイルを選ぶ（PDF・Word・テキスト、または教科書のページなどの画像）', en: 'Choose a file (PDF, Word, plain text, or an image such as a textbook page)', fr: 'Choisir un fichier (PDF, Word, texte brut, ou image telle qu’une page de manuel)' },
   src_vertical: { ja: '縦書き（画像・スキャンのみ）', en: 'Vertical writing (images and scans only)', fr: 'Écriture verticale (images et scans seulement)' },
+  hint_from: { ja: '「{word}」の読み方を当てはめる', en: 'Use the reading from {word}', fr: 'Utiliser la lecture de {word}' },
   src_reading: { ja: '読み込み中…', en: 'Reading…', fr: 'Lecture…' },
   src_truncated: { ja: '全 {total} 行のうち最初の {n} 行を読み込みました。', en: 'Read the first {n} lines out of {total}.', fr: 'Les {n} premières lignes sur {total} ont été lues.' },
   src_run: { ja: '文字を読み取る', en: 'Read the text', fr: 'Lire le texte' },

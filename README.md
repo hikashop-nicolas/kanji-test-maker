@@ -55,7 +55,11 @@ or 読み (the kanji is shown, the pupil writes the reading). The buttons above 
 table switch **every** sentence at once, so one set of sentences gives you a
 write sheet and a read sheet without clicking through them one by one.
 
-Readings can be corrected in place if the analysis gets one wrong.
+Readings can be corrected in place if the analysis gets one wrong. It most often
+does when a word is written half in kana, the way a worksheet spells a kanji the
+class has not met yet: あま酒 is not in any dictionary, so 酒 is read on its own
+and comes out しゅ rather than ざけ. Where that happens, a dashed alternative
+appears next to the reading (ざけ, from 甘酒). Click it to take it.
 
 ![Edit the table](docs/screenshots/03-edit-table.png)
 

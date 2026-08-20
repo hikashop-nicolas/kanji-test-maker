@@ -42,6 +42,7 @@ paste → kuromoji (tokens + readings) → editable table
 | `src/sentences.js` | Example-sentence scoring (i+1 ranking) and candidate lists. |
 | `src/i18n.js` | Interface translations (ja/en/fr) and the language switcher. |
 | `src/pdfText.js` | Pure: pdf.js text items to lines, columns of vertical writing included. |
+| `src/readingHints.js` | Pure: a second reading for a kanji, found by putting the kana part of a half-written word back into kanji and asking the dictionary. |
 | `src/fileText.js` | Pure: `.txt` decoding (UTF-8, Shift_JIS, EUC-JP) and paragraphs out of `.docx` / `.odt` XML. |
 | `src/msDoc.js` | Pure: the Word 97-2003 `.doc` container and piece table. No dependency; JSZip covers the zipped formats. |
 | `assets/dict/` | kuromoji dictionary. |

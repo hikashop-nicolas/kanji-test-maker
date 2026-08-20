@@ -3,9 +3,10 @@ import { normalizeTokens, buildLayout } from './model.js?v=2';
 import { buildHtml } from './htmlExport.js?v=2';
 import { buildDocx } from './docxExport.js?v=2';
 import { addFontEmbedFlag } from './docxEmbed.js?v=2';
-import { initLessonBuilder, onLessonChange, selectedKanji, gradeOf, jlptOf, setSelection, currentGrade, refreshLabels } from './lesson.js?v=2';
+import { initLessonBuilder, onLessonChange, selectedKanji, gradeOf, jlptOf, setSelection, currentGrade, refreshLabels, loadKanji } from './lesson.js?v=2';
 import { buildCandidates } from './sentences.js?v=2';
 import { t, initLang, applyI18n, getLang, setLang } from './i18n.js?v=2';
+import { readingIndex, readingHints } from './readingHints.js?v=2';
 import { pageLines } from './pdfText.js?v=2';
 import { decodeText, docxLines, odtLines } from './fileText.js?v=2';
 import { docText } from './msDoc.js?v=2';
@@ -219,7 +220,7 @@ function addPickedSentences() {
   let added = 0;
   for (const text of picked) {
     if (existing.has(text)) continue;
-    const tokens = normalizeTokens(tokenizer.tokenize(text));
+    const tokens = tokenizeSentence(text);
     // auto-state: test the lesson kanji; render above-grade words as kana
     // (red); everything else plain. Furigana (orange) is left for manual use.
     tokens.forEach(t => {
@@ -330,12 +331,27 @@ $('o_image_clear').addEventListener('click', () => {
 });
 
 // ---- processing ----------------------------------------------------------
+// kanji by reading, for the second opinion on a reading. Built once, from the
+// same KANJIDIC data the lesson picker uses.
+let hintIndex = null;
+loadKanji().then(data => { hintIndex = readingIndex(data); }).catch(() => {});
+
+function tokenizeSentence(text) {
+  const raw = tokenizer.tokenize(text);
+  const tokens = normalizeTokens(raw);
+  if (hintIndex) {
+    const hints = readingHints(s => tokenizer.tokenize(s), hintIndex, text, raw);
+    tokens.forEach((token, i) => { if (hints[i] && hints[i].length) token.hints = hints[i]; });
+  }
+  return tokens;
+}
+
 // Tokenize one-sentence-per-line text into the editor. replace=true wipes the
 // current set (paste), replace=false appends (OCR). Returns how many were added.
 function addLinesAsSentences(text, replace) {
   if (!tokenizer) return 0;
   const made = text.split(/\r?\n/).map(s => s.trim()).filter(Boolean)
-    .map(line => ({ tokens: normalizeTokens(tokenizer.tokenize(line)), mode: 'kaki' }));
+    .map(line => ({ tokens: tokenizeSentence(line), mode: 'kaki' }));
   if (replace) state.sentences = made; else state.sentences.push(...made);
   renderTable();
   $('tablePanel').style.display = state.sentences.length ? '' : 'none';
@@ -595,6 +611,21 @@ function renderTable() {
         inp.oninput = () => { tok.reading = inp.value; };
         inp.onchange = refreshPreview;
         rd.appendChild(inp);
+        // what the dictionary says this kanji reads in the word it belongs to,
+        // for the half-in-kana spellings kuromoji has to guess at
+        for (const hint of tok.hints || []) {
+          if (hint.reading === tok.reading) continue;
+          const b = document.createElement('button');
+          b.className = 'hint';
+          b.textContent = hint.reading;
+          b.title = t('hint_from', { word: hint.via });
+          b.onclick = (e) => {
+            e.stopPropagation();
+            tok.reading = hint.reading;
+            renderTable(); refreshPreview();
+          };
+          rd.appendChild(b);
+        }
         chip.appendChild(rd);
       }
       chip.onclick = () => { tok.state = nextState(tok.state, tok.hasKanji); renderTable(); refreshPreview(); };
