@@ -1,0 +1,179 @@
+<!doctype html><meta charset="utf-8"><title>orientation probe</title>
+<body style="font:13px monospace">
+<div id="out"></div>
+<script type="module">
+import { directionOfImage } from '../src/orientation.js';
+
+const TEXT = '春休みに雪がふって山の上に白い雲が出た今日は学校で本を読んだ絵の具で花の絵をかく友だちと川原まで歩いて行き石を拾って帰った';
+const FONT = '"Hiragino Mincho ProN", serif';
+
+function page(w, h, draw) {
+  const c = document.createElement('canvas');
+  c.width = w; c.height = h;
+  const x = c.getContext('2d');
+  x.fillStyle = '#fff'; x.fillRect(0, 0, w, h);
+  x.fillStyle = '#000';
+  draw(x, c);
+  return c;
+}
+
+// horizontal writing: lines across the page
+function horizontal({ size = 34, leading = 1.6, lines = 14, cols = 22, grid = false, boxes = false } = {}) {
+  return page(1000, 1400, (x) => {
+    x.font = `${size}px ${FONT}`;
+    let at = 0;
+    for (let i = 0; i < lines; i++) {
+      const y = 120 + i * size * leading;
+      for (let j = 0; j < cols; j++) {
+        const ch = TEXT[at++ % TEXT.length];
+        // grid: every character on the same pitch, so the gaps line up column
+        // to column, which is the case that fools a naive band count
+        x.fillText(ch, 90 + j * size * (grid ? 1.12 : 1.02), y);
+      }
+    }
+    if (boxes) {
+      x.strokeStyle = '#000'; x.lineWidth = 2;
+      for (let i = 0; i < 4; i++) x.strokeRect(90, 900 + i * 90, 820, 70);
+    }
+  });
+}
+
+// vertical writing: columns down the page, filled right to left
+function vertical({ size = 34, spacing = 1.6, cols = 14, rows = 22 } = {}) {
+  return page(1000, 1400, (x) => {
+    x.font = `${size}px ${FONT}`;
+    let at = 0;
+    for (let i = 0; i < cols; i++) {
+      const cx = 900 - i * size * spacing;
+      for (let j = 0; j < rows; j++) {
+        x.fillText(TEXT[at++ % TEXT.length], cx, 120 + j * size * 1.02);
+      }
+    }
+  });
+}
+
+function oneLine() {
+  return page(1000, 220, (x) => {
+    x.font = `72px ${FONT}`;
+    x.fillText('山の上に白い雲が出た。', 30, 140);
+  });
+}
+function oneColumn() {
+  return page(220, 1000, (x) => {
+    x.font = `72px ${FONT}`;
+    for (let i = 0; i < 11; i++) x.fillText('山の上に白い雲が出た。'[i], 60, 110 + i * 78);
+  });
+}
+
+const cases = [
+  ['horizontal, normal leading', horizontal(), 'h'],
+  ['horizontal, tight leading', horizontal({ leading: 1.18 }), 'h'],
+  ['horizontal, grid pitch', horizontal({ grid: true, leading: 1.5 }), 'h'],
+  ['horizontal, grid + tight', horizontal({ grid: true, leading: 1.15 }), 'h'],
+  ['horizontal + answer boxes', horizontal({ lines: 8, boxes: true }), 'h'],
+  ['horizontal, few lines', horizontal({ lines: 4, leading: 1.7 }), 'h'],
+  ['vertical, normal spacing', vertical(), 'v'],
+  ['vertical, tight spacing', vertical({ spacing: 1.18 }), 'v'],
+  ['vertical, few columns', vertical({ cols: 4 }), 'v'],
+  ['vertical, many columns', vertical({ cols: 20, spacing: 1.3 }), 'v'],
+  ['one horizontal line', oneLine(), 'h'],
+  ['one vertical column', oneColumn(), 'v'],
+];
+
+
+// --- conditions a real scan brings ------------------------------------------
+function skew(canvas, deg) {
+  return page(canvas.width, canvas.height, (x, c) => {
+    x.translate(c.width / 2, c.height / 2);
+    x.rotate(deg * Math.PI / 180);
+    x.translate(-c.width / 2, -c.height / 2);
+    x.drawImage(canvas, 0, 0);
+  });
+}
+function grubby(canvas, { gray = 235, speckle = 0.02 } = {}) {
+  const c = page(canvas.width, canvas.height, (x) => { x.drawImage(canvas, 0, 0); });
+  const ctx = c.getContext('2d');
+  const img = ctx.getImageData(0, 0, c.width, c.height);
+  const d = img.data;
+  for (let i = 0; i < d.length; i += 4) {
+    const paper = d[i] > 200;
+    const n = (Math.random() * 30 - 15);
+    const v = paper ? gray + n : d[i] + n;
+    if (paper && Math.random() < speckle) { d[i] = d[i+1] = d[i+2] = 60; continue; }
+    d[i] = d[i+1] = d[i+2] = Math.max(0, Math.min(255, v));
+  }
+  ctx.putImageData(img, 0, 0);
+  return c;
+}
+function shaded(canvas) {
+  const c = page(canvas.width, canvas.height, (x) => { x.drawImage(canvas, 0, 0); });
+  const ctx = c.getContext('2d');
+  const g = ctx.createLinearGradient(0, 0, c.width, c.height);
+  g.addColorStop(0, 'rgba(0,0,0,0)'); g.addColorStop(1, 'rgba(0,0,0,0.35)');
+  ctx.fillStyle = g; ctx.fillRect(0, 0, c.width, c.height);
+  return c;
+}
+// horizontal writing with furigana set above the kanji
+function ruby() {
+  return page(1000, 1400, (x) => {
+    let at = 0;
+    for (let i = 0; i < 10; i++) {
+      const y = 150 + i * 34 * 2.2;
+      for (let j = 0; j < 20; j++) {
+        const ch = TEXT[at++ % TEXT.length];
+        x.font = `34px ${FONT}`;
+        x.fillText(ch, 90 + j * 36, y);
+        if (j % 4 === 0) { x.font = `16px ${FONT}`; x.fillText('よ', 96 + j * 36, y - 36); }
+      }
+    }
+  });
+}
+// 原稿用紙: vertical writing inside a printed grid of squares
+function genkou({ vertical: down = true, cell = 46, cols = 14, rows = 20 } = {}) {
+  return page(1000, 1400, (x) => {
+    x.strokeStyle = '#888'; x.lineWidth = 1.5;
+    const left = 90, top = 100;
+    for (let i = 0; i <= cols; i++) { x.beginPath(); x.moveTo(left + i * cell, top); x.lineTo(left + i * cell, top + rows * cell); x.stroke(); }
+    for (let j = 0; j <= rows; j++) { x.beginPath(); x.moveTo(left, top + j * cell); x.lineTo(left + cols * cell, top + j * cell); x.stroke(); }
+    x.fillStyle = '#000'; x.font = `${Math.round(cell * 0.8)}px ${FONT}`;
+    let at = 0;
+    for (let i = 0; i < cols; i++) {
+      for (let j = 0; j < rows; j++) {
+        // down: fill each column top to bottom (right to left); else row by row
+        const ci = down ? cols - 1 - i : i;
+        const px = left + (down ? ci : j) * cell + cell * 0.1;
+        const py = top + (down ? j : i) * cell + cell * 0.82;
+        if (!down && j >= cols) continue;
+        x.fillText(TEXT[at++ % TEXT.length], px, py);
+      }
+    }
+  });
+}
+cases.push(
+  ['horizontal, skewed 2deg', skew(horizontal(), 2), 'h'],
+  ['vertical, skewed 2deg', skew(vertical(), 2), 'v'],
+  ['horizontal, grubby scan', grubby(horizontal()), 'h'],
+  ['vertical, grubby scan', grubby(vertical()), 'v'],
+  ['horizontal, shaded photo', shaded(horizontal()), 'h'],
+  ['vertical, shaded photo', shaded(vertical()), 'v'],
+  ['horizontal with furigana', ruby(), 'h'],
+  // a full square grid of characters has the same geometry either way: the
+  // right answer here is for it to say it cannot tell
+  ['vertical in a 原稿用紙 grid', genkou(), '?'],
+  ['horizontal in a 原稿用紙 grid', genkou({ vertical: false }), '?'],
+);
+
+window.__cases = cases;
+const UNSURE = 0.2; // below this the module is saying it cannot tell
+const rows = [];
+let bad = 0;
+for (const [name, canvas, want] of cases) {
+  const r = directionOfImage(canvas);
+  const ok = want === '?' ? r.confidence < UNSURE : r.vertical === (want === 'v');
+  if (!ok) bad++;
+  rows.push(`${ok ? 'ok  ' : 'FAIL'} ${name.padEnd(28)} -> ${r.vertical ? 'vertical  ' : 'horizontal'} conf ${r.confidence.toFixed(2)}${want === '?' ? '  (ambiguous: wants a low score)' : ''}`);
+}
+window.__result = { bad, rows };
+document.getElementById('out').textContent = rows.join('\n') + `\n\n${bad} wrong of ${cases.length}`;
+document.getElementById('out').style.whiteSpace = 'pre';
+</script>

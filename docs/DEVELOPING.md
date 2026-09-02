@@ -45,6 +45,7 @@ paste → kuromoji (tokens + readings) → editable table
 | `src/readingHints.js` | Pure: a second reading for a kanji, found by putting the kana part of a half-written word back into kanji and asking the dictionary. |
 | `src/fileText.js` | Pure: `.txt` decoding (UTF-8, Shift_JIS, EUC-JP) and paragraphs out of `.docx` / `.odt` XML. |
 | `src/msDoc.js` | Pure: the Word 97-2003 `.doc` container and piece table. No dependency; JSZip covers the zipped formats. |
+| `src/orientation.js` | Pure: which way a scanned page is written, from where its white space runs; plus the crop and the quarter turns the trial readings use. |
 | `assets/dict/` | kuromoji dictionary. |
 | `assets/fonts/` | TTFs, embedded into the `.docx`. |
 | `assets/data/` | Generated lesson data: kanji index and per-grade sentences. |
@@ -61,6 +62,24 @@ extension, then routes it: text layer for a PDF, XML for a zipped office
 document, the piece table for a `.doc`, and tesseract for an image or a PDF page
 that turns out to be a scan. Whatever comes back goes through the same line
 cleanup, which keeps only lines carrying kanji.
+
+Which way a scan reads is settled in `orientation.js` and the trial loop in
+`app.js`. The module is geometry only: it projects the ink onto both axes (after
+wiping printed rules and correcting for a sheet a couple of degrees off square)
+and reports which axis the lines stack along. That is blind to a page scanned
+sideways, whose lines look horizontal while its characters lie on their side, so
+the geometry only orders the four candidate readings; the recognizer then reads
+a patch of the page under each in turn, and the winner is the one whose output
+is made of dictionary words. Tesseract's own confidence is no use here, being
+about as high for nonsense. A page that stays unreadable goes to the teacher as
+four thumbnails.
+
+`tools/orientation-probe.html` exercises the geometry on its own: open it
+from the dev server and it draws twenty-odd pages (tight leading, a writing
+grid, answer boxes, furigana, a couple of degrees of skew, a grubby scan, a
+single line) and prints what the module makes of each. Two of them are a full
+square grid of characters, which reads the same either way; the test there is
+that the module returns a low score rather than a confident wrong answer.
 
 Several files can be queued at once. They are read one at a time, in order,
 except for the images: those are held back and recognized in one batch, because

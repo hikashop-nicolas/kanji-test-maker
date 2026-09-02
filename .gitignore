@@ -8,6 +8,7 @@ tools/out_html.pdf
 tools/*.docx
 tools/*.pdf
 tools/*.html
+!tools/orientation-probe.html
 
 # generated worksheets
 kanji-test*.docx

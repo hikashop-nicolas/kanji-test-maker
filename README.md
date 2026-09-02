@@ -91,9 +91,14 @@ text file. Older text saved in Shift_JIS or EUC is recognised as such, so it
 does not come out as mojibake.
 
 Only a scan has no text to read. Those pages, and any image, go through
-character recognition instead. Tick 縦書き first when the writing is vertical:
-it changes how the page is read, and makes the difference between sentences and
-gibberish. Recognition is not perfect on a home scan.
+character recognition instead, and which way the page reads is worked out for
+you: the app looks at where the white space runs, then has the recognizer try
+the likeliest readings and keeps the one that comes out as actual words. A
+縦書き sheet that went through the scanner sideways is turned the right way up
+on its own. When it cannot tell, it shows you the page the four ways round and
+asks which one reads; and if you would rather not wait for it to work this out,
+the 向き menu lets you say 横書き or 縦書き outright. Recognition is not perfect
+on a home scan.
 
 Either way the lines land in an editable box, so read them over and fix or
 delete what came out wrong before adding them. A long document stops at the

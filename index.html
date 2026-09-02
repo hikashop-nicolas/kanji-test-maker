@@ -71,6 +71,13 @@
   .dropzone p { margin:0; }
   .dropzone button { display:inline-flex; align-items:center; gap:.4rem; }
   .dropzone svg { width:1.05em; height:1.05em; fill:currentColor; }
+  .ask { margin:.6rem 0; padding:.6rem .8rem; border:1px solid #f0c36d; border-radius:8px; background:#fdf6e3; }
+  .ask p { margin:0 0 .5rem; font-size:.9rem; }
+  .turns { display:flex; flex-wrap:wrap; gap:.5rem; }
+  .turns .turn { display:flex; flex-direction:column; align-items:center; gap:.25rem; padding:.3rem; border:1px solid #d4d8de; border-radius:6px; background:#fff; color:#333; font-size:.8rem; }
+  .turns .turn:hover { border-color:var(--accent); background:#eef4fc; }
+  .turns canvas { width:120px; height:120px; background:#fff; }
+  #src_dir { width:auto; }
   .filelist { list-style:none; display:flex; flex-wrap:wrap; gap:.35rem; margin:.5rem 0 0; padding:0; }
   .filelist:empty { display:none; }
   .filelist li { display:flex; align-items:center; gap:.2rem; padding:.15rem .2rem .15rem .5rem; border-radius:5px; background:#eef1f5; font-size:.85rem; }
@@ -281,11 +288,17 @@
     </div>
     <ul class="filelist" id="src_files"></ul>
     <div class="toolbar">
-      <label style="display:flex;align-items:center;gap:.35rem;margin:0;font-size:.9rem;color:#333">
-        <input type="checkbox" id="src_vertical"> <span data-i18n="src_vertical">縦書き（画像・スキャンのみ）</span>
-      </label>
+      <select id="src_dir" title="縦書き・横書き">
+        <option value="auto" data-i18n-label="src_dir_auto">向き：自動</option>
+        <option value="h" data-i18n-label="src_dir_h">横書き</option>
+        <option value="v" data-i18n-label="src_dir_v">縦書き</option>
+      </select>
       <button id="src_run" disabled data-i18n="src_run">文字を読み取る</button>
       <span class="muted" id="src_status"></span>
+    </div>
+    <div class="ask" id="src_ask" style="display:none">
+      <p><span data-i18n="src_ask">どの向きなら文字が読めますか。</span> <span class="muted" id="src_ask_for"></span></p>
+      <div class="turns" id="src_turns"></div>
     </div>
     <textarea id="src_text" data-i18n-ph="src_ph" placeholder="読み取った文がここに出ます。1行に1文。"></textarea>
     <div class="toolbar">

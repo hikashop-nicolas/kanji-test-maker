@@ -10,6 +10,7 @@ import { readingIndex, readingHints } from './readingHints.js?v=2';
 import { pageLines } from './pdfText.js?v=2';
 import { decodeText, docxLines, odtLines } from './fileText.js?v=2';
 import { docText } from './msDoc.js?v=2';
+import { directionOfImage, densestCrop, turned } from './orientation.js?v=2';
 
 // fonts we ship a TTF for and can embed in the .docx (all OFL-licensed)
 const FONT_TTF = {
@@ -420,37 +421,153 @@ function splitTextLines(rows) {
     .filter(s => HAS_KANJI.test(s));
 }
 
-// images (files, or canvases rendered from a scanned PDF) -> one list of
-// tesseract rows per image. Every image given here shares a single worker,
-// which is worth grouping for: starting one costs several seconds of loading
-// the recognizer and its Japanese model.
-async function recognize(images, vertical, onProgress) {
-  await loadTesseract();
-  let page = 0;
-  const worker = await window.Tesseract.createWorker(vertical ? 'jpn_vert' : 'jpn', 1, {
-    workerPath: 'vendor/tesseract/worker.min.js',
-    corePath: 'vendor/tesseract/tesseract-core-simd-lstm.wasm.js',
-    langPath: 'assets/tessdata',
-    logger: m => { if (m.status === 'recognizing text') onProgress(page, Math.round(m.progress * 100)); },
-  });
-  // the vertical model only makes sense with page layout analysis; the default
-  // "one horizontal block" mode reads the columns crosswise and returns noise.
-  if (vertical) await worker.setParameters({ tessedit_pageseg_mode: window.Tesseract.PSM.AUTO });
-  const pages = [];
-  try {
-    for (const image of images) {
-      const { data } = await worker.recognize(image, {}, { text: true, blocks: true });
-      const rows = [];
-      for (const b of data.blocks || [])
-        for (const p of b.paragraphs || []) rows.push(...(p.lines || []));
-      if (!rows.length && data.text) rows.push({ text: data.text });
-      pages.push(rows);
-      page++;
+// A recognizer kept alive for the whole run. Building one costs several
+// seconds of loading the engine and its Japanese model, and a run needs both
+// models when it has to work out which way a page reads, so they are made once
+// and kept until the run is over.
+function makeReader() {
+  const workers = new Map();
+  let report = () => {};
+  const get = (lang) => {
+    if (!workers.has(lang)) {
+      workers.set(lang, loadTesseract().then(() => window.Tesseract.createWorker(lang, 1, {
+        workerPath: 'vendor/tesseract/worker.min.js',
+        corePath: 'vendor/tesseract/tesseract-core-simd-lstm.wasm.js',
+        langPath: 'assets/tessdata',
+        logger: m => { if (m.status === 'recognizing text') report(Math.round(m.progress * 100)); },
+      })).then(async (worker) => {
+        // the vertical model only makes sense with page layout analysis; the
+        // default "one horizontal block" mode reads the columns crosswise
+        if (lang === 'jpn_vert') await worker.setParameters({ tessedit_pageseg_mode: window.Tesseract.PSM.AUTO });
+        return worker;
+      }));
     }
-  } finally {
-    await worker.terminate();
+    return workers.get(lang);
+  };
+  return {
+    async read(image, vertical, onPercent = () => {}, want = { text: true, blocks: true }) {
+      const worker = await get(vertical ? 'jpn_vert' : 'jpn');
+      report = onPercent;
+      try {
+        return (await worker.recognize(image, {}, want)).data;
+      } finally {
+        report = () => {};
+      }
+    },
+    async close() {
+      for (const pending of workers.values()) await (await pending).terminate();
+      workers.clear();
+    },
+  };
+}
+
+// what tesseract gives back for one page, as the lines we work in
+function rowsOf(data) {
+  const rows = [];
+  for (const b of data.blocks || []) for (const p of b.paragraphs || []) rows.push(...(p.lines || []));
+  if (!rows.length && data.text) rows.push({ text: data.text });
+  return rows;
+}
+
+// ---- which way up the page is --------------------------------------------
+// The geometry of a page says which way its lines run, but not which way its
+// characters face: a 縦書き sheet fed sideways is, line for line, an ordinary
+// horizontal page. So the geometry only puts the likeliest reading first, and
+// the recognizer settles it, on a patch of the page rather than all of it.
+// What marks the right answer is not how sure tesseract says it is (it is
+// about as sure of nonsense) but whether what comes out is made of words.
+
+const TRIAL_PX = 900; // side of the trial patch, in the scan's own pixels
+const TRIAL_GOOD = 0.22; // a reading this word-like is the answer; stop trying
+const TRIAL_ASK = 0.1; // nothing above this: the page is for the teacher to call
+const TRIAL_CHARS = 12; // under this, no way up read as text: nothing to ask about
+
+function readsAsWords(text) {
+  const body = text.replace(/\s+/g, '');
+  if (body.length < TRIAL_CHARS) return 0;
+  if (!tokenizer) return (body.match(/[぀-ヿ㐀-鿿]/g) || []).length / body.length;
+  let known = 0;
+  for (const token of tokenizer.tokenize(body)) {
+    if (token.word_type === 'KNOWN' && token.surface_form.length > 1) known += token.surface_form.length;
   }
-  return pages;
+  return known / body.length;
+}
+
+// the four ways a page can sit on the glass, likeliest first
+function turnsFor(vertical, hint) {
+  const all = [
+    { turn: 0, vertical },
+    { turn: 90, vertical: !vertical },
+    { turn: 270, vertical: !vertical },
+    { turn: 180, vertical },
+  ];
+  // a stack of scans comes off the same machine the same way up, so whatever
+  // the last page turned out to be is the first thing to try on this one
+  const same = (a, b) => b && a.turn === b.turn && a.vertical === b.vertical;
+  return hint ? [...all.filter(t => same(t, hint)), ...all.filter(t => !same(t, hint))] : all;
+}
+
+async function findOrientation(source, reader, say, hint) {
+  const geometry = directionOfImage(source) || { vertical: false };
+  const crop = densestCrop(source, TRIAL_PX);
+  let best = null;
+  let most = 0; // the most text any way up produced
+  const tries = turnsFor(geometry.vertical, hint);
+  for (const [n, candidate] of tries.entries()) {
+    say(t('src_checking', { n: n + 1, total: tries.length }));
+    const data = await reader.read(turned(crop, candidate.turn), candidate.vertical, () => {}, { text: true });
+    const score = readsAsWords(data.text);
+    most = Math.max(most, data.text.replace(/\s+/g, '').length);
+    if (!best || score > best.score) best = { ...candidate, score };
+    if (score >= TRIAL_GOOD) break;
+  }
+  // A page that gave up almost no characters any way up is blank, or is a
+  // photograph of something that is not writing. Its score means nothing, so
+  // it is marked rather than judged: worth a look, not worth a question.
+  return { ...best, sparse: most < TRIAL_CHARS };
+}
+
+// The chooser, for when the page will not say which way it reads: the four
+// turns as pictures, since a teacher settles this at a glance.
+function askOrientation(crop, name) {
+  const panel = $('src_ask'), list = $('src_turns');
+  list.textContent = '';
+  $('src_ask_for').textContent = name || '';
+  return new Promise((resolve) => {
+    for (const turn of [0, 90, 180, 270]) {
+      const view = turned(crop, turn);
+      const shot = document.createElement('canvas');
+      const side = 150;
+      shot.width = side; shot.height = side;
+      shot.getContext('2d').drawImage(view, 0, 0, side, side);
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.className = 'turn';
+      button.appendChild(shot);
+      const label = document.createElement('span');
+      // turning the page a quarter turn turns its writing the other way too
+      const vertical = (directionOfImage(view) || {}).vertical || false;
+      label.textContent = t(vertical ? 'src_tate' : 'src_yoko');
+      button.appendChild(label);
+      button.onclick = () => { panel.style.display = 'none'; resolve({ turn, vertical }); };
+      list.appendChild(button);
+    }
+    $('src_status').textContent = '';
+    panel.style.display = '';
+    panel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  });
+}
+
+// a scanned page -> the same page the right way up, and how to read it
+async function uprightPage(source, reader, say, state, name) {
+  const forced = $('src_dir').value;
+  if (forced !== 'auto') return { image: source, vertical: forced === 'v' };
+  const best = await findOrientation(source, reader, say, state.hint);
+  const choice = best.sparse || best.score > TRIAL_ASK
+    ? best
+    : await askOrientation(densestCrop(source, TRIAL_PX), name);
+  state.hint = { turn: choice.turn, vertical: choice.vertical };
+  return { image: turned(source, choice.turn), vertical: choice.vertical };
 }
 
 // 200 dpi is what tesseract's Japanese models were trained around; above it the
@@ -470,7 +587,7 @@ async function renderPage(page, dpi = 200) {
 // A PDF written by a word processor carries its text, which beats recognizing a
 // picture of it. A scan carries none, so those pages are rendered and read the
 // same way an image is.
-async function linesFromPdf(buf, vertical, say) {
+async function linesFromPdf(buf, run, say, name) {
   const pdfjs = await loadPdfjs();
   const task = pdfjs.getDocument({
     data: new Uint8Array(buf),
@@ -489,10 +606,11 @@ async function linesFromPdf(buf, vertical, say) {
       if (found.length) lines.push(...found.map(text => ({ text })));
       else scans.push(await renderPage(page));
     }
-    if (scans.length) {
-      const pages = await recognize(scans, vertical, (n, p) =>
-        say(t('src_ocr_page', { n: n + 1, total: scans.length, p })));
-      lines.push(...pages.flat());
+    for (const [n, scan] of scans.entries()) {
+      const upright = await uprightPage(scan, run.reader, say, run, t('src_pdf_page', { n: n + 1, total: scans.length }));
+      const data = await run.reader.read(upright.image, upright.vertical,
+        (p) => say(t('src_ocr_page', { n: n + 1, total: scans.length, p })));
+      lines.push(...rowsOf(data));
     }
   } finally {
     await task.destroy();
@@ -528,43 +646,54 @@ function sniff(buf, file) {
 const MAX_LINES = 300;
 
 // one file, already sniffed -> its rows
-async function readFile(kind, buf, vertical, say) {
+async function readFile(kind, buf, run, say, name) {
   switch (kind) {
-    case 'pdf': return linesFromPdf(buf, vertical, say);
+    case 'pdf': return linesFromPdf(buf, run, say, name);
     case 'zip': return (await linesFromZip(buf)).map(text => ({ text }));
     case 'doc': return (docText(buf) || '').split('\n').map(text => ({ text }));
     default: return decodeText(buf).split(/\r?\n/).map(text => ({ text }));
   }
 }
 
-// Every queued file, in the order they were queued, with the images held back
-// so they can go through one recognizer together. A file that cannot be read
-// is counted and stepped over: the rest of the batch is still worth having.
-async function readAll(files, vertical, say) {
+// an image file -> the bitmap the recognizer will be given
+async function bitmapOf(file) {
+  const bitmap = await createImageBitmap(file);
+  const canvas = document.createElement('canvas');
+  canvas.width = bitmap.width; canvas.height = bitmap.height;
+  canvas.getContext('2d').drawImage(bitmap, 0, 0);
+  bitmap.close();
+  return canvas;
+}
+
+// Every queued file, in the order they were queued. The recognizer is shared
+// across all of them, so a stack of scans loads its models once. A file that
+// cannot be read is counted and stepped over: the rest is still worth having.
+async function readAll(files, say) {
   const parts = files.map(() => []);
-  const scans = [];
+  const run = { reader: makeReader(), hint: null };
   let failed = 0;
-  for (const [i, file] of files.entries()) {
-    say(i, t('src_reading'));
-    try {
-      const buf = await file.arrayBuffer();
-      const kind = sniff(buf, file);
-      if (kind === 'image') scans.push({ at: i, file });
-      else parts[i] = await readFile(kind, buf, vertical, msg => say(i, msg));
-    } catch (e) {
-      console.error('reading the file failed', file.name, e);
-      failed++;
+  try {
+    for (const [i, file] of files.entries()) {
+      say(i, t('src_reading'));
+      try {
+        const buf = await file.arrayBuffer();
+        const kind = sniff(buf, file);
+        if (kind !== 'image') {
+          parts[i] = await readFile(kind, buf, run, msg => say(i, msg), file.name);
+          continue;
+        }
+        const page = await bitmapOf(file);
+        const upright = await uprightPage(page, run.reader, msg => say(i, msg), run, file.name);
+        const data = await run.reader.read(upright.image, upright.vertical,
+          (p) => say(i, t('src_running', { p })));
+        parts[i] = rowsOf(data);
+      } catch (e) {
+        console.error('reading the file failed', file.name, e);
+        failed++;
+      }
     }
-  }
-  if (scans.length) {
-    try {
-      const pages = await recognize(scans.map(s => s.file), vertical,
-        (n, p) => say(scans[n].at, t('src_running', { p })));
-      pages.forEach((rows, n) => { parts[scans[n].at] = rows; });
-    } catch (e) {
-      console.error('recognizing the images failed', e);
-      failed += scans.length;
-    }
+  } finally {
+    await run.reader.close();
   }
   return { rows: parts.flat(), failed };
 }
@@ -635,7 +764,7 @@ $('src_run').addEventListener('click', async () => {
       : msg;
   };
   try {
-    const { rows, failed } = await readAll(files, $('src_vertical').checked, say);
+    const { rows, failed } = await readAll(files, say);
     const lines = splitTextLines(rows);
     $('src_text').value = lines.slice(0, MAX_LINES).join('\n');
     st.textContent = !lines.length ? t('src_no_text')
