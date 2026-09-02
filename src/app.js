@@ -420,7 +420,10 @@ function splitTextLines(rows) {
     .filter(s => HAS_KANJI.test(s));
 }
 
-// images (a file, or canvases rendered from a scanned PDF) -> tesseract rows
+// images (files, or canvases rendered from a scanned PDF) -> one list of
+// tesseract rows per image. Every image given here shares a single worker,
+// which is worth grouping for: starting one costs several seconds of loading
+// the recognizer and its Japanese model.
 async function recognize(images, vertical, onProgress) {
   await loadTesseract();
   let page = 0;
@@ -433,20 +436,21 @@ async function recognize(images, vertical, onProgress) {
   // the vertical model only makes sense with page layout analysis; the default
   // "one horizontal block" mode reads the columns crosswise and returns noise.
   if (vertical) await worker.setParameters({ tessedit_pageseg_mode: window.Tesseract.PSM.AUTO });
-  const rows = [];
+  const pages = [];
   try {
     for (const image of images) {
       const { data } = await worker.recognize(image, {}, { text: true, blocks: true });
-      const before = rows.length;
+      const rows = [];
       for (const b of data.blocks || [])
         for (const p of b.paragraphs || []) rows.push(...(p.lines || []));
-      if (rows.length === before && data.text) rows.push({ text: data.text });
+      if (!rows.length && data.text) rows.push({ text: data.text });
+      pages.push(rows);
       page++;
     }
   } finally {
     await worker.terminate();
   }
-  return rows;
+  return pages;
 }
 
 // 200 dpi is what tesseract's Japanese models were trained around; above it the
@@ -466,7 +470,7 @@ async function renderPage(page, dpi = 200) {
 // A PDF written by a word processor carries its text, which beats recognizing a
 // picture of it. A scan carries none, so those pages are rendered and read the
 // same way an image is.
-async function linesFromPdf(buf, vertical, st) {
+async function linesFromPdf(buf, vertical, say) {
   const pdfjs = await loadPdfjs();
   const task = pdfjs.getDocument({
     data: new Uint8Array(buf),
@@ -479,15 +483,16 @@ async function linesFromPdf(buf, vertical, st) {
   const scans = [];
   try {
     for (let n = 1; n <= doc.numPages; n++) {
-      st.textContent = t('src_pdf_page', { n, total: doc.numPages });
+      say(t('src_pdf_page', { n, total: doc.numPages }));
       const page = await doc.getPage(n);
       const found = pageLines((await page.getTextContent()).items, page.getViewport({ scale: 1 }).transform);
       if (found.length) lines.push(...found.map(text => ({ text })));
       else scans.push(await renderPage(page));
     }
     if (scans.length) {
-      lines.push(...await recognize(scans, vertical, (n, p) =>
-        st.textContent = t('src_ocr_page', { n: n + 1, total: scans.length, p })));
+      const pages = await recognize(scans, vertical, (n, p) =>
+        say(t('src_ocr_page', { n: n + 1, total: scans.length, p })));
+      lines.push(...pages.flat());
     }
   } finally {
     await task.destroy();
@@ -522,32 +527,121 @@ function sniff(buf, file) {
 // hand kuromoji more sentences than a browser can tokenize in one go.
 const MAX_LINES = 300;
 
-$('src_file').addEventListener('change', () => { $('src_run').disabled = !$('src_file').files[0]; });
-$('src_run').addEventListener('click', async () => {
-  const file = $('src_file').files[0];
-  if (!file) return;
-  const btn = $('src_run'), st = $('src_status');
-  const vertical = $('src_vertical').checked;
-  btn.disabled = true;
-  st.textContent = t('src_reading');
-  try {
-    const buf = await file.arrayBuffer();
-    let rows;
-    switch (sniff(buf, file)) {
-      case 'pdf': rows = await linesFromPdf(buf, vertical, st); break;
-      case 'zip': rows = (await linesFromZip(buf)).map(text => ({ text })); break;
-      case 'doc': rows = (docText(buf) || '').split('\n').map(text => ({ text })); break;
-      case 'image': rows = await recognize([file], vertical, (n, p) => st.textContent = t('src_running', { p })); break;
-      default: rows = decodeText(buf).split(/\r?\n/).map(text => ({ text }));
+// one file, already sniffed -> its rows
+async function readFile(kind, buf, vertical, say) {
+  switch (kind) {
+    case 'pdf': return linesFromPdf(buf, vertical, say);
+    case 'zip': return (await linesFromZip(buf)).map(text => ({ text }));
+    case 'doc': return (docText(buf) || '').split('\n').map(text => ({ text }));
+    default: return decodeText(buf).split(/\r?\n/).map(text => ({ text }));
+  }
+}
+
+// Every queued file, in the order they were queued, with the images held back
+// so they can go through one recognizer together. A file that cannot be read
+// is counted and stepped over: the rest of the batch is still worth having.
+async function readAll(files, vertical, say) {
+  const parts = files.map(() => []);
+  const scans = [];
+  let failed = 0;
+  for (const [i, file] of files.entries()) {
+    say(i, t('src_reading'));
+    try {
+      const buf = await file.arrayBuffer();
+      const kind = sniff(buf, file);
+      if (kind === 'image') scans.push({ at: i, file });
+      else parts[i] = await readFile(kind, buf, vertical, msg => say(i, msg));
+    } catch (e) {
+      console.error('reading the file failed', file.name, e);
+      failed++;
     }
+  }
+  if (scans.length) {
+    try {
+      const pages = await recognize(scans.map(s => s.file), vertical,
+        (n, p) => say(scans[n].at, t('src_running', { p })));
+      pages.forEach((rows, n) => { parts[scans[n].at] = rows; });
+    } catch (e) {
+      console.error('recognizing the images failed', e);
+      failed += scans.length;
+    }
+  }
+  return { rows: parts.flat(), failed };
+}
+
+// The queue itself. A teacher scanning a workbook ends up with one file per
+// page, so the picker takes several and a drop adds to what is already there
+// instead of replacing it.
+const picked = [];
+const fileKey = (f) => `${f.name}|${f.size}|${f.lastModified}`;
+
+function renderFiles() {
+  const list = $('src_files');
+  list.textContent = '';
+  picked.forEach((file, i) => {
+    const li = document.createElement('li');
+    li.append(file.name);
+    const x = document.createElement('button');
+    x.type = 'button';
+    x.textContent = '×';
+    x.title = t('src_remove');
+    x.dataset.i18nTitle = 'src_remove'; // so it follows a language change
+    x.onclick = () => { picked.splice(i, 1); renderFiles(); };
+    li.appendChild(x);
+    list.appendChild(li);
+  });
+  $('src_run').disabled = !picked.length;
+}
+
+function addFiles(files) {
+  for (const f of files || []) if (!picked.some(p => fileKey(p) === fileKey(f))) picked.push(f);
+  renderFiles();
+}
+
+{
+  const zone = $('src_drop');
+  // the button is inside the zone, so its click reaches this handler too
+  zone.addEventListener('click', () => $('src_file').click());
+  $('src_file').addEventListener('change', (e) => {
+    addFiles(e.target.files);
+    e.target.value = ''; // so picking the same file again still fires a change
+  });
+  zone.addEventListener('dragover', (e) => { e.preventDefault(); zone.classList.add('over'); });
+  zone.addEventListener('dragleave', (e) => {
+    if (!zone.contains(e.relatedTarget)) zone.classList.remove('over'); // children count as leaving
+  });
+  zone.addEventListener('drop', (e) => {
+    e.preventDefault();
+    zone.classList.remove('over');
+    addFiles(e.dataTransfer.files);
+  });
+  // a file dropped anywhere else would otherwise be navigated to, taking the
+  // worksheet being built with it. Dragged text is left alone: dropping a
+  // selection into one of the textareas is worth keeping.
+  const isFileDrag = (e) => [...(e.dataTransfer?.types || [])].includes('Files');
+  for (const ev of ['dragover', 'drop']) {
+    document.addEventListener(ev, (e) => { if (isFileDrag(e)) e.preventDefault(); });
+  }
+}
+
+$('src_run').addEventListener('click', async () => {
+  if (!picked.length) return;
+  const btn = $('src_run'), st = $('src_status');
+  const files = picked.slice();
+  btn.disabled = true;
+  const say = (i, msg) => {
+    st.textContent = files.length > 1
+      ? `${t('src_of_file', { name: files[i].name, n: i + 1, total: files.length })} ${msg}`
+      : msg;
+  };
+  try {
+    const { rows, failed } = await readAll(files, $('src_vertical').checked, say);
     const lines = splitTextLines(rows);
     $('src_text').value = lines.slice(0, MAX_LINES).join('\n');
     st.textContent = !lines.length ? t('src_no_text')
       : lines.length > MAX_LINES ? t('src_truncated', { n: MAX_LINES, total: lines.length })
+      : failed ? t('src_failed', { n: failed })
       : '';
-  } catch (e) {
-    console.error('reading the file failed', e);
-    st.textContent = t('src_no_text');
   } finally {
     btn.disabled = false;
   }

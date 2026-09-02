@@ -65,6 +65,17 @@
   .modebtns button { padding:.2rem .5rem; font-size:.8rem; }
   .modebtns button.on { background:var(--accent); color:#fff; }
   .modebtns button:not(.on) { background:#eef1f5; color:#333; }
+  /* the file source: one area that takes both a drop and a click */
+  .dropzone { display:flex; flex-direction:column; align-items:center; gap:.5rem; padding:1.1rem .8rem; border:2px dashed #c4ccd6; border-radius:8px; background:#fafbfc; text-align:center; cursor:pointer; }
+  .dropzone.over { border-color:var(--accent); background:#eef4fc; }
+  .dropzone p { margin:0; }
+  .dropzone button { display:inline-flex; align-items:center; gap:.4rem; }
+  .dropzone svg { width:1.05em; height:1.05em; fill:currentColor; }
+  .filelist { list-style:none; display:flex; flex-wrap:wrap; gap:.35rem; margin:.5rem 0 0; padding:0; }
+  .filelist:empty { display:none; }
+  .filelist li { display:flex; align-items:center; gap:.2rem; padding:.15rem .2rem .15rem .5rem; border-radius:5px; background:#eef1f5; font-size:.85rem; }
+  .filelist button { padding:0 .3rem; border:0; background:none; color:#666; font-size:1rem; line-height:1.2; }
+  .filelist button:hover { color:#d23; background:none; }
   .toolbar { display:flex; gap:.6rem; flex-wrap:wrap; align-items:center; margin-top:.4rem; }
   iframe#preview { width:100%; height:460px; border:1px solid #ddd; border-radius:6px; background:#fff; }
   .muted { color:#888; font-size:.85rem; }
@@ -260,8 +271,15 @@
       </div><!-- /tab_paste -->
 
       <div class="tabpane" id="tab_file">
-    <label for="src_file" data-i18n="src_lbl_file">ファイルを選ぶ（PDF・Word・テキスト、または教科書のページなどの画像）</label>
-    <input type="file" id="src_file" accept=".pdf,.txt,.text,.doc,.docx,.odt,application/pdf,text/plain,image/*">
+    <div class="dropzone" id="src_drop">
+      <input type="file" id="src_file" multiple accept=".pdf,.txt,.text,.doc,.docx,.odt,application/pdf,text/plain,image/*" hidden>
+      <button type="button" id="src_browse">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2.6 17.4 8H14v6h-4V8H6.6L12 2.6z"/><path d="M4 16h2v3h12v-3h2v5H4v-5z"/></svg>
+        <span data-i18n="src_browse">ファイルを選ぶ</span>
+      </button>
+      <p class="muted" data-i18n="src_lbl_file">ここにドロップしてもかまいません（PDF・Word・テキスト、または教科書のページなどの画像。複数まとめて可）</p>
+    </div>
+    <ul class="filelist" id="src_files"></ul>
     <div class="toolbar">
       <label style="display:flex;align-items:center;gap:.35rem;margin:0;font-size:.9rem;color:#333">
         <input type="checkbox" id="src_vertical"> <span data-i18n="src_vertical">縦書き（画像・スキャンのみ）</span>

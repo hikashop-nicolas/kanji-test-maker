@@ -79,8 +79,11 @@ ready-made sets to try.
 
 **Take them from a file.** The ファイルから tab takes a PDF, a Word document
 (`.docx` or the older `.doc`), an OpenDocument `.odt`, a plain `.txt`, or a
-photo or scan of a textbook page or an old worksheet. Nothing is sent anywhere;
-the file is read on your own computer.
+photo or scan of a textbook page or an old worksheet. Drop them on the box or
+pick them with the button, several at once if you have them: scanning a
+workbook gives one file per page, and the whole stack can go in together. They
+are read in the order they are listed, so the sentences come out in page order.
+Nothing is sent anywhere; the files are read on your own computer.
 
 Anything carrying its own text gives it up exactly as it was typed, vertical
 writing included: a PDF made by Word or Excel, a Word or OpenDocument file, a

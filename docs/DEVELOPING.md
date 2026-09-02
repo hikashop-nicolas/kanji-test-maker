@@ -62,6 +62,12 @@ document, the piece table for a `.doc`, and tesseract for an image or a PDF page
 that turns out to be a scan. Whatever comes back goes through the same line
 cleanup, which keeps only lines carrying kanji.
 
+Several files can be queued at once. They are read one at a time, in order,
+except for the images: those are held back and recognized in one batch, because
+starting a tesseract worker costs more than recognizing a page with it. A file
+that cannot be read is counted and stepped over, so one bad scan does not cost
+the teacher the rest of the stack.
+
 ## Dependencies
 
 There is no bundler, so the browser loads the copies committed in `vendor/` and
