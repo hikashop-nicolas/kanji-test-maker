@@ -49,6 +49,7 @@ const STR = {
   src_no_text: { ja: '文字を読み取れませんでした。', en: 'No text could be read.', fr: 'Aucun texte n’a pu être lu.' },
 
   // header / option fields
+  f_header_show: { ja: 'シートに見出しを入れる', en: 'Put a heading on the sheet', fr: 'Mettre un en-tête sur la feuille' },
   f_class: { ja: 'クラス', en: 'Class', fr: 'Classe' },
   f_title: { ja: 'タイトル', en: 'Title', fr: 'Titre' },
   f_number: { ja: '番号', en: 'Number', fr: 'Numéro' },
@@ -135,6 +136,7 @@ const STR = {
   all_modes: { ja: 'ぜんぶの文を：', en: 'All sentences:', fr: 'Toutes les phrases :' },
   btn_all_kaki: { ja: '書きにする', en: 'Write mode', fr: 'Mode écrire' },
   btn_all_yomi: { ja: '読みにする', en: 'Read mode', fr: 'Mode lire' },
+  btn_shuffle: { ja: '順番をシャッフル', en: 'Shuffle the order', fr: 'Mélanger l’ordre' },
   th_mode: { ja: 'モード', en: 'Mode', fr: 'Mode' },
   th_sentence: { ja: '文（語をクリックで状態を切り替え）', en: 'Sentence (click a word to change its state)', fr: 'Phrase (cliquez un mot pour changer son état)' },
 

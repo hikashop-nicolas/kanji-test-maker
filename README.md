@@ -54,6 +54,9 @@ Each sentence is either 書き (the reading is shown, the pupil writes the kanji
 or 読み (the kanji is shown, the pupil writes the reading). The buttons above the
 table switch **every** sentence at once, so one set of sentences gives you a
 write sheet and a read sheet without clicking through them one by one.
+**順番をシャッフル** puts the sentences in a new order and renumbers them, which
+is how you get a second sheet on the same words that cannot be answered from
+memory of the first.
 
 Readings can be corrected in place if the analysis gets one wrong. It most often
 does when a word is written half in kana, the way a worksheet spells a kanji the
@@ -121,6 +124,11 @@ Under 見た目・レイアウト:
   upload. Font size and box size are separate settings.
 - **Extras.** Score and parent's-seal boxes below the name, and a logo in the
   bottom-left corner. Multi-page sheets are numbered automatically.
+
+The heading itself is optional: untick **シートに見出しを入れる** under テスト情報
+and the class, title and name line comes off, and the column it stood in goes to
+the sentences. A sheet someone makes to practise on themselves has no one to
+hand it in to.
 
 If a sentence will not fit on the page, the preview says so in red rather than
 dropping it silently. Reduce the font or box size, or add a band.

@@ -251,7 +251,11 @@ window.kuromoji.builder({ dicPath: 'assets/dict' }).build((err, tok) => {
 
 // ---- header / options ----------------------------------------------------
 function header() {
-  return { classCode: $('h_class').value, title: $('h_title').value, lessonNo: $('h_lesson').value, nameLabel: $('h_name').value };
+  return {
+    show: $('h_show').checked,
+    classCode: $('h_class').value, title: $('h_title').value,
+    lessonNo: $('h_lesson').value, nameLabel: $('h_name').value,
+  };
 }
 function options() {
   return {
@@ -309,6 +313,19 @@ $('o_perpage_auto').addEventListener('change', () => {
   refreshPreview();
 });
 syncAutoPerPage();
+// A sheet a student makes to practise on needs no class, title or name line,
+// so the heading comes off and its space goes back to the sentences.
+function syncHeaderFields() {
+  $('headerFields').classList.toggle('off', !$('h_show').checked);
+  for (const id of ['h_class', 'h_title', 'h_lesson', 'h_name']) $(id).disabled = !$('h_show').checked;
+}
+try { $('h_show').checked = localStorage.getItem('ktm_header') !== '0'; } catch (e) {}
+syncHeaderFields();
+$('h_show').addEventListener('change', () => {
+  try { localStorage.setItem('ktm_header', $('h_show').checked ? '1' : '0'); } catch (e) {}
+  syncHeaderFields();
+  refreshPreview();
+});
 try { $('o_extras').checked = localStorage.getItem('ktm_extras') === '1'; } catch (e) {}
 $('o_extras').addEventListener('change', () => {
   try { localStorage.setItem('ktm_extras', $('o_extras').checked ? '1' : '0'); } catch (e) {}
@@ -790,6 +807,18 @@ function setAllModes(mode) {
 $('btnAllKaki').addEventListener('click', () => setAllModes('kaki'));
 $('btnAllYomi').addEventListener('click', () => setAllModes('yomi'));
 
+// Shuffle, for a second sheet on the same words: the sentences are numbered
+// by their place in the list, so reordering renumbers them.
+$('btnShuffle').addEventListener('click', () => {
+  const list = state.sentences;
+  for (let i = list.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [list[i], list[j]] = [list[j], list[i]];
+  }
+  renderTable();
+  refreshPreview();
+});
+
 function renderTable() {
   const tbody = $('rows');
   tbody.innerHTML = '';
@@ -1013,6 +1042,7 @@ function loadSet(file) {
     if (h.title != null) $('h_title').value = h.title;
     if (h.lessonNo != null) $('h_lesson').value = h.lessonNo;
     if (h.nameLabel != null) $('h_name').value = h.nameLabel;
+    if (h.show != null) { $('h_show').checked = !!h.show; syncHeaderFields(); }
     if (o.perPage != null) $('o_perpage').value = o.perPage;
     if (o.rows != null) $('o_rows').value = o.rows;
     if (o.autoPerPage != null) { $('o_perpage_auto').checked = !!o.autoPerPage; syncAutoPerPage(); }

@@ -53,13 +53,13 @@ function sentenceHtml(col, fontPitchMm, boxSize, answers, inline, colH) {
   return `<div class="sentence">${text}<div class="boxcol">${boxes}</div></div>`;
 }
 
-// Title (class/lesson/name) shows only on the first page; the points/seal boxes
-// show only on the last page (both together when there is a single page).
-function titleHtml(h, extras, isFirst, isLast) {
-  const showText = isFirst;
+// Title (class/lesson/name) shows on the first page only, and not at all on a
+// sheet with no heading; the points/seal boxes show on the last page (both
+// together when there is a single page).
+function titleHtml(h, extras, showText, isLast) {
   const showBoxes = extras && isLast;
   if (!showText && !showBoxes) return '';
-  const lesson = h.lesson ? `<span class="num">${esc(h.lesson)}</span>` : '';
+  const lesson = showText && h.lesson ? `<span class="num">${esc(h.lesson)}</span>` : '';
   const text = showText
     ? `<div class="ttext">${esc(h.pre)}${lesson}${esc(h.post)}</div>`
     : `<div class="tspacer"></div>`;
@@ -78,7 +78,7 @@ export function buildHtml(layout, opts = {}) {
   const boxSize = layout.boxSize || 10;              // mm per writing cell
   const titleFontSize = layout.titleFontSize || fontSize;
   const fontPitchMm = fontSize * 0.35278;            // one full-width cell, mm
-  const header = layout.header || { pre: '', lesson: '', post: '' };
+  const header = layout.header; // null when the sheet carries no heading
 
   const answers = !!opts.answers;
   const inline = (layout.blankPos || 'inline') === 'inline';
@@ -93,7 +93,7 @@ export function buildHtml(layout, opts = {}) {
     const html = bands.map((b, bi) => {
       const cols = b.columns.map(c => sentenceHtml(c, fontPitchMm, boxSize, answers, inline, colH)).join('');
       const title = titleHtml(header, layout.extras,
-        idx === 0 && bi === 0, idx === total - 1 && bi === bands.length - 1);
+        !!header && idx === 0 && bi === 0, idx === total - 1 && bi === bands.length - 1);
       return `<div class="band">${title}${cols}</div>`;
     }).join('');
     const pnum = total > 1 ? `<div class="pnum">${idx + 1} / ${total}</div>` : '';

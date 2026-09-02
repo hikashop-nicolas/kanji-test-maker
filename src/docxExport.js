@@ -262,7 +262,7 @@ export function buildDocx(layout, docx, embeddedFonts = [], opts = {}) {
       // Word merges two tables that touch, so keep a thin paragraph between them
       if (bi) children.push(new Paragraph({ spacing: { before: 0, after: 0, line: BAND_GAP_TW, lineRule: 'exact' }, children: [] }));
       children.push(bandTable(band,
-        idx === 0 && bi === 0,
+        !!layout.header && idx === 0 && bi === 0,
         extras && idx === layout.pages.length - 1 && bi === bands.length - 1));
     });
     const sec = {

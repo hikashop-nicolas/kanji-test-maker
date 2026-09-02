@@ -245,7 +245,9 @@ export function buildLayout(worksheet) {
   // blank-cell placement: 'inline' (boxes in the sentence flow, the Japanese
   // norm) or 'column' (boxes in a parallel column beside the sentence).
   const blankPos = o.blankPos === 'column' ? 'column' : 'inline';
-  const header = headerParts(worksheet.header);
+  // the heading is optional: a sheet made to practise on carries no class,
+  // title or name line, and the column they sat in goes back to the sentences
+  const header = (worksheet.header || {}).show === false ? null : headerParts(worksheet.header);
   const sentences = worksheet.sentences.map((s, i) => sentenceColumn(s, i));
 
   // The title shares the column height; shrink its font so the whole line
@@ -262,14 +264,15 @@ export function buildLayout(worksheet) {
     const widthOf = (c) => columnWidthMm(
       Math.max(1, Math.ceil(columnRunMm(c, pitch, boxSize, inline) / colH)), pitch, boxSize, inline);
     // titleFontSize is at most fontSize, so this reserves enough for the title
-    const bands = autoBands(sentences, widthOf, rows, extras ? EXTRAS_W_MM : pitch, extras ? EXTRAS_W_MM : 0);
+    const bands = autoBands(sentences, widthOf, rows,
+      header ? (extras ? EXTRAS_W_MM : pitch) : 0, extras ? EXTRAS_W_MM : 0);
     pages = chunk(bands, rows).map(bs => ({ bands: bs, columns: bs.flatMap(b => b.columns) }));
   } else {
     pages = chunk(sentences, perPage).map(group => ({ columns: group, bands: splitBands(group, rows) }));
   }
   if (pages.length === 0) pages.push({ columns: [], bands: [{ columns: [] }] });
 
-  const headerLen = header.pre.length + (header.lesson ? 1 : 0) + header.post.length;
+  const headerLen = header ? header.pre.length + (header.lesson ? 1 : 0) + header.post.length : 0;
   const COLH_PT = (colH - 8) / 0.35278;
   // the title (first page) and the boxes (last page) only share a column when
   // there is a single page; otherwise the title keeps the full height.

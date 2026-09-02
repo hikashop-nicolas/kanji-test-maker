@@ -71,6 +71,8 @@
   .dropzone p { margin:0; }
   .dropzone button { display:inline-flex; align-items:center; gap:.4rem; }
   .dropzone svg { width:1.05em; height:1.05em; fill:currentColor; }
+  .onoff { display:flex; align-items:center; gap:.4rem; margin-bottom:.5rem; font-size:.9rem; color:#333; }
+  .grid.off { opacity:.45; }
   .ask { margin:.6rem 0; padding:.6rem .8rem; border:1px solid #f0c36d; border-radius:8px; background:#fdf6e3; }
   .ask p { margin:0 0 .5rem; font-size:.9rem; }
   .turns { display:flex; flex-wrap:wrap; gap:.5rem; }
@@ -134,7 +136,8 @@
   <details class="acc" id="secInfo" open>
     <summary data-i18n="sec_info">テスト情報</summary>
     <div class="acc-body">
-    <div class="grid">
+    <label class="onoff"><input type="checkbox" id="h_show" checked> <span data-i18n="f_header_show">シートに見出しを入れる</span></label>
+    <div class="grid" id="headerFields">
       <div><label data-i18n="f_class">クラス</label><input type="text" id="h_class" value="小1"></div>
       <div><label data-i18n="f_title">タイトル</label><input type="text" id="h_title" value="こんしゅうのかんじ"></div>
       <div><label data-i18n="f_number">番号</label><input type="text" id="h_lesson" value="1"></div>
@@ -323,6 +326,7 @@
       <span data-i18n="all_modes">ぜんぶの文を：</span>
       <button id="btnAllKaki" class="secondary" data-i18n="btn_all_kaki">書きにする</button>
       <button id="btnAllYomi" class="secondary" data-i18n="btn_all_yomi">読みにする</button>
+      <button id="btnShuffle" class="secondary" data-i18n="btn_shuffle">順番をシャッフル</button>
     </div>
     <table class="sheet">
       <thead><tr><th style="width:90px" data-i18n="th_mode">モード</th><th data-i18n="th_sentence">文（語をクリックで状態を切り替え）</th><th style="width:40px"></th></tr></thead>
