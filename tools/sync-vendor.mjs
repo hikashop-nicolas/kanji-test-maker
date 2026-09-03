@@ -26,6 +26,9 @@ const FILES = [
   ['node_modules/pdfjs-dist/build/pdf.min.mjs', 'vendor/pdfjs/pdf.min.mjs'],
   ['node_modules/pdfjs-dist/build/pdf.worker.min.mjs', 'vendor/pdfjs/pdf.worker.min.mjs'],
   ['node_modules/pdfjs-dist/LICENSE', 'vendor/pdfjs/LICENSE.txt'],
+  ['node_modules/onnxruntime-web/dist/ort.wasm.bundle.min.mjs', 'vendor/onnx/ort.wasm.bundle.min.mjs'],
+  ['node_modules/onnxruntime-web/dist/ort-wasm-simd-threaded.wasm', 'vendor/onnx/ort-wasm-simd-threaded.wasm'],
+  ['node_modules/onnxruntime-web/dist/ort-wasm-simd-threaded.mjs', 'vendor/onnx/ort-wasm-simd-threaded.mjs'],
 ];
 // the kuromoji dictionary, and pdf.js's side files: the character maps a
 // Japanese PDF needs to give up its text, and the image decoders a scan needs

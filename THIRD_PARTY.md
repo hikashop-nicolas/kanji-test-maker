@@ -11,6 +11,7 @@ This project bundles the following components, each under its own license.
 | [JSZip](https://stuk.github.io/jszip/) | zip post-processing (font-embed flag) | MIT / GPLv3 (dual) |
 | [tesseract.js](https://github.com/naptha/tesseract.js) + [tesseract.js-core](https://github.com/naptha/tesseract.js-core) (in `vendor/tesseract/`) | OCR: read Japanese text from an image, in the browser | Apache-2.0 |
 | [pdf.js](https://github.com/mozilla/pdf.js) (in `vendor/pdfjs/`, with its `cmaps/` and `wasm/`) | Read the text of a PDF, and render a scanned one for OCR | Apache-2.0 |
+| [ONNX Runtime Web](https://github.com/microsoft/onnxruntime) (in `vendor/onnx/`) | Runs the text recognizer below | MIT |
 
 ## OCR trained data (in `assets/tessdata/`)
 
@@ -19,6 +20,15 @@ Loaded only when the OCR feature is first used.
 | Data | Source | License |
 |---|---|---|
 | `jpn.traineddata.gz`, `jpn_vert.traineddata.gz` (horizontal + vertical Japanese) | [tesseract-ocr/tessdata](https://github.com/tesseract-ocr/tessdata) | Apache-2.0 |
+
+## Text recognition model (in `assets/ppocr/`)
+
+Loaded only when a page is scanned. This is the reader that is tried first;
+tesseract, above, is the fallback for pages it cannot be given lines from.
+
+| Data | Source | License |
+|---|---|---|
+| `rec.onnx.gz`, `dict.txt` (`manga_rec_v0.1`, the recognition half of PP-OCRv6_manga) | [Kellenok/PP-OCRv6_manga](https://huggingface.co/Kellenok/PP-OCRv6_manga), a fine-tune of [PP-OCRv6](https://github.com/PaddlePaddle/PaddleOCR) on Manga109-s and AnimeText | Apache-2.0 |
 
 ## Fonts (in `assets/fonts/`)
 

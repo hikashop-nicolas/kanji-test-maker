@@ -11,6 +11,8 @@ import { pageLines } from './pdfText.js?v=2';
 import { decodeText, docxLines, odtLines } from './fileText.js?v=2';
 import { docText } from './msDoc.js?v=2';
 import { directionOfImage, densestCrop, turned } from './orientation.js?v=2';
+import { textLines, looksSplit } from './textLines.js?v=2';
+import { readLines } from './ppocr.js?v=2';
 
 // fonts we ship a TTF for and can embed in the .docx (all OFL-licensed)
 const FONT_TTF = {
@@ -413,8 +415,10 @@ const STRAY = /[<>|｜_^~`\\]/g;
 const LEAD_ASCII = /^[!-~｜]{1,2}\s+(?=[぀-ヿ㐀-鿿])/;
 // nothing in Japanese opens on a small kana, a長音符 or a stray quote/mark
 const LEAD_KANA = /^[ぁぃぅぇぉっゃゅょァィゥェォッャュョーヽヾ゛゜]+/;
-// a worksheet numbers its questions, ours included, before the sentence starts
-const LEAD_PUNCT = /^[\s"“”‘’*+,.:;・、。!?！？=-]+|^[\u2460-\u24ff]+\s*/;
+// A worksheet numbers its questions, ours included, before the sentence starts.
+// The number comes back as a circled digit when it is read well and as some
+// other ring or box when it is not, so the whole geometric block goes.
+const LEAD_PUNCT = /^[\s"“”‘’*+,.:;・、。!?！？=-]+|^[\u2460-\u24ff\u25a0-\u25ff\u3007]+\s*/;
 const HAS_KANJI = /[㐀-鿿]/;
 // below this a tesseract line is a table rule or a speck, not text; real
 // sentences on a home scan score 50-90. A PDF text layer has no confidence,
@@ -478,6 +482,38 @@ function makeReader() {
   };
 }
 
+// ---- reading a page -------------------------------------------------------
+// Two readers. The first cuts the page into its lines (textLines.js) and reads
+// them one at a time with a recognizer trained on Japanese as it is set on a
+// page, vertical writing included: quicker, and better on a worksheet. It is
+// only ever as good as the cutting, though, so a page that will not come apart
+// into lines, or that comes apart into nonsense, goes to tesseract, which
+// brings its own page analysis.
+
+const MODEL_OK = 0.25; // a page reading this word-like needs no second opinion
+
+async function readWithModel(image, vertical, say) {
+  const lines = textLines(image, vertical);
+  if (!looksSplit(lines, image, vertical)) return null;
+  const texts = await readLines(lines, p => say(t('src_running', { p })));
+  return texts.map(text => ({ text }));
+}
+
+// the better of the two readings, and only the second one when it is needed
+async function readPage(image, vertical, reader, say) {
+  let mine = null;
+  try {
+    mine = await readWithModel(image, vertical, say);
+  } catch (e) {
+    console.error('the line reader failed', e);
+  }
+  const scoreOf = (rows) => readsAsWords(rows.map(r => r.text).join(''));
+  if (mine && scoreOf(mine) >= MODEL_OK) return mine;
+  const theirs = rowsOf(await reader.read(image, vertical, p => say(t('src_running', { p }))));
+  if (!mine) return theirs;
+  return scoreOf(theirs) > scoreOf(mine) ? theirs : mine;
+}
+
 // what tesseract gives back for one page, as the lines we work in
 function rowsOf(data) {
   const rows = [];
@@ -532,9 +568,13 @@ async function findOrientation(source, reader, say, hint) {
   const tries = turnsFor(geometry.vertical, hint);
   for (const [n, candidate] of tries.entries()) {
     say(t('src_checking', { n: n + 1, total: tries.length }));
-    const data = await reader.read(turned(crop, candidate.turn), candidate.vertical, () => {}, { text: true });
-    const score = readsAsWords(data.text);
-    most = Math.max(most, data.text.replace(/\s+/g, '').length);
+    const patch = turned(crop, candidate.turn);
+    let text = '';
+    const rows = await readWithModel(patch, candidate.vertical, () => {}).catch(() => null);
+    if (rows) text = rows.map(r => r.text).join('');
+    else text = (await reader.read(patch, candidate.vertical, () => {}, { text: true })).text;
+    const score = readsAsWords(text);
+    most = Math.max(most, text.replace(/\s+/g, '').length);
     if (!best || score > best.score) best = { ...candidate, score };
     if (score >= TRIAL_GOOD) break;
   }
@@ -625,9 +665,8 @@ async function linesFromPdf(buf, run, say, name) {
     }
     for (const [n, scan] of scans.entries()) {
       const upright = await uprightPage(scan, run.reader, say, run, t('src_pdf_page', { n: n + 1, total: scans.length }));
-      const data = await run.reader.read(upright.image, upright.vertical,
-        (p) => say(t('src_ocr_page', { n: n + 1, total: scans.length, p })));
-      lines.push(...rowsOf(data));
+      const where = t('src_pdf_page', { n: n + 1, total: scans.length });
+      lines.push(...await readPage(upright.image, upright.vertical, run.reader, msg => say(`${where} ${msg}`)));
     }
   } finally {
     await task.destroy();
@@ -701,9 +740,7 @@ async function readAll(files, say) {
         }
         const page = await bitmapOf(file);
         const upright = await uprightPage(page, run.reader, msg => say(i, msg), run, file.name);
-        const data = await run.reader.read(upright.image, upright.vertical,
-          (p) => say(i, t('src_running', { p })));
-        parts[i] = rowsOf(data);
+        parts[i] = await readPage(upright.image, upright.vertical, run.reader, msg => say(i, msg));
       } catch (e) {
         console.error('reading the file failed', file.name, e);
         failed++;

@@ -20,7 +20,7 @@ const CORE_FILES = ['index.html', 'manifest.webmanifest'];
 // the per-grade example corpus is only read when the picker asks for a grade
 const LAZY_PREFIXES = [
   'assets/dict/', 'assets/fonts/', 'assets/tessdata/', 'vendor/tesseract/',
-  'vendor/pdfjs/', 'assets/data/lesson-kanji/',
+  'vendor/pdfjs/', 'assets/data/lesson-kanji/', 'assets/ppocr/', 'vendor/onnx/',
 ];
 
 function walk(dir, out = []) {

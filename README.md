@@ -94,8 +94,12 @@ text file. Older text saved in Shift_JIS or EUC is recognised as such, so it
 does not come out as mojibake.
 
 Only a scan has no text to read. Those pages, and any image, go through
-character recognition instead, and which way the page reads is worked out for
-you: the app looks at where the white space runs, then has the recognizer try
+character recognition instead. The reader used first is a model trained on
+Japanese as it is set on a page, vertical writing included, which on ordinary
+worksheet scans gets the sentences right where the older engine would swap a
+kanji for one that looks similar; that older engine is still there for pages the
+new one cannot be given clean lines from. Which way the page reads is worked out
+for you: the app looks at where the white space runs, then has the recognizer try
 the likeliest readings and keeps the one that comes out as actual words. A
 縦書き sheet that went through the scanner sideways is turned the right way up
 on its own. When it cannot tell, it shows you the page the four ways round and

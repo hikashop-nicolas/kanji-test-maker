@@ -46,6 +46,8 @@ paste → kuromoji (tokens + readings) → editable table
 | `src/fileText.js` | Pure: `.txt` decoding (UTF-8, Shift_JIS, EUC-JP) and paragraphs out of `.docx` / `.odt` XML. |
 | `src/msDoc.js` | Pure: the Word 97-2003 `.doc` container and piece table. No dependency; JSZip covers the zipped formats. |
 | `src/orientation.js` | Pure: which way a scanned page is written, from where its white space runs; plus the crop and the quarter turns the trial readings use. |
+| `src/textLines.js` | Pure-ish: cuts a scanned page into its lines of writing, using the same projection as `orientation.js`. |
+| `src/ppocr.js` | The text recognizer: one line of Japanese in, its characters out. ONNX Runtime Web plus a 21 MB model. |
 | `assets/dict/` | kuromoji dictionary. |
 | `assets/fonts/` | TTFs, embedded into the `.docx`. |
 | `assets/data/` | Generated lesson data: kanji index and per-grade sentences. |
@@ -81,6 +83,19 @@ single line) and prints what the module makes of each. Two of them are a full
 square grid of characters, which reads the same either way; the test there is
 that the module returns a low score rather than a confident wrong answer.
 
+A scan is read twice over at most. The first reader cuts the page into lines
+itself (`textLines.js`) and gives them one at a time to `ppocr.js`, whose model
+is `manga_rec_v0.1`, the recognition half of PP-OCRv6_manga: a 21 MB fine-tune
+on Japanese as it is set on a page, vertical writing included. On the scans this
+was built against it reads every sentence correctly and takes about a fifth of
+the time tesseract does. It is only ever as good as the cutting, though, so a
+page that will not come apart into lines, or whose reading comes back not made
+of words, goes to tesseract, which brings its own page analysis. Whichever
+reading is the more word-like wins.
+
+That is also why tesseract stays: a photograph of a magazine page, with columns
+beside pictures, is not something a projection can take apart.
+
 Several files can be queued at once. They are read one at a time, in order,
 except for the images: those are held back and recognized in one batch, because
 starting a tesseract worker costs more than recognizing a page with it. A file
@@ -107,7 +122,7 @@ could no longer find; fix the mapping at the top of `tools/sync-vendor.mjs`.
 Dependabot (`.github/dependabot.yml`) watches the npm packages and the GitHub
 Actions, weekly, grouping minor and patch bumps into one PR and leaving majors
 on their own. It does not see the fonts in `assets/fonts/` (Google Fonts) or the
-OCR models in `assets/tessdata/` (tessdata_fast); both change rarely and are
+OCR models in `assets/tessdata/` and `assets/ppocr/`; both change rarely and are
 updated by hand.
 
 ## PWA
@@ -116,9 +131,10 @@ updated by hand.
 and is **not** committed: `npm run serve` and the deploy workflow both rebuild
 it, so it cannot drift from what ships.
 
-Only the shell is precached, about 1.9 MB. The dictionary, fonts, OCR models,
-pdf.js and the per-grade sentence files are kept as they are fetched instead,
-because precaching them would turn installing the app into a 70 MB download.
+Only the shell is precached, about 1.9 MB. The dictionary, fonts, the two OCR
+readers, pdf.js and the per-grade sentence files are kept as they are fetched
+instead, because precaching them would turn installing the app into a 100 MB
+download.
 
 The cache name is a digest of the precached files, so a changed deploy triggers
 an update and an identical rebuild does not. A waiting worker raises a banner
