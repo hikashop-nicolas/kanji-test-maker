@@ -495,8 +495,14 @@ const MODEL_OK = 0.25; // a page reading this word-like needs no second opinion
 async function readWithModel(image, vertical, say) {
   const lines = textLines(image, vertical);
   if (!looksSplit(lines, image, vertical)) return null;
-  const texts = await readLines(lines, p => say(t('src_running', { p })));
-  return texts.map(text => ({ text }));
+  const texts = await readLines(lines.flat(), p => say(t('src_running', { p })));
+  // a line split by a wide gap comes back in pieces; they are still one line
+  const rows = [];
+  let at = 0;
+  for (const line of lines) {
+    rows.push({ text: line.map(() => texts[at++]).join(' ').trim() });
+  }
+  return rows;
 }
 
 // the better of the two readings, and only the second one when it is needed
@@ -896,8 +902,12 @@ function renderTable() {
         const inp = document.createElement('input');
         inp.value = tok.reading;
         inp.title = t('lbl_reading');
+        // wide enough for what it holds: a five-kana reading in a four-kana box
+        // reads as a wrong reading rather than a cropped one
+        const fit = () => { inp.style.width = `${Math.max(3, inp.value.length + 0.7)}em`; };
+        fit();
         inp.onclick = (e) => e.stopPropagation();
-        inp.oninput = () => { tok.reading = inp.value; };
+        inp.oninput = () => { tok.reading = inp.value; fit(); };
         inp.onchange = refreshPreview;
         rd.appendChild(inp);
         // what the dictionary says this kanji reads in the word it belongs to,
