@@ -42,7 +42,9 @@ function sentenceHtml(col, fontPitchMm, boxSize, answers, inline, colH) {
   const num = `<span class="num">${esc(col.number)}</span>`;
   if (inline) {
     const text = `<div class="col">${num}${col.runs.map(r => inlineRunHtml(r, answers)).join('')}</div>`;
-    return `<div class="sentence">${text}</div>`;
+    // a sentence with blank cells in it sets its lines as wide as a cell, so the
+    // writing between the cells sits on the same axis they do
+    return `<div class="sentence${col.boxes.length ? ' boxed' : ''}">${text}</div>`;
   }
   const text = `<div class="col">${num}${col.runs.map(runHtml).join('')}</div>`;
   // colH mm = --colH; the boxes start below the circled number, like the text
@@ -147,6 +149,7 @@ export function buildHtml(layout, opts = {}) {
      (level with the first character), not at the very top; and give the columns
      a little gap so a tested word's side line never touches the next column. */
   .sentence .col { text-indent: calc(1.2em + 1.2mm) hanging; line-height: 1.3; }
+  .sentence.boxed .col { line-height: max(1.3em, var(--box)); }
   .title { display: flex; flex-direction: column; align-items: flex-end; height: var(--colH); font-weight: bold; }
   .ttext { writing-mode: vertical-rl; line-height: 1.0; font-size: ${titleFontSize}pt; height: 100%; }
   .title.with-extras .ttext { height: auto; flex: 1 1 auto; }
@@ -165,24 +168,26 @@ export function buildHtml(layout, opts = {}) {
   .read { border-right: 1.6px solid #333; padding-right: 1px; }
   /* ---- inline blank cells (文中 / the Japanese norm) ----
      a tested word becomes boxes stacked down the column with the reading set as
-     furigana to their right. The unit keeps room for that reading, so it never
-     lands on the neighbouring line when a sentence wraps. */
+     furigana to their right. The boxes keep to the right of their line, level
+     with the text around them, and the room for the reading is kept on the
+     LEFT: that is where the reading of the line to the left lands, so a wrapped
+     sentence never sets its reading on top of its own boxes. */
   .tunit { position: relative; display: inline-block; writing-mode: horizontal-tb; vertical-align: top;
-           padding-right: calc(.5em + .5mm); }
+           padding-left: calc(.5em + .5mm); }
   .bgrp { display: flex; flex-direction: column; }
   .ibox { width: var(--box); height: var(--box); border: 1.4px solid #222; box-sizing: border-box;
           display: flex; align-items: center; justify-content: center; }
   .ibox .a { writing-mode: vertical-rl; line-height: 1; font-size: calc(var(--box) * 0.72); color: #c0392b; }
-  .tread { position: absolute; right: .2mm; top: 50%; transform: translateY(-50%);
+  .tread { position: absolute; left: 100%; top: 50%; transform: translateY(-50%);
            writing-mode: vertical-rl; line-height: 1; font-size: .5em; color: #333;
-           white-space: nowrap; }
+           margin-left: .3mm; white-space: nowrap; }
   /* 読み: the kanji is shown (side-lined); an empty reading box hangs at its right,
      sized to the reading length. The pupil writes the furigana there; the answer
      key fills it red. Without the box the empty slot collapsed and no blank showed. */
   .yunit { position: relative; display: inline-block; writing-mode: vertical-rl; vertical-align: top;
-           padding-right: calc(.75em + .8mm); }
+           padding-left: calc(.75em + .8mm); }
   .ykk { border-right: 1.6px solid #333; padding-right: 1px; }
-  .yslot { position: absolute; right: .2mm; top: 0;
+  .yslot { position: absolute; left: 100%; top: 0; margin-left: .6mm;
            box-sizing: border-box; width: 1.5em; border: 1.2px solid #999;
            display: flex; align-items: flex-start; justify-content: center;
            writing-mode: vertical-rl; line-height: 1; font-size: .5em; color: #c0392b; white-space: nowrap; }

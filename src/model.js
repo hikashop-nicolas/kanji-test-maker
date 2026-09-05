@@ -265,14 +265,17 @@ export const imageSpaceMm = (dims) =>
 // one piece.
 function piecesOf(col, pitch, boxSize, inline) {
   const out = [];
-  const text = (s) => { for (const _ of s) out.push({ h: pitch, w: LINE_EM * pitch }); };
+  // a sentence with blank cells in the flow sets every line at least as wide as
+  // a cell, so the writing lines up with them
+  const lineW = inline && col.boxes.length ? Math.max(LINE_EM * pitch, boxSize) : LINE_EM * pitch;
+  const text = (s) => { for (const _ of s) out.push({ h: pitch, w: lineW }); };
   for (const r of col.runs) {
     if (r.t === 'furi') text(r.base);
     else if (r.t !== 'read') text(r.s);
     else if (!inline) text(r.s);
     else if (r.mode === 'yomi') {
       // the kanji stays in the flow with the reading blank hanging beside it
-      for (const _ of r.surface) out.push({ h: pitch, w: LINE_EM * pitch + SLOT_EM * pitch + SLOT_MM });
+      for (const _ of r.surface) out.push({ h: pitch, w: lineW + SLOT_EM * pitch + SLOT_MM });
     } else {
       out.push({ h: Math.max(1, r.cells) * boxSize, w: boxSize + READ_EM * pitch + READ_MM });
     }
@@ -391,10 +394,13 @@ export function buildLayout(worksheet) {
     const inline = blankPos === 'inline';
     const widthOf = (c) => columnWidthMm(c, pitch, boxSize, inline, colH);
     // titleFontSize is at most fontSize, so this reserves enough for the title.
-    // Inline sentences already keep the furigana inside their own width, so
-    // they need no gap of their own to stay clear of their neighbour.
-    const bands = autoBands(sentences, widthOf, rows,
-      header ? (extras ? EXTRAS_W_MM : LINE_EM * pitch) : 0, extras ? EXTRAS_W_MM : 0,
+    // An inline sentence keeps room on the left of its cells for the furigana of
+    // the line beside it, so the readings tessellate across the band and no gap
+    // of its own is needed. The one against the title has nothing to hang into,
+    // hence the extra beside the title.
+    const hang = inline ? READ_EM * pitch + READ_MM : 0;
+    const titleW = header ? (extras ? EXTRAS_W_MM : LINE_EM * pitch) + hang : 0;
+    const bands = autoBands(sentences, widthOf, rows, titleW, extras ? EXTRAS_W_MM : 0,
       inline ? 0 : COL_GAP_MM, image ? imageSpaceMm(imageDims) : 0);
     pages = chunk(bands, rows).map(bs => ({ bands: bs, columns: bs.flatMap(b => b.columns) }));
   } else {
