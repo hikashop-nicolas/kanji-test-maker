@@ -624,8 +624,6 @@ function askOrientation(crop, name) {
 
 // a scanned page -> the same page the right way up, and how to read it
 async function uprightPage(source, reader, say, state, name) {
-  const forced = $('src_dir').value;
-  if (forced !== 'auto') return { image: source, vertical: forced === 'v' };
   const best = await findOrientation(source, reader, say, state.hint);
   const choice = best.sparse || best.score > TRIAL_ASK
     ? best
@@ -728,42 +726,25 @@ async function bitmapOf(file) {
   return canvas;
 }
 
-// Every queued file, in the order they were queued. The recognizer is shared
-// across all of them, so a stack of scans loads its models once. A file that
-// cannot be read is counted and stepped over: the rest is still worth having.
-async function readAll(files, say) {
-  const parts = files.map(() => []);
-  const run = { reader: makeReader(), hint: null };
-  let failed = 0;
-  try {
-    for (const [i, file] of files.entries()) {
-      say(i, t('src_reading'));
-      try {
-        const buf = await file.arrayBuffer();
-        const kind = sniff(buf, file);
-        if (kind !== 'image') {
-          parts[i] = await readFile(kind, buf, run, msg => say(i, msg), file.name);
-          continue;
-        }
-        const page = await bitmapOf(file);
-        const upright = await uprightPage(page, run.reader, msg => say(i, msg), run, file.name);
-        parts[i] = await readPage(upright.image, upright.vertical, run.reader, msg => say(i, msg));
-      } catch (e) {
-        console.error('reading the file failed', file.name, e);
-        failed++;
-      }
-    }
-  } finally {
-    await run.reader.close();
-  }
-  return { rows: parts.flat(), failed };
+// One file -> its rows. `run` carries the recognizer and the orientation hint,
+// so a stack of scans loads the models once and each page starts from the way
+// up the last one turned out to be.
+async function readOneFile(file, run, say) {
+  const buf = await file.arrayBuffer();
+  const kind = sniff(buf, file);
+  if (kind !== 'image') return readFile(kind, buf, run, say, file.name);
+  const page = await bitmapOf(file);
+  const upright = await uprightPage(page, run.reader, say, run, file.name);
+  return readPage(upright.image, upright.vertical, run.reader, say);
 }
 
-// The queue itself. A teacher scanning a workbook ends up with one file per
-// page, so the picker takes several and a drop adds to what is already there
-// instead of replacing it.
+// The queue. A teacher scanning a workbook ends up with one file per page, so
+// the picker takes several and a drop adds to what is already there. Reading
+// starts on its own: there is nothing to set first, and a file that has been
+// handed over is a file the teacher wants read.
 const picked = [];
 const fileKey = (f) => `${f.name}|${f.size}|${f.lastModified}`;
+let reading = false;
 
 function renderFiles() {
   const list = $('src_files');
@@ -771,21 +752,77 @@ function renderFiles() {
   picked.forEach((file, i) => {
     const li = document.createElement('li');
     li.append(file.name);
-    const x = document.createElement('button');
-    x.type = 'button';
-    x.textContent = '×';
-    x.title = t('src_remove');
-    x.dataset.i18nTitle = 'src_remove'; // so it follows a language change
-    x.onclick = () => { picked.splice(i, 1); renderFiles(); };
-    li.appendChild(x);
+    // the file at the head is the one being read, and cannot be taken back
+    if (i || !reading) {
+      const x = document.createElement('button');
+      x.type = 'button';
+      x.textContent = '×';
+      x.title = t('src_remove');
+      x.dataset.i18nTitle = 'src_remove'; // so it follows a language change
+      x.onclick = () => { picked.splice(i, 1); renderFiles(); };
+      li.appendChild(x);
+    }
     list.appendChild(li);
   });
-  $('src_run').disabled = !picked.length;
+}
+
+// the sentences a file gave up, under whatever is already there. Returns how
+// many did not fit: a whole book would hand kuromoji more than it can chew.
+function appendLines(lines) {
+  if (!lines.length) return 0;
+  const box = $('src_text');
+  const before = box.value.replace(/\s+$/, '');
+  const all = (before ? before.split('\n') : []).concat(lines);
+  box.value = all.slice(0, MAX_LINES).join('\n');
+  $('src_out').style.display = '';
+  return Math.max(0, all.length - MAX_LINES);
 }
 
 function addFiles(files) {
   for (const f of files || []) if (!picked.some(p => fileKey(p) === fileKey(f))) picked.push(f);
   renderFiles();
+  readQueue().catch(e => console.error('the queue stopped', e));
+}
+
+// Read the queue to the end, one file at a time, and put each file's sentences
+// up as it finishes. Anything dropped while this runs joins the same pass, so
+// the recognizer is loaded once however the files arrive.
+async function readQueue() {
+  if (reading || !picked.length) return;
+  reading = true;
+  const status = $('src_status');
+  const run = { reader: makeReader(), hint: null };
+  let failed = 0, found = 0, over = 0, done = 0;
+  try {
+    while (picked.length) {
+      const file = picked[0];
+      const total = done + picked.length;
+      renderFiles(); // the head loses its × while it is being read
+      const say = (msg) => {
+        status.textContent = total > 1
+          ? `${t('src_of_file', { name: file.name, n: done + 1, total })} ${msg}`
+          : msg;
+      };
+      say(t('src_reading'));
+      try {
+        const lines = splitTextLines(await readOneFile(file, run, say));
+        found += lines.length;
+        over += appendLines(lines);
+      } catch (e) {
+        console.error('reading the file failed', file.name, e);
+        failed++;
+      }
+      picked.shift();
+      done++;
+      renderFiles();
+    }
+  } finally {
+    await run.reader.close();
+    reading = false;
+  }
+  status.textContent = over ? t('src_truncated', { n: MAX_LINES, total: MAX_LINES + over })
+    : failed ? t('src_failed', { n: failed })
+    : found ? '' : t('src_no_text');
 }
 
 {
@@ -814,28 +851,6 @@ function addFiles(files) {
   }
 }
 
-$('src_run').addEventListener('click', async () => {
-  if (!picked.length) return;
-  const btn = $('src_run'), st = $('src_status');
-  const files = picked.slice();
-  btn.disabled = true;
-  const say = (i, msg) => {
-    st.textContent = files.length > 1
-      ? `${t('src_of_file', { name: files[i].name, n: i + 1, total: files.length })} ${msg}`
-      : msg;
-  };
-  try {
-    const { rows, failed } = await readAll(files, say);
-    const lines = splitTextLines(rows);
-    $('src_text').value = lines.slice(0, MAX_LINES).join('\n');
-    st.textContent = !lines.length ? t('src_no_text')
-      : lines.length > MAX_LINES ? t('src_truncated', { n: MAX_LINES, total: lines.length })
-      : failed ? t('src_failed', { n: failed })
-      : '';
-  } finally {
-    btn.disabled = false;
-  }
-});
 $('src_add').addEventListener('click', () => {
   if (addLinesAsSentences($('src_text').value, false)) $('tablePanel').scrollIntoView({ behavior: 'smooth', block: 'start' });
 });

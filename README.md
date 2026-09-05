@@ -84,9 +84,10 @@ ready-made sets to try.
 (`.docx` or the older `.doc`), an OpenDocument `.odt`, a plain `.txt`, or a
 photo or scan of a textbook page or an old worksheet. Drop them on the box or
 pick them with the button, several at once if you have them: scanning a
-workbook gives one file per page, and the whole stack can go in together. They
-are read in the order they are listed, so the sentences come out in page order.
-Nothing is sent anywhere; the files are read on your own computer.
+workbook gives one file per page, and the whole stack can go in together.
+Reading starts as soon as you hand a file over, one at a time in the order you
+gave them, and each file's sentences appear under the ones before it. Nothing is
+sent anywhere; the files are read on your own computer.
 
 Anything carrying its own text gives it up exactly as it was typed, vertical
 writing included: a PDF made by Word or Excel, a Word or OpenDocument file, a
@@ -103,9 +104,7 @@ for you: the app looks at where the white space runs, then has the recognizer tr
 the likeliest readings and keeps the one that comes out as actual words. A
 縦書き sheet that went through the scanner sideways is turned the right way up
 on its own. When it cannot tell, it shows you the page the four ways round and
-asks which one reads; and if you would rather not wait for it to work this out,
-the 向き menu lets you say 横書き or 縦書き outright. Recognition is not perfect
-on a home scan.
+asks which one reads. Recognition is not perfect on a home scan.
 
 Either way the lines land in an editable box, so read them over and fix or
 delete what came out wrong before adding them. A long document stops at the

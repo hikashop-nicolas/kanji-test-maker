@@ -134,11 +134,14 @@ reading is the more word-like wins.
 That is also why tesseract stays: a photograph of a magazine page, with columns
 beside pictures, is not something a projection can take apart.
 
-Several files can be queued at once. They are read one at a time, in order,
-except for the images: those are held back and recognized in one batch, because
-starting a tesseract worker costs more than recognizing a page with it. A file
-that cannot be read is counted and stepped over, so one bad scan does not cost
-the teacher the rest of the stack.
+Several files can be queued at once, and reading starts the moment one is
+handed over: there is nothing to set first. `readQueue` takes the queue one file
+at a time and puts each file's sentences under the ones before it, so a stack of
+scans fills the box as it goes. Anything dropped while it runs joins the same
+pass, which matters because the recognizer is built once per pass: starting a
+tesseract worker costs more than reading a page with it. A file that cannot be
+read is counted and stepped over, so one bad scan does not cost the teacher the
+rest of the stack.
 
 ## Dependencies
 
