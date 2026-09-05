@@ -25,7 +25,7 @@ pdf.js are fetched from `vendor/` on demand, the first time a file needs them.
 ## Project layout
 
 ```
-paste → kuromoji (tokens + readings) → editable table
+paste → kuromoji (tokens + readings) → joinInflections → editable table
       → buildLayout() (abstract worksheet)
       → htmlExport (vertical-rl HTML)  → preview / print → PDF
       → docxExport (vertical RTL table) → docx.js → JSZip (embed-font flag) → .docx
@@ -54,6 +54,17 @@ paste → kuromoji (tokens + readings) → editable table
 | `assets/tessdata/`, `vendor/tesseract/` | OCR models and engine, loaded on first use. |
 | `vendor/pdfjs/` | pdf.js, loaded the first time a PDF is opened. Its `cmaps/` are what lets a Japanese PDF give up its text, its `wasm/` what decodes a scan's images. |
 | `tools/gen.mjs` | Node harness that renders the outputs without a browser. |
+
+kuromoji cuts a word where its dictionary entry ends, which can leave a stem
+that is not a word: 読んで comes back as 読ん + で. `joinInflections` puts the
+kana tail back on whenever the stem is in one of the forms that cannot end a
+word (連用タ接続, 未然形, 仮定形 and friends), so the box asks for 読んで and not
+読ん. A stem that is a word on its own (見, 話し, 読み) is left alone, and so is
+a particle that only looks like a tail (the で of 学校で). It runs before
+anything else sees the tokens, so the editor, the reading hints and the sheet
+agree on where a word ends. `node tools/tok.mjs "<sentence>"` prints what
+kuromoji made of a sentence, what the join did to it, and the boxes that come
+out.
 
 The column geometry in `model.js` (used to fit sentences to the page
 automatically) mirrors the CSS in `htmlExport.js`: the 1.3em line-height, the

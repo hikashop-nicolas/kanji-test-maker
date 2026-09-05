@@ -20,6 +20,52 @@ export function circledExtended(n) {
   return String(n);
 }
 
+// kuromoji cuts a word where the dictionary entry ends, which can leave a stem
+// that is not a word: 読んで comes back as 読ん + で, and nobody writes 読ん in a
+// box. The forms below are the ones that cannot end a word, so whatever kana
+// follows one of them belongs to it. Doing this on the way in means the editor,
+// the reading hints and the sheet all see the same word.
+const OPEN_FORMS = new Set([
+  '未然形', '未然ウ接続', '未然ヌ接続', '未然レル接続', '未然特殊',
+  '連用タ接続', '仮定形', '仮定縮約１', '仮定縮約２',
+]);
+const KANA_ONLY = /^[ぁ-ゖァ-ヴー]+$/;
+
+// the kana that can be a word's tail: an auxiliary, a linking particle, or one
+// of the verbs that only ever attach to another (れる, せる)
+function isTail(t) {
+  if (!KANA_ONLY.test(t.surface_form || '')) return false;
+  if (t.pos === '助動詞') return true;
+  if (t.pos === '助詞') return t.pos_detail_1 === '接続助詞';
+  if (t.pos === '動詞') return t.pos_detail_1 === '接尾' || t.pos_detail_1 === '非自立';
+  return false;
+}
+
+const readingOf = (t) => (t.reading && t.reading !== '*'
+  ? t.reading
+  : (t.surface_form || '').replace(/[ぁ-ゖ]/g, c => String.fromCharCode(c.charCodeAt(0) + 0x60)));
+
+export function joinInflections(tokens) {
+  const out = [];
+  for (const token of tokens) {
+    const head = out[out.length - 1];
+    // the tail carries the form forward, so 読ま + なかっ + た joins in turn
+    if (head && OPEN_FORMS.has(head.conjugated_form) && isTail(token)) {
+      out[out.length - 1] = {
+        ...head,
+        surface_form: head.surface_form + token.surface_form,
+        reading: readingOf(head) + readingOf(token),
+        pronunciation: (head.pronunciation || '') + (token.pronunciation || ''),
+        conjugated_type: token.conjugated_type,
+        conjugated_form: token.conjugated_form,
+      };
+      continue;
+    }
+    out.push(token);
+  }
+  return out;
+}
+
 // Normalize a kuromoji token list into our token model.
 // Each token: { surface, reading(hiragana), hasKanji, state }
 // state: 'plain' | 'test' | 'furigana' | 'kana' (see sentenceColumn).

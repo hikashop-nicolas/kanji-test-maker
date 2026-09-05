@@ -1,5 +1,5 @@
 // Browser app: paste -> kuromoji -> editable table -> DOCX / PDF.
-import { normalizeTokens, buildLayout } from './model.js?v=2';
+import { normalizeTokens, joinInflections, buildLayout } from './model.js?v=2';
 import { buildHtml } from './htmlExport.js?v=2';
 import { buildDocx } from './docxExport.js?v=2';
 import { addFontEmbedFlag } from './docxEmbed.js?v=2';
@@ -357,7 +357,8 @@ let hintIndex = null;
 loadKanji().then(data => { hintIndex = readingIndex(data); }).catch(() => {});
 
 function tokenizeSentence(text) {
-  const raw = tokenizer.tokenize(text);
+  // joined first: the hints and the tokens have to agree on where a word ends
+  const raw = joinInflections(tokenizer.tokenize(text));
   const tokens = normalizeTokens(raw);
   if (hintIndex) {
     const hints = readingHints(s => tokenizer.tokenize(s), hintIndex, text, raw);

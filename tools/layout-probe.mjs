@@ -5,7 +5,7 @@ import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import kuromoji from 'kuromoji';
-import { normalizeTokens, buildLayout } from '../src/model.js';
+import { normalizeTokens, joinInflections, buildLayout } from '../src/model.js';
 import { buildHtml } from '../src/htmlExport.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -59,7 +59,7 @@ for (const set of Object.keys(SETS)) {
 kuromoji.builder({ dicPath: path.join(root, 'node_modules', 'kuromoji', 'dict') }).build((err, tok) => {
   if (err) throw err;
   const tokenized = {};
-  for (const [k, lines] of Object.entries(SETS)) tokenized[k] = lines.map(s => normalizeTokens(tok.tokenize(s)));
+  for (const [k, lines] of Object.entries(SETS)) tokenized[k] = lines.map(s => normalizeTokens(joinInflections(tok.tokenize(s))));
   const names = [];
   CASES.forEach((c, i) => {
     const worksheet = {

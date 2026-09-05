@@ -4,7 +4,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import kuromoji from 'kuromoji';
 import * as docx from 'docx';
-import { normalizeTokens, buildLayout } from '../src/model.js';
+import { normalizeTokens, joinInflections, buildLayout } from '../src/model.js';
 import { buildHtml } from '../src/htmlExport.js';
 import { buildDocx } from '../src/docxExport.js';
 
@@ -26,7 +26,7 @@ const RAW = [
 kuromoji.builder({ dicPath }).build(async (err, tok) => {
   if (err) throw err;
   const sentences = RAW.map((s, i) => {
-    const tokens = normalizeTokens(tok.tokenize(s));
+    const tokens = normalizeTokens(joinInflections(tok.tokenize(s)));
     // demo: sentence 6 (index 5) in yomi mode, the rest kaki
     return { tokens, mode: i === 5 ? 'yomi' : 'kaki' };
   });
