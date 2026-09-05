@@ -1101,8 +1101,10 @@ $('ans_enable').addEventListener('change', () => {
 });
 
 // ---- save / load a worksheet set (JSON) ----------------------------------
-function saveSet() {
-  const data = {
+// the whole worksheet as plain data: what the save button writes out, and what
+// is put aside when the page has to reload under the teacher
+function setData() {
+  return {
     version: 1,
     header: header(),
     options: { perPage: $('o_perpage').value, autoPerPage: $('o_perpage_auto').checked, rows: $('o_rows').value, font: $('o_font').value, fontSize: $('o_fontsize').value, boxSize: $('o_boxsize').value, blankPos: $('o_blankpos').value },
@@ -1111,34 +1113,67 @@ function saveSet() {
       tokens: s.tokens.map(t => ({ surface: t.surface, reading: t.reading, hasKanji: t.hasKanji, state: t.state || (t.selected ? 'test' : 'plain') })),
     })),
   };
+}
+function saveSet() {
   const stamp = ($('h_class').value || 'kanji') + '-' + ($('h_lesson').value || '');
-  downloadBlob(new Blob([JSON.stringify(data, null, 1)], { type: 'application/json' }), `${stamp}.ktm.json`.replace(/\s+/g, ''));
+  downloadBlob(new Blob([JSON.stringify(setData(), null, 1)], { type: 'application/json' }), `${stamp}.ktm.json`.replace(/\s+/g, ''));
+}
+function applySet(d) {
+  const h = d.header || {}, o = d.options || {};
+  if (h.classCode != null) $('h_class').value = h.classCode;
+  if (h.title != null) $('h_title').value = h.title;
+  if (h.lessonNo != null) $('h_lesson').value = h.lessonNo;
+  if (h.nameLabel != null) $('h_name').value = h.nameLabel;
+  if (h.show != null) { $('h_show').checked = !!h.show; syncHeaderFields(); }
+  if (o.perPage != null) $('o_perpage').value = o.perPage;
+  if (o.rows != null) $('o_rows').value = o.rows;
+  if (o.autoPerPage != null) { $('o_perpage_auto').checked = !!o.autoPerPage; syncAutoPerPage(); }
+  if (o.font != null) $('o_font').value = o.font;
+  if (o.fontSize != null) $('o_fontsize').value = o.fontSize;
+  if (o.boxSize != null) $('o_boxsize').value = o.boxSize;
+  if (o.blankPos != null) $('o_blankpos').value = o.blankPos;
+  state.sentences = (d.sentences || []).map(s => ({ mode: s.mode || 'kaki', tokens: s.tokens || [] }));
+  saveSettings();
+  renderTable();
+  $('tablePanel').style.display = state.sentences.length ? '' : 'none';
+  refreshPreview();
 }
 function loadSet(file) {
   const fr = new FileReader();
   fr.onload = () => {
     let d; try { d = JSON.parse(fr.result); } catch (e) { alert(t('alert_load_failed')); return; }
-    const h = d.header || {}, o = d.options || {};
-    if (h.classCode != null) $('h_class').value = h.classCode;
-    if (h.title != null) $('h_title').value = h.title;
-    if (h.lessonNo != null) $('h_lesson').value = h.lessonNo;
-    if (h.nameLabel != null) $('h_name').value = h.nameLabel;
-    if (h.show != null) { $('h_show').checked = !!h.show; syncHeaderFields(); }
-    if (o.perPage != null) $('o_perpage').value = o.perPage;
-    if (o.rows != null) $('o_rows').value = o.rows;
-    if (o.autoPerPage != null) { $('o_perpage_auto').checked = !!o.autoPerPage; syncAutoPerPage(); }
-    if (o.font != null) $('o_font').value = o.font;
-    if (o.fontSize != null) $('o_fontsize').value = o.fontSize;
-    if (o.boxSize != null) $('o_boxsize').value = o.boxSize;
-    if (o.blankPos != null) $('o_blankpos').value = o.blankPos;
-    state.sentences = (d.sentences || []).map(s => ({ mode: s.mode || 'kaki', tokens: s.tokens || [] }));
-    saveSettings();
-    renderTable();
-    $('tablePanel').style.display = state.sentences.length ? '' : 'none';
-    refreshPreview();
+    applySet(d);
   };
   fr.readAsText(file);
 }
+
+// Updating means reloading, and a teacher halfway through a worksheet would
+// lose the lot. Put the work aside on the way out and pick it up on the way in,
+// text boxes included: what has been typed but not analysed counts too.
+const RESUME_KEY = 'ktm_resume';
+function stashWork() {
+  try {
+    localStorage.setItem(RESUME_KEY, JSON.stringify({
+      set: setData(), input: $('input').value, source: $('src_text').value,
+    }));
+  } catch (e) { console.warn('the work could not be put aside', e); }
+}
+function resumeWork() {
+  let d = null;
+  try {
+    d = JSON.parse(localStorage.getItem(RESUME_KEY) || 'null');
+    localStorage.removeItem(RESUME_KEY);
+  } catch (e) {}
+  if (!d) return;
+  if (d.set) applySet(d.set);
+  if (d.input) { $('input').value = d.input; fitBox($('input')); }
+  if (d.source) {
+    $('src_text').value = d.source;
+    $('src_out').style.display = '';
+    fitBox($('src_text'));
+  }
+}
+resumeWork();
 $('btnSave').addEventListener('click', saveSet);
 $('btnSave2').addEventListener('click', saveSet);
 $('btnLoad').addEventListener('click', () => $('loadFile').click());
@@ -1175,6 +1210,7 @@ if ('serviceWorker' in navigator && location.protocol !== 'file:') {
     navigator.serviceWorker.addEventListener('controllerchange', () => {
       if (reloading) return;
       reloading = true;
+      stashWork(); // the new build comes up with the worksheet still on it
       location.reload();
     });
   });
