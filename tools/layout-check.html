@@ -1,0 +1,64 @@
+<meta charset="utf-8"><title>layout check</title>
+<body style="font:13px/1.5 monospace; white-space:pre-wrap"><div id="out">…</div>
+<iframe id="f" style="position:fixed; left:-4000px; width:1200px; height:900px" ></iframe>
+<script type="module">
+// Renders every page built by tools/layout-probe.mjs and looks for the things a
+// worksheet must never do: two sentences on top of each other, a box on top of
+// another box, anything past the edge of the sheet, or a box that has drifted
+// away from the word it belongs to.
+const log = (s) => { document.getElementById('out').textContent += s + '\n'; };
+document.getElementById('out').textContent = '';
+const frame = document.getElementById('f');
+const MM = 96 / 25.4;
+const cases = await (await fetch('cases.json')).json();
+// the sheet pulls its fonts from Google; do not wait forever for them
+const load = (u) => new Promise(res => {
+  let done = false;
+  const ok = () => { if (!done) { done = true; res(frame.contentDocument); } };
+  frame.onload = ok;
+  setTimeout(ok, 1200);
+  frame.src = u;
+});
+
+let bad = 0;
+for (const name of cases) {
+  const doc = await load(`${name}.html`);
+  await new Promise(r => setTimeout(r, 60)); // let the sheet lay out
+  const problems = [];
+  const over = (a, b) => a.left < b.right - 0.6 && b.left < a.right - 0.6 && a.top < b.bottom - 0.6 && b.top < a.bottom - 0.6;
+  doc.querySelectorAll('.page').forEach((page, pi) => {
+    const pr = page.getBoundingClientRect();
+    page.querySelectorAll('.band').forEach((band, bi) => {
+      const kids = [...band.children].map(el => el.getBoundingClientRect());
+      for (let i = 0; i < kids.length; i++) {
+        for (let j = i + 1; j < kids.length; j++) if (over(kids[i], kids[j])) problems.push(`p${pi}b${bi} two sentences overlap`);
+        if (kids[i].left < pr.left - 0.6 || kids[i].right > pr.right + 0.6) problems.push(`p${pi}b${bi} a sentence runs off the sheet`);
+        if (kids[i].bottom > pr.bottom + 0.6) problems.push(`p${pi}b${bi} a sentence runs off the bottom`);
+      }
+    });
+    page.querySelectorAll('.sentence').forEach((s, si) => {
+      const boxes = [...s.querySelectorAll('.box')].map(b => b.getBoundingClientRect());
+      for (let i = 0; i < boxes.length; i++) for (let j = i + 1; j < boxes.length; j++) {
+        if (over(boxes[i], boxes[j])) problems.push(`p${pi} sentence ${si + 1}: two boxes overlap`);
+      }
+      // the first box should sit level with its word. Only a sentence that fits
+      // in one line can be checked: once the text wraps, the words move to a
+      // line the single column of boxes does not run beside.
+      const col = s.querySelector('.col');
+      const words = [...s.querySelectorAll('.read')];
+      // A tight column is exempt too: there the boxes are deliberately squeezed
+      // up into the slack so they all fit.
+      const line = col && parseFloat(getComputedStyle(col).lineHeight);
+      const filled = boxes.reduce((h, b) => h + b.height, 0) / (col ? col.offsetHeight : 1);
+      if (col && words.length && boxes.length && col.offsetWidth <= line * 1.1 && filled < 0.8) {
+        const d = Math.abs(boxes[0].top - words[0].getBoundingClientRect().top) / MM;
+        if (d > 0.5) problems.push(`p${pi} sentence ${si + 1}: the first box is ${d.toFixed(1)}mm off its word`);
+      }
+    });
+  });
+  const seen = [...new Set(problems)];
+  if (seen.length) { bad++; log(`${name}\n    ` + seen.join('\n    ')); }
+  else log(`${name}  ok`);
+}
+log(bad ? `\n${bad}/${cases.length} pages have problems` : `\nall ${cases.length} pages are clean`);
+</script>

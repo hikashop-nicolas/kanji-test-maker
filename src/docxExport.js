@@ -148,28 +148,37 @@ export function buildDocx(layout, docx, embeddedFonts = [], opts = {}) {
     })], inline ? INLINE_W : TEXT_W);
   }
 
-  function boxCell(col) {
-    const positions = layoutBoxes(col.boxes, CELL_TW, BOX_TW, 30, ROW_H); // push-down/up within the column
-    const rows = [];
-    let cum = 0; // current vertical position in twips
-    positions.forEach((p, i) => {
-      const top = Math.round(p.top), h = Math.round(p.height);
-      if (top - cum > 0) rows.push(innerRow(noBorders, top - cum));
-      rows.push(innerRow(allBorders, h, answers ? (col.boxes[i].answer || '') : undefined));
-      cum = top + h;
-    });
-    const children = rows.length
-      ? [new Table({ width: { size: BOX_INNER, type: WidthType.DXA }, borders: noBorders, rows })]
-      : [new Paragraph({ children: [] })];
-    // default (horizontal) cell: the nested table's rows stack top-to-bottom and
-    // align with the vertical text cell beside it.
-    return new TableCell({
-      verticalAlign: VerticalAlign.TOP,
-      width: { size: BOX_W, type: WidthType.DXA },
-      borders: noBorders,
-      margins: { top: 60, bottom: 60, left: 40, right: 40 },
-      children,
-    });
+  // the answer boxes beside one sentence, as one cell per column of boxes. A
+  // sentence with more tested words than a column holds gets a second column
+  // (the same wrapping the preview does), so no box is ever squeezed out.
+  function boxCells(col) {
+    const positions = layoutBoxes(col.boxes, CELL_TW, BOX_TW, 30, ROW_H, CELL_TW);
+    const cells = [];
+    const wide = positions.length ? positions[positions.length - 1].col + 1 : 1;
+    for (let c = wide - 1; c >= 0; c--) { // left to right: the last column first
+      const rows = [];
+      let cum = 0; // current vertical position in twips
+      positions.forEach((p, i) => {
+        if (p.col !== c) return;
+        const top = Math.round(p.top), h = Math.round(p.height);
+        if (top - cum > 0) rows.push(innerRow(noBorders, top - cum));
+        rows.push(innerRow(allBorders, h, answers ? (col.boxes[i].answer || '') : undefined));
+        cum = top + h;
+      });
+      const children = rows.length
+        ? [new Table({ width: { size: BOX_INNER, type: WidthType.DXA }, borders: noBorders, rows })]
+        : [new Paragraph({ children: [] })];
+      // default (horizontal) cell: the nested table's rows stack top-to-bottom
+      // and align with the vertical text cell beside it.
+      cells.push(new TableCell({
+        verticalAlign: VerticalAlign.TOP,
+        width: { size: BOX_W, type: WidthType.DXA },
+        borders: noBorders,
+        margins: { top: 60, bottom: 60, left: 40, right: 40 },
+        children,
+      }));
+    }
+    return cells;
   }
 
   function titleCell(h) {
@@ -234,14 +243,15 @@ export function buildDocx(layout, docx, embeddedFonts = [], opts = {}) {
   // the last band of the last page.
   function bandTable(band, hasTitle, hasExtras) {
     const n = band.columns.length;
-    const colW = inline ? INLINE_W : (TEXT_W + BOX_W);
-    const used = n * colW + (hasTitle ? TEXT_W + 200 : 0) + (hasExtras ? EX_TW + 200 : 0);
+    const boxes = inline ? band.columns.map(() => []) : band.columns.map(boxCells);
+    const used = band.columns.reduce((w, c, i) => w + (inline ? INLINE_W : TEXT_W + boxes[i].length * BOX_W), 0)
+      + (hasTitle ? TEXT_W + 200 : 0) + (hasExtras ? EX_TW + 200 : 0);
     const gap = Math.max(120, Math.round((CONTENT_TW - used) / Math.max(1, n)));
     // visual left-to-right: [box_n, text_n, gap, ..., box_1, text_1, gap, extras, title]
     // (inline mode drops the separate box column: the boxes live in the text)
     const cells = [];
     for (let i = n - 1; i >= 0; i--) {
-      if (!inline) cells.push(boxCell(band.columns[i]));
+      cells.push(...boxes[i]);
       cells.push(textCell(band.columns[i]), spacerCell(gap));
     }
     if (hasExtras) cells.push(extrasCell());

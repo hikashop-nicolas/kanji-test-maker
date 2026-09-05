@@ -56,8 +56,28 @@ paste → kuromoji (tokens + readings) → editable table
 | `tools/gen.mjs` | Node harness that renders the outputs without a browser. |
 
 The column geometry in `model.js` (used to fit sentences to the page
-automatically) mirrors the CSS in `htmlExport.js`. If you change the column
-widths there, change it in both.
+automatically) mirrors the CSS in `htmlExport.js`: the 1.3em line-height, the
+1.2em+1.2mm the circled number takes before the first character, and the room an
+inline box keeps for its furigana. If you change any of those in the CSS, change
+the constants too, or the page will reserve the wrong width and sentences will
+land on each other. `model.js` walks the sentence piece by piece to find where
+the lines break, because a box group cannot be split across two of them.
+
+A sentence with more tested words than one column of answer boxes holds gets a
+second column beside the first: `layoutBoxes` fills a column, squeezing the
+boxes up into the slack between them if that is what makes them fit, and starts
+another when even a tight stack would run past the bottom.
+
+`tools/layout-probe.mjs` writes a sheet for three dozen combinations of blank
+position, band count, font size, mode and heading into a directory;
+`tools/layout-check.html`, served from that same directory, renders each one and
+reports any two sentences that overlap, any two boxes that overlap, anything off
+the sheet, and any box that has drifted from the word it belongs to:
+
+```
+node tools/layout-probe.mjs /tmp/lay && cp tools/layout-check.html /tmp/lay
+# serve /tmp/lay and open layout-check.html
+```
 
 The ファイルから tab decides what a file is from its first bytes, not its
 extension, then routes it: text layer for a PDF, XML for a zipped office

@@ -65,27 +65,49 @@ export function headerParts(header = {}) {
 // Box positions in a column: each box sits at its word's position but is pushed
 // down so boxes never overlap. Text stays tight; only the boxes get spacing.
 // pitch = text cell size, cellHeight = box cell size, in the caller's units.
-// maxHeight: if the stack would overflow the column, boxes are pushed UP into
-// the empty space before them (so the last box still fits on the page).
-export function layoutBoxes(boxes, pitch, cellHeight, gap = 0, maxHeight = Infinity) {
-  let prevBottom = -Infinity;
-  const pos = boxes.map(b => {
-    const top = Math.max(b.offset * pitch, prevBottom + gap);
+// lead = what the circled number takes before the first character.
+// maxHeight: the column height. A stack that runs past it is first squeezed
+// (boxes pulled up into the slack between them); if even a tight stack does not
+// fit, the rest goes on into a further column of boxes beside the first, which
+// is what a sentence with many tested words needs. Each position carries the
+// column it belongs to (0 = the one against the text).
+export function layoutBoxes(boxes, pitch, cellHeight, gap = 0, maxHeight = Infinity, lead = 0) {
+  // how many boxes a column can hold, packed as tightly as they are allowed to go
+  const groups = [];
+  let group = [], used = 0;
+  for (const b of boxes) {
     const height = b.cells * cellHeight;
-    prevBottom = top + height;
-    return { top, height };
-  });
-  // overflow: walk backward, pulling each box up just enough to fit under the
-  // running ceiling, consuming the slack between boxes without overlapping.
-  if (pos.length && prevBottom > maxHeight) {
-    let ceil = maxHeight;
-    for (let i = pos.length - 1; i >= 0; i--) {
-      if (pos[i].top + pos[i].height > ceil) pos[i].top = ceil - pos[i].height;
-      if (pos[i].top < 0) pos[i].top = 0; // never above the column top
-      ceil = pos[i].top - gap;
-    }
+    const need = group.length ? used + gap + height : height;
+    if (group.length && need > maxHeight) { groups.push(group); group = [b]; used = height; }
+    else { group.push(b); used = need; }
   }
-  return pos;
+  if (group.length) groups.push(group);
+
+  const out = [];
+  groups.forEach((boxes, col) => {
+    // the first column keeps the sentence's own offsets; a later one starts its
+    // first box at the top and keeps the spacing between the boxes after it
+    const base = col === 0 ? lead : -boxes[0].offset * pitch;
+    let prevBottom = -Infinity;
+    const pos = boxes.map(b => {
+      const top = Math.max(base + b.offset * pitch, prevBottom + gap);
+      const height = b.cells * cellHeight;
+      prevBottom = top + height;
+      return { top, height, col };
+    });
+    // overflow: walk backward, pulling each box up just enough to fit under the
+    // running ceiling, consuming the slack between boxes without overlapping.
+    if (pos.length && prevBottom > maxHeight) {
+      let ceil = maxHeight;
+      for (let i = pos.length - 1; i >= 0; i--) {
+        if (pos[i].top + pos[i].height > ceil) pos[i].top = ceil - pos[i].height;
+        if (pos[i].top < 0) pos[i].top = 0; // never above the column top
+        ceil = pos[i].top - gap;
+      }
+    }
+    out.push(...pos);
+  });
+  return out;
 }
 
 // Turn one sentence into:
@@ -97,15 +119,16 @@ export function layoutBoxes(boxes, pitch, cellHeight, gap = 0, maxHeight = Infin
 //                                  words above the grade); no box, no line
 //          { t:'furi', base, rt }  kanji kept, with furigana (ruby) alongside
 //   boxes: answer boxes for a PARALLEL column, each aligned to its word:
-//          { offset, cells }  offset = cell position (down the text column,
-//                             counting the leading number) where the word starts
+//          { offset, cells }  offset = cell position where the word starts,
+//                             counted from the first character (the circled
+//                             number is the exporter's `lead`, not a cell)
 //   length: total cells in the text column (for sizing the box column)
 function sentenceColumn(sentence, index) {
   const mode = sentence.mode || 'kaki';
   const toks = sentence.tokens;
   const runs = [];
   const boxes = [];
-  let pos = 1; // the circled number occupies the first cell
+  let pos = 0; // cells from the first character, not from the number
 
   let i = 0;
   while (i < toks.length) {
@@ -155,45 +178,85 @@ function chunk(arr, n) {
 }
 
 // ---- auto pagination -----------------------------------------------------
-// How wide a sentence sits on the page, and how far it runs down its column.
-// The numbers mirror the HTML export's CSS (htmlExport.js) and were checked
-// against the rendered page: a text column is 1.3em wide, the box column adds
-// the box size plus its 2mm margin, and in 文中 mode the boxes set the width
-// whenever they are wider than the text.
+// How wide a sentence sits on the page. The numbers mirror the HTML export's
+// CSS (htmlExport.js) and were checked against the rendered page: a line of
+// text is 1.3em wide (its line-height), the circled number takes 1.2em plus its
+// margin before the first character, and every line after the first starts at
+// the same depth (the hanging indent). Guessing this wrong is what used to make
+// the auto layout reserve too little room and let sentences run into each other.
 const PAGE_W_MM = 281, PAGE_PAD_MM = 6; // .page width and its left/right padding
 const EXTRAS_W_MM = 14;                 // the 点 / 印 boxes beside the title
 const COL_GAP_MM = 2;                   // keep neighbouring sentences apart
+const BOX_MARGIN_MM = 2;                // .boxcol margin-right, boxes to text
+const LINE_EM = 1.3;                    // .col line-height
+const LEAD_EM = 1.2, LEAD_MM = 1.2;     // the circled number and its margin
+const READ_EM = 0.5, READ_MM = 0.5;     // the furigana beside an inline box
+const SLOT_EM = 0.75, SLOT_MM = 0.8;    // the reading blank beside a 読み word
+const BOX_GAP_MM = 1;                   // between two columns of answer boxes
 
-function columnWidthMm(wrap, pitch, boxSize, inline) {
-  return inline
-    ? Math.max(1.3 * pitch, boxSize) * wrap
-    : 1.3 * pitch * wrap + boxSize + 2;
+// what the circled number takes before the first character, in mm
+export function leadMm(pitch) { return LEAD_EM * pitch + LEAD_MM; }
+
+// A sentence as the pieces that go down its column: each carries the height it
+// takes along the column and the width it forces on its line. Text breaks
+// character by character; an inline box group cannot break, which is why it is
+// one piece.
+function piecesOf(col, pitch, boxSize, inline) {
+  const out = [];
+  const text = (s) => { for (const _ of s) out.push({ h: pitch, w: LINE_EM * pitch }); };
+  for (const r of col.runs) {
+    if (r.t === 'furi') text(r.base);
+    else if (r.t !== 'read') text(r.s);
+    else if (!inline) text(r.s);
+    else if (r.mode === 'yomi') {
+      // the kanji stays in the flow with the reading blank hanging beside it
+      for (const _ of r.surface) out.push({ h: pitch, w: LINE_EM * pitch + SLOT_EM * pitch + SLOT_MM });
+    } else {
+      out.push({ h: Math.max(1, r.cells) * boxSize, w: boxSize + READ_EM * pitch + READ_MM });
+    }
+  }
+  return out;
 }
 
-// A trailing 。 is allowed to hang past the end of the column, so it does not
-// count towards the height.
-function columnRunMm(col, pitch, boxSize, inline) {
-  let h = 1.2 * pitch; // the circled number
-  let last = '';
-  for (const r of col.runs) {
-    if (r.t === 'read') { h += inline ? Math.max(1, r.cells) * boxSize : r.s.length * pitch; last = inline ? '' : r.s; }
-    else if (r.t === 'furi') { h += r.base.length * pitch; last = r.base; }
-    else { h += r.s.length * pitch; last = r.s; }
+// the width of each line the sentence wraps into, in mm
+function lineWidths(col, pitch, boxSize, inline, colH) {
+  const usable = Math.max(pitch, colH - leadMm(pitch));
+  const widths = [];
+  let h = 0, w = 0;
+  for (const piece of piecesOf(col, pitch, boxSize, inline)) {
+    if (h && h + piece.h > usable) { widths.push(w); h = 0; w = 0; }
+    h += piece.h;
+    w = Math.max(w, piece.w);
   }
-  if (/[。！？]$/.test(last)) h -= pitch;
-  return h;
+  if (h) widths.push(w);
+  return widths.length ? widths : [LINE_EM * pitch];
+}
+
+// how much of the page's width one sentence takes, boxes included
+function columnWidthMm(col, pitch, boxSize, inline, colH) {
+  const text = lineWidths(col, pitch, boxSize, inline, colH).reduce((a, b) => a + b, 0);
+  if (inline) return text; // the boxes are in the text, and so is their reading
+  const cols = boxColumns(col, pitch, boxSize, colH);
+  return text + (cols ? cols * boxSize + (cols - 1) * BOX_GAP_MM + BOX_MARGIN_MM : 0);
+}
+
+// how many columns of answer boxes the sentence needs beside it
+function boxColumns(col, pitch, boxSize, colH) {
+  if (!col.boxes.length) return 0;
+  const pos = layoutBoxes(col.boxes, pitch, boxSize, 1, colH, leadMm(pitch));
+  return pos[pos.length - 1].col + 1;
 }
 
 // Spread the sentences over the fewest whole pages they fit on, evenly rather
 // than cramming the first band and leaving the last one nearly empty. The first
 // band also carries the title column and the last one the points/seal boxes, so
 // any odd sentence out goes to a band in between.
-function autoBands(cols, widthOf, rows, titleW, extrasW) {
+function autoBands(cols, widthOf, rows, titleW, extrasW, gap) {
   if (!cols.length) return [{ columns: [] }];
   const avail = PAGE_W_MM - 2 * PAGE_PAD_MM;
   const fits = (bands) => bands.every((b, i) => {
-    const reserve = (i === 0 ? titleW : 0) + (i === bands.length - 1 ? extrasW : 0);
-    return b.reduce((w, c) => w + widthOf(c) + COL_GAP_MM, reserve) <= avail;
+    const reserve = (i === 0 ? titleW + gap : 0) + (i === bands.length - 1 ? extrasW + gap : 0);
+    return b.reduce((w, c) => w + widthOf(c), reserve) + (b.length - 1) * gap <= avail;
   });
   for (let B = rows; B <= cols.length; B += rows) {
     const base = Math.floor(cols.length / B), extra = cols.length % B;
@@ -261,11 +324,13 @@ export function buildLayout(worksheet) {
     // fit as many sentences as the page takes, rather than a fixed count
     const pitch = fontSize * 0.35278;
     const inline = blankPos === 'inline';
-    const widthOf = (c) => columnWidthMm(
-      Math.max(1, Math.ceil(columnRunMm(c, pitch, boxSize, inline) / colH)), pitch, boxSize, inline);
-    // titleFontSize is at most fontSize, so this reserves enough for the title
+    const widthOf = (c) => columnWidthMm(c, pitch, boxSize, inline, colH);
+    // titleFontSize is at most fontSize, so this reserves enough for the title.
+    // Inline sentences already keep the furigana inside their own width, so
+    // they need no gap of their own to stay clear of their neighbour.
     const bands = autoBands(sentences, widthOf, rows,
-      header ? (extras ? EXTRAS_W_MM : pitch) : 0, extras ? EXTRAS_W_MM : 0);
+      header ? (extras ? EXTRAS_W_MM : LINE_EM * pitch) : 0, extras ? EXTRAS_W_MM : 0,
+      inline ? 0 : COL_GAP_MM);
     pages = chunk(bands, rows).map(bs => ({ bands: bs, columns: bs.flatMap(b => b.columns) }));
   } else {
     pages = chunk(sentences, perPage).map(group => ({ columns: group, bands: splitBands(group, rows) }));
