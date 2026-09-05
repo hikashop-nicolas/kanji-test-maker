@@ -193,9 +193,25 @@ const LEAD_EM = 1.2, LEAD_MM = 1.2;     // the circled number and its margin
 const READ_EM = 0.5, READ_MM = 0.5;     // the furigana beside an inline box
 const SLOT_EM = 0.75, SLOT_MM = 0.8;    // the reading blank beside a 読み word
 const BOX_GAP_MM = 1;                   // between two columns of answer boxes
+const IMG_W_MM = 42, IMG_H_MM = 28;     // the box .pimg is drawn in
+const IMG_LEFT_MM = 4;                  // ... its distance from the page edge
+const IMG_AIR_MM = 2;                   // ... and the air kept beside it
 
 // what the circled number takes before the first character, in mm
 export function leadMm(pitch) { return LEAD_EM * pitch + LEAD_MM; }
+
+// The bottom-left image is drawn over the sheet, so the bottom band of every
+// page has to stop short of it. It keeps its own proportions inside the box the
+// preview gives it; without its natural size, assume it fills that box.
+export function imageBox(dims) {
+  if (!dims || !dims.w || !dims.h) return { w: IMG_W_MM, h: IMG_H_MM };
+  const scale = Math.min(IMG_W_MM / dims.w, IMG_H_MM / dims.h);
+  return { w: dims.w * scale, h: dims.h * scale };
+}
+// how much of the bottom band the picture claims. It hangs into the page's own
+// left padding, so only what sticks out past it has to be reserved.
+export const imageSpaceMm = (dims) =>
+  Math.max(0, IMG_LEFT_MM + imageBox(dims).w - PAGE_PAD_MM) + IMG_AIR_MM;
 
 // A sentence as the pieces that go down its column: each carries the height it
 // takes along the column and the width it forces on its line. Text breaks
@@ -251,11 +267,14 @@ function boxColumns(col, pitch, boxSize, colH) {
 // than cramming the first band and leaving the last one nearly empty. The first
 // band also carries the title column and the last one the points/seal boxes, so
 // any odd sentence out goes to a band in between.
-function autoBands(cols, widthOf, rows, titleW, extrasW, gap) {
+function autoBands(cols, widthOf, rows, titleW, extrasW, gap, imageW) {
   if (!cols.length) return [{ columns: [] }];
   const avail = PAGE_W_MM - 2 * PAGE_PAD_MM;
   const fits = (bands) => bands.every((b, i) => {
-    const reserve = (i === 0 ? titleW + gap : 0) + (i === bands.length - 1 ? extrasW + gap : 0);
+    // the image sits under the bottom band of whichever page this band is on
+    const bottom = i % rows === rows - 1 || i === bands.length - 1;
+    const reserve = (i === 0 ? titleW + gap : 0) + (i === bands.length - 1 ? extrasW + gap : 0)
+      + (bottom && imageW ? imageW + gap : 0);
     return b.reduce((w, c) => w + widthOf(c), reserve) + (b.length - 1) * gap <= avail;
   });
   for (let B = rows; B <= cols.length; B += rows) {
@@ -330,7 +349,7 @@ export function buildLayout(worksheet) {
     // they need no gap of their own to stay clear of their neighbour.
     const bands = autoBands(sentences, widthOf, rows,
       header ? (extras ? EXTRAS_W_MM : LINE_EM * pitch) : 0, extras ? EXTRAS_W_MM : 0,
-      inline ? 0 : COL_GAP_MM);
+      inline ? 0 : COL_GAP_MM, image ? imageSpaceMm(imageDims) : 0);
     pages = chunk(bands, rows).map(bs => ({ bands: bs, columns: bs.flatMap(b => b.columns) }));
   } else {
     pages = chunk(sentences, perPage).map(group => ({ columns: group, bands: splitBands(group, rows) }));

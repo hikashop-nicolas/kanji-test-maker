@@ -33,6 +33,14 @@ const SETS = {
   ],
 };
 
+// a stand-in for the teacher's logo, at two shapes: the reserved corner is the
+// picture's own, not the box it is allowed to fill
+const png = (w, h) => ({
+  image: 'data:image/svg+xml;utf8,' + encodeURIComponent(
+    `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}"><rect width="${w}" height="${h}" fill="#69c"/></svg>`),
+  imageDims: { w, h },
+});
+
 const CASES = [];
 for (const set of Object.keys(SETS)) {
   for (const blankPos of ['column', 'inline']) {
@@ -43,6 +51,8 @@ for (const set of Object.keys(SETS)) {
     CASES.push({ set, blankPos, rows: 1, extras: true });
     CASES.push({ set, blankPos, rows: 2, header: false });
     CASES.push({ set, blankPos, rows: 2, auto: false, perPage: 8 });
+    CASES.push({ set, blankPos, rows: 1, image: png(300, 120) });
+    CASES.push({ set, blankPos, rows: 2, image: png(120, 300) });
   }
 }
 
@@ -57,13 +67,15 @@ kuromoji.builder({ dicPath: path.join(root, 'node_modules', 'kuromoji', 'dict') 
       options: {
         autoPerPage: c.auto !== false, perPage: c.perPage || 10, rows: c.rows, font: 'Klee One',
         fontSize: c.fontSize || 18, boxSize: c.boxSize || 10, blankPos: c.blankPos, extras: !!c.extras,
+        ...(c.image || {}),
       },
       sentences: tokenized[c.set].map(tokens => ({ tokens, mode: c.mode || 'kaki' })),
     };
     const layout = buildLayout(worksheet);
     const name = `${String(i).padStart(2, '0')}-${c.set}-${c.blankPos}-r${c.rows}` +
       (c.fontSize ? `-f${c.fontSize}` : '') + (c.mode ? `-${c.mode}` : '') +
-      (c.extras ? '-extras' : '') + (c.header === false ? '-noheader' : '') + (c.auto === false ? '-fixed' : '');
+      (c.extras ? '-extras' : '') + (c.header === false ? '-noheader' : '') + (c.auto === false ? '-fixed' : '') +
+      (c.image ? `-image${c.image.imageDims.w}x${c.image.imageDims.h}` : '');
     // drop the webfont import: the checker only measures, and waiting on the
     // network for every page makes the sweep crawl
     const html = buildHtml(layout).replace(/@import url\('https:[^']*'\);/, '');

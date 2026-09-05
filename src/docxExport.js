@@ -4,7 +4,7 @@
 // spaces so each box sits next to its word. Page orientation only + explicit
 // row height / cell widths (the vertical content collapses otherwise).
 
-import { circledExtended, layoutBoxes } from './model.js';
+import { circledExtended, layoutBoxes, imageBox, imageSpaceMm } from './model.js';
 
 const VERT = 'TOP_TO_BOTTOM_RIGHT_TO_LEFT';
 const PAGE_H = 10650; // all bands together, twips (~188mm, near the page limit)
@@ -216,13 +216,14 @@ export function buildDocx(layout, docx, embeddedFonts = [], opts = {}) {
     for (let i = 0; i < bin.length; i++) a[i] = bin.charCodeAt(i);
     return a;
   }
-  // a floating image anchored to the bottom-left of the page
+  // a floating image anchored to the bottom-left of the page, in the same box
+  // the preview draws it in (the bottom band is kept clear of it)
   function imagePara() {
     const u = layout.image;
     const mime = u.substring(5, u.indexOf(';'));
     const type = (mime.split('/')[1] || 'png').replace('jpeg', 'jpg');
-    const dims = layout.imageDims || { w: 5, h: 3 };
-    const wmm = 40, hmm = Math.max(8, Math.round(40 * dims.h / dims.w));
+    const box = imageBox(layout.imageDims);
+    const wmm = box.w, hmm = box.h;
     return new Paragraph({ children: [new ImageRun({
       type, data: dataUrlToBytes(u),
       transformation: { width: mmPx(wmm), height: mmPx(hmm) },
@@ -241,15 +242,17 @@ export function buildDocx(layout, docx, embeddedFonts = [], opts = {}) {
 
   // title only on the first band of the first page; points/seal boxes only on
   // the last band of the last page.
-  function bandTable(band, hasTitle, hasExtras) {
+  function bandTable(band, hasTitle, hasExtras, hasImage) {
     const n = band.columns.length;
     const boxes = inline ? band.columns.map(() => []) : band.columns.map(boxCells);
+    const imgTw = hasImage ? Math.round(imageSpaceMm(layout.imageDims) * MM) : 0;
     const used = band.columns.reduce((w, c, i) => w + (inline ? INLINE_W : TEXT_W + boxes[i].length * BOX_W), 0)
-      + (hasTitle ? TEXT_W + 200 : 0) + (hasExtras ? EX_TW + 200 : 0);
+      + (hasTitle ? TEXT_W + 200 : 0) + (hasExtras ? EX_TW + 200 : 0) + imgTw;
     const gap = Math.max(120, Math.round((CONTENT_TW - used) / Math.max(1, n)));
-    // visual left-to-right: [box_n, text_n, gap, ..., box_1, text_1, gap, extras, title]
+    // visual left-to-right: [image, box_n, text_n, gap, ..., box_1, text_1, gap, extras, title]
     // (inline mode drops the separate box column: the boxes live in the text)
     const cells = [];
+    if (imgTw) cells.push(spacerCell(imgTw));
     for (let i = n - 1; i >= 0; i--) {
       cells.push(...boxes[i]);
       cells.push(textCell(band.columns[i]), spacerCell(gap));
@@ -273,7 +276,8 @@ export function buildDocx(layout, docx, embeddedFonts = [], opts = {}) {
       if (bi) children.push(new Paragraph({ spacing: { before: 0, after: 0, line: BAND_GAP_TW, lineRule: 'exact' }, children: [] }));
       children.push(bandTable(band,
         !!layout.header && idx === 0 && bi === 0,
-        extras && idx === layout.pages.length - 1 && bi === bands.length - 1));
+        extras && idx === layout.pages.length - 1 && bi === bands.length - 1,
+        !!layout.image && bi === bands.length - 1));
     });
     const sec = {
       properties: { page: {

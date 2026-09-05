@@ -36,6 +36,14 @@ for (const name of cases) {
         if (kids[i].bottom > pr.bottom + 0.6) problems.push(`p${pi}b${bi} a sentence runs off the bottom`);
       }
     });
+    // nothing may sit under the picture in the bottom-left corner
+    const img = page.querySelector('.pimg');
+    if (img) {
+      const ir = img.getBoundingClientRect();
+      page.querySelectorAll('.sentence, .box').forEach(el => {
+        if (over(el.getBoundingClientRect(), ir)) problems.push(`p${pi} the picture covers a sentence`);
+      });
+    }
     page.querySelectorAll('.sentence').forEach((s, si) => {
       const boxes = [...s.querySelectorAll('.box')].map(b => b.getBoundingClientRect());
       for (let i = 0; i < boxes.length; i++) for (let j = i + 1; j < boxes.length; j++) {

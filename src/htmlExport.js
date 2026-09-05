@@ -2,7 +2,7 @@
 // Right-to-left flex row (space-between) so sentences fill the page width.
 // Text flows at its natural pitch (tight); the answer boxes live in a parallel
 // column and are positioned (with push-down) so they never overlap.
-import { layoutBoxes, leadMm } from './model.js';
+import { layoutBoxes, leadMm, imageSpaceMm } from './model.js';
 
 function esc(s) {
   return String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -92,6 +92,9 @@ export function buildHtml(layout, opts = {}) {
   const colH = layout.colH || 190;                   // one band's column height, mm
   const bandGap = layout.bandGap != null ? layout.bandGap : 5;
   const imageHtml = layout.image ? `<img class="pimg" src="${layout.image}" alt="">` : '';
+  // the image is drawn over the sheet, so the bottom band stops short of it
+  const imageSpace = layout.image
+    ? `<div class="ispace" style="width:${imageSpaceMm(layout.imageDims).toFixed(1)}mm"></div>` : '';
   const pages = layout.pages.map((p, idx) => {
     const bands = p.bands || [{ columns: p.columns }];
     // the title heads the first band of the first page; the points/seal boxes
@@ -100,7 +103,8 @@ export function buildHtml(layout, opts = {}) {
       const cols = b.columns.map(c => sentenceHtml(c, fontPitchMm, boxSize, answers, inline, colH)).join('');
       const title = titleHtml(header, layout.extras,
         !!header && idx === 0 && bi === 0, idx === total - 1 && bi === bands.length - 1);
-      return `<div class="band">${title}${cols}</div>`;
+      const space = bi === bands.length - 1 ? imageSpace : '';
+      return `<div class="band">${title}${cols}${space}</div>`;
     }).join('');
     const pnum = total > 1 ? `<div class="pnum">${idx + 1} / ${total}</div>` : '';
     return `<section class="page">${html}${imageHtml}${pnum}</section>`;
@@ -152,8 +156,10 @@ export function buildHtml(layout, opts = {}) {
   .tb { display: flex; flex-direction: column; align-items: center; gap: 1mm; }
   .tb-label { writing-mode: horizontal-tb; font-size: 3.4mm; }
   .tb-box { width: 14mm; height: 14mm; border: 1.4px solid #222; box-sizing: border-box; }
-  /* optional bottom-left image and the multi-page counter */
+  /* optional bottom-left image and the multi-page counter. The sentences stop
+     short of the image: .ispace holds its corner of the bottom band open. */
   .pimg { position: absolute; left: 4mm; bottom: 2mm; max-width: 42mm; max-height: 28mm; }
+  .ispace { flex: 0 0 auto; }
   .pnum { position: absolute; left: 2.5mm; top: 1mm; font-size: 3mm; color: #666; font-family: Arial, sans-serif; }
   /* tested word: a side line on the RIGHT of the characters (vertical 傍線) */
   .read { border-right: 1.6px solid #333; padding-right: 1px; }

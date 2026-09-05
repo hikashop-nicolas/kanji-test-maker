@@ -68,11 +68,18 @@ second column beside the first: `layoutBoxes` fills a column, squeezing the
 boxes up into the slack between them if that is what makes them fit, and starts
 another when even a tight stack would run past the bottom.
 
-`tools/layout-probe.mjs` writes a sheet for three dozen combinations of blank
-position, band count, font size, mode and heading into a directory;
+The picture in the bottom-left corner is drawn over the sheet, so the bottom
+band of every page reserves the width it sticks out by (`imageSpaceMm`), and the
+`.docx` puts a spacer cell in that corner. A tall picture claims little width; a
+wide one claims the full 42mm.
+
+`tools/layout-probe.mjs` writes a sheet for four dozen combinations of blank
+position, band count, font size, mode, heading and corner picture into a
+directory;
 `tools/layout-check.html`, served from that same directory, renders each one and
 reports any two sentences that overlap, any two boxes that overlap, anything off
-the sheet, and any box that has drifted from the word it belongs to:
+the sheet, anything under the picture, and any box that has drifted from the
+word it belongs to:
 
 ```
 node tools/layout-probe.mjs /tmp/lay && cp tools/layout-check.html /tmp/lay
