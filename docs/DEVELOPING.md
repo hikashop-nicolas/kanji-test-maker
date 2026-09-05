@@ -54,6 +54,7 @@ paste → kuromoji (tokens + readings) → joinInflections → editable table
 | `assets/tessdata/`, `vendor/tesseract/` | OCR models and engine, loaded on first use. |
 | `vendor/pdfjs/` | pdf.js, loaded the first time a PDF is opened. Its `cmaps/` are what lets a Japanese PDF give up its text, its `wasm/` what decodes a scan's images. |
 | `tools/gen.mjs` | Node harness that renders the outputs without a browser. |
+| `tools/shot.mjs` | Writes the worksheet page used in the README; print it with `chrome --headless --print-to-pdf`. |
 
 kuromoji cuts a word where its dictionary entry ends, which can leave a stem
 that is not a word: 読んで comes back as 読ん + で. `joinInflections` puts the
