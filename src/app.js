@@ -65,11 +65,28 @@ $('lang_select').addEventListener('change', () => {
   if ($('pickerPanel').style.display !== 'none') runPicker();
 });
 
+// A box that grows with what is in it: a stack of scans puts twenty sentences
+// in one, and scrolling a textarea to look them over is no way to work. It
+// stops at most of the window, past which scrolling is the lesser evil.
+const BOX_MAX = 0.7; // of the window height
+function fitBox(box) {
+  box.style.height = 'auto';
+  const border = box.offsetHeight - box.clientHeight; // the height is border-box
+  box.style.height = `${Math.min(box.scrollHeight + border, window.innerHeight * BOX_MAX)}px`;
+}
+// a box in a hidden tab measures as empty, so only fit what is on show
+function fitBoxes() {
+  for (const box of ['input', 'src_text'].map($)) if (box.offsetParent) fitBox(box);
+}
+for (const id of ['input', 'src_text']) $(id).addEventListener('input', () => fitBox($(id)));
+window.addEventListener('resize', fitBoxes);
+
 // ---- input source tabs (corpus / paste / ocr) ----------------------------
 function showTab(name) {
   document.querySelectorAll('.tabs button').forEach(b => b.classList.toggle('active', b.dataset.tab === name));
   document.querySelectorAll('.tabpane').forEach(p => p.classList.toggle('active', p.id === 'tab_' + name));
   try { localStorage.setItem('ktm_tab', name); } catch (e) {}
+  fitBoxes(); // the box that just came into view still has its old height
 }
 document.querySelectorAll('.tabs button').forEach(b => b.addEventListener('click', () => showTab(b.dataset.tab)));
 (function restoreTab() {
@@ -775,6 +792,7 @@ function appendLines(lines) {
   const all = (before ? before.split('\n') : []).concat(lines);
   box.value = all.slice(0, MAX_LINES).join('\n');
   $('src_out').style.display = '';
+  fitBox(box); // shown first: a hidden box measures as empty
   return Math.max(0, all.length - MAX_LINES);
 }
 
