@@ -38,6 +38,8 @@ paste → kuromoji (tokens + readings) → joinInflections → editable table
 | `src/docxExport.js` | Layout to `.docx`: a vertical right-to-left table, one per band. |
 | `src/docxEmbed.js` | Adds the `<w:embedTrueTypeFonts/>` flag Word needs. |
 | `src/app.js` | UI glue: kuromoji, the table, settings, exports, reading files, service worker. |
+| `src/distractors.js` | Pure: wrong-but-plausible spellings of a word for the multiple-choice sheets, and the mirror generator for wrong readings. Splits a word's reading over its characters (rendaku, gemination, handaku), swaps by sound, swaps by shared component, falls back to a hand-written lookalike table, and describes invented characters as operations. |
+| `src/glyph.js` | Pure: draws an invented character from KanjiVG strokes. Borrowed components are copied at their own size; the transform is baked into the path data so every stroke keeps one width. |
 | `src/lesson.js` | Grade to kanji table, and the selection grid. |
 | `src/sentences.js` | Example-sentence scoring (i+1 ranking) and candidate lists. |
 | `src/i18n.js` | Interface translations (ja/en/fr) and the language switcher. |
@@ -50,10 +52,18 @@ paste → kuromoji (tokens + readings) → joinInflections → editable table
 | `src/ppocr.js` | The text recognizer: one line of Japanese in, its characters out. ONNX Runtime Web plus a 21 MB model. |
 | `assets/dict/` | kuromoji dictionary. |
 | `assets/fonts/` | TTFs, embedded into the `.docx`. |
-| `assets/data/` | Generated lesson data: kanji index and per-grade sentences. |
+| `assets/data/` | Generated lesson data: kanji index, per-grade sentences and words. |
+| `assets/data/kanji-parts.json` | Which components each kanji is made of, and where they sit. 65 KB, loaded with the app: it drives the shape-based wrong answers. |
+| `assets/data/kanji-strokes.json` | KanjiVG strokes, 2.3 MB. Only fetched when a sheet invents characters. |
+| `assets/data/lesson-words/` | Words per kanji, one file per grade, for the multiple-choice picker. |
 | `assets/tessdata/`, `vendor/tesseract/` | OCR models and engine, loaded on first use. |
 | `vendor/pdfjs/` | pdf.js, loaded the first time a PDF is opened. Its `cmaps/` are what lets a Japanese PDF give up its text, its `wasm/` what decodes a scan's images. |
 | `tools/gen.mjs` | Node harness that renders the outputs without a browser. |
+| `tools/build-parts.mjs` | Builds the component and stroke files from KanjiVG (CC BY-SA 3.0). |
+| `tools/build-words.mjs` | Builds the word lists by tokenizing the sentence corpus. |
+| `tools/choices.mjs` | Prints what the generator makes of a word, and why. `G=2 MADE=1 node tools/choices.mjs 学校` |
+| `tools/glyph-probe.mjs` | Draws the invented characters for a word list into an HTML page, to look at them. |
+| `tools/choice-probe.mjs` | Builds a whole choice sheet without the interface. `DOCX=1` also writes the `.docx`, drawing the glyphs with headless Chrome the way the browser does with a canvas. |
 | `tools/shot.mjs` | Writes the worksheet page used in the README; print it with `chrome --headless --print-to-pdf`. |
 
 kuromoji cuts a word where its dictionary entry ends, which can leave a stem
@@ -144,6 +154,29 @@ tesseract worker costs more than reading a page with it. A file that cannot be
 read is counted and stepped over, so one bad scan does not cost the teacher the
 rest of the stack.
 
+## Multiple-choice sheets
+
+Design and the reasoning behind it: [CHOICE_PLAN.md](CHOICE_PLAN.md). The parts:
+
+- **The material is words, not sentences.** In this mode the corpus tab, the
+  paste box and the file reader all offer words, and every chosen word becomes
+  one question. `state.words` holds the picks, `state.questions` the questions.
+- **A choice is a list of cells**, one per character. A cell is either a real
+  character (`{ ch }`) or one that does not exist, described as an operation on
+  real ones (`{ op, base, part, donor }`) for `glyph.js` to draw.
+- **One invented character makes the whole sheet drawn.** `buildLayout` sets
+  `drawAll`, and every choice character becomes a `{ draw }` cell. A drawn glyph
+  beside typeset text is spotted by its weight before it is read.
+- **The sheet is one band.** A question is 161 mm deep at 18 pt against 93 mm in
+  two bands, so `rows` is forced to 1.
+- **In the `.docx` the glyphs are pictures.** `app.js` draws each to a canvas at
+  3x and passes the PNG on the run; `docxExport.js` emits an `ImageRun` sized to
+  the em.
+
+The generator is worth reading before changing: a wrong spelling that is itself
+a word is dropped, since a word list gives no context to rule it out, and the
+level weight is what stops it reaching for kanji the class has never seen.
+
 ## Dependencies
 
 There is no bundler, so the browser loads the copies committed in `vendor/` and
@@ -202,8 +235,13 @@ The files in `assets/data/` are generated and committed, since Pages serves them
 directly.
 
 ```bash
-npm run build:data     # build-data.mjs (KANJIDIC2) + build-sentences.mjs (Tatoeba)
+npm run build:data     # KANJIDIC2, Tatoeba, KanjiVG, then the word lists
 ```
+
+That runs four steps: `build-data.mjs` (KANJIDIC2), `build-sentences.mjs`
+(Tatoeba), `build-parts.mjs` (KanjiVG components and strokes) and
+`build-words.mjs` (words per kanji, tokenized out of the sentences, so it has to
+come last).
 
 `build-data.mjs` writes `assets/data/kanji.json` (grade, strokes, radical,
 readings) from KANJIDIC2, plus a reconstructed JLPT level per kanji from

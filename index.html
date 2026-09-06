@@ -404,7 +404,12 @@
     <div class="qsettings">
       <span><label style="display:inline" data-i18n="f_choice_count">選択肢の数</label>
         <select id="q_count"><option value="4">4</option><option value="5">5</option></select></span>
-      <span><label style="display:inline" data-i18n="f_choice_style">まちがいの作り方</label>
+      <span><label style="display:inline" data-i18n="f_choice_dir">問題の向き</label>
+        <select id="q_dir">
+          <option value="kanji" data-i18n="dir_kanji">よみ → 漢字をえらぶ</option>
+          <option value="reading" data-i18n="dir_reading">漢字 → よみをえらぶ</option>
+        </select></span>
+      <span id="q_style_wrap"><label style="display:inline" data-i18n="f_choice_style">まちがいの作り方</label>
         <select id="q_style">
           <option value="real" data-i18n="choice_style_real">実在する漢字だけ</option>
           <option value="made" data-i18n="choice_style_made">作った漢字も使う（むずかしい）</option>
@@ -450,7 +455,8 @@
 
   <p class="muted" style="margin-top:1.5rem">
     <span data-i18n="footer_kanji_data">漢字データ</span>：<a href="https://www.edrdg.org/wiki/KANJIDIC_Project.html" target="_blank" rel="noopener">KANJIDIC2</a>（EDRDG, CC BY-SA 4.0）／
-    <span data-i18n="footer_examples">例文</span>：<a href="https://tatoeba.org/" target="_blank" rel="noopener">Tatoeba</a>（CC BY 2.0 FR）
+    <span data-i18n="footer_examples">例文</span>：<a href="https://tatoeba.org/" target="_blank" rel="noopener">Tatoeba</a>（CC BY 2.0 FR）／
+    <span data-i18n="footer_strokes">字形</span>：<a href="https://kanjivg.tagaini.net/" target="_blank" rel="noopener">KanjiVG</a>（CC BY-SA 3.0）
   </p>
 </main>
 

@@ -21,6 +21,9 @@ const CORE_FILES = ['index.html', 'manifest.webmanifest'];
 const LAZY_PREFIXES = [
   'assets/dict/', 'assets/fonts/', 'assets/tessdata/', 'vendor/tesseract/',
   'vendor/pdfjs/', 'assets/data/lesson-kanji/', 'assets/ppocr/', 'vendor/onnx/',
+  // the words of one grade at a time, and the strokes only when a sheet
+  // invents characters (2.3 MB, which nobody should download to install)
+  'assets/data/lesson-words/', 'assets/data/kanji-strokes.json',
 ];
 
 function walk(dir, out = []) {

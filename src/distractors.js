@@ -301,3 +301,86 @@ export function choiceText(choice) {
 export function hasMade(choice) {
   return (choice.cells || []).some(c => !c.ch);
 }
+
+// ---- the mirror: given the kanji, choose the reading ----------------------
+// No drawing and no stroke data: the choices are kana, so they are cells like
+// any other. Wrong readings come from two places, the mistakes the writing
+// system invites, and reading one character by another of its own readings.
+
+const SMALL = { ャ: 'ヤ', ュ: 'ユ', ョ: 'ヨ' };
+const UNVOICED = {};
+for (const [a, b] of Object.entries(VOICED)) UNVOICED[b] = a;
+const O_ROW = /[オコソトノホモヨロゴゾドボポョ]/;
+
+// every one-step change a pupil actually makes
+function perturb(kata) {
+  const out = new Set();
+  const chars = [...kata];
+  chars.forEach((c, i) => {
+    const swap = (to) => out.add(chars.slice(0, i).join('') + to + chars.slice(i + 1).join(''));
+    if (VOICED[c]) swap(VOICED[c]);                 // カ -> ガ
+    if (UNVOICED[c]) swap(UNVOICED[c]);             // ガ -> カ
+    if (HALF[c]) swap(HALF[c]);                     // ハ -> パ
+    if (SMALL[c]) swap(SMALL[c]);                   // ョ -> ヨ, the classic slip
+    if (c === 'ッ') out.add(chars.filter((_, j) => j !== i).join(''));      // 促音 dropped
+    if (c === 'ウ' && i && O_ROW.test(chars[i - 1])) {
+      out.add(chars.filter((_, j) => j !== i).join(''));                    // long vowel lost
+    }
+    if (O_ROW.test(c) && chars[i + 1] !== 'ウ') {
+      out.add(chars.slice(0, i + 1).join('') + 'ウ' + chars.slice(i + 1).join(''));  // ... or added
+    }
+    if (i && /[カキクケコサシスセソタチツテトパピプペポ]/.test(c) && chars[i - 1] !== 'ッ') {
+      out.add(chars.slice(0, i).join('') + 'ッ' + chars.slice(i).join(''));  // 促音 added
+    }
+  });
+  out.delete(kata);
+  return [...out];
+}
+
+// word: the spelling shown. reading: the right answer.
+// Returns { answer, wrong } with kana choices, same shape as generate().
+export function generateReadings(word, reading, opts = {}) {
+  const kata = hira2kata(reading || '');
+  const toHira = (s) => s.replace(/[ァ-ヶ]/g, c => String.fromCharCode(c.charCodeAt(0) - 0x60));
+  const cells = (s) => ({ cells: [...s].map(ch => ({ ch })), text: s });
+  const answer = cells(toHira(kata));
+  if (!K || !kata) return { answer, wrong: [] };
+  const cands = new Map();
+  const put = (s, score) => {
+    if (!s || s === kata || cands.has(s)) return;
+    cands.set(s, { ...cells(toHira(s)), score });
+  };
+
+  // read one character by another of its own readings: 音楽 as おんらく
+  const split = splitReading(word, kata);
+  if (split) {
+    split.forEach((p, i) => {
+      if (p.kind === 'kana') return;
+      const d = K[p.ch];
+      if (!d) return;
+      const others = [];
+      for (const r of d.on || []) others.push(r.replace(/[-.]/g, ''));
+      for (const r of d.kun || []) {
+        if (r.startsWith('-')) continue;
+        others.push(hira2kata(r.split('.')[0].replace(/-/g, '')));
+      }
+      let taken = 0;
+      for (const alt of others) {
+        if (!alt || alt === p.part || alt.length > 4) continue;
+        const s = split.map((q, j) => (j === i ? alt : q.part)).join('');
+        put(s, 9 - Math.abs(alt.length - p.part.length));
+        if (++taken >= 3) break;
+      }
+    });
+  }
+  // and the slips the kana themselves invite
+  for (const s of perturb(kata)) {
+    // a slip that turns out to be a way the word really can be read is not a
+    // wrong answer at all (日本 にほん and にっぽん)
+    if (splitReading(word, s)) continue;
+    put(s, 6 - Math.abs(s.length - kata.length));
+  }
+
+  const wrong = [...cands.values()].sort((a, b) => b.score - a.score);
+  return { answer, wrong: wrong.slice(0, opts.limit || 12) };
+}

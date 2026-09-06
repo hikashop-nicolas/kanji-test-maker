@@ -4,7 +4,7 @@ import { buildHtml } from './htmlExport.js?v=2';
 import { buildDocx } from './docxExport.js?v=2';
 import { addFontEmbedFlag } from './docxEmbed.js?v=2';
 import { initLessonBuilder, onLessonChange, selectedKanji, gradeOf, jlptOf, setSelection, currentGrade, refreshLabels, loadKanji, kanjiData } from './lesson.js?v=2';
-import { init as initDistractors, generate as generateChoices } from './distractors.js?v=2';
+import { init as initDistractors, generate as generateChoices, generateReadings } from './distractors.js?v=2';
 import { setStrokes, cellSvg } from './glyph.js?v=2';
 import { buildCandidates } from './sentences.js?v=2';
 import { t, initLang, applyI18n, getLang, setLang } from './i18n.js?v=2';
@@ -41,7 +41,7 @@ let customFontFamily = null; // set when a font file is uploaded
 let customFontBytes = null;  // uploaded font bytes, for docx embedding
 
 // ---- persist settings ----------------------------------------------------
-const SETTING_IDS = ['h_class','h_title','h_lesson','h_name','o_perpage','o_rows','o_font','o_fontsize','o_boxsize','o_blankpos','q_count','q_style'];
+const SETTING_IDS = ['h_class','h_title','h_lesson','h_name','o_perpage','o_rows','o_font','o_fontsize','o_boxsize','o_blankpos','q_count','q_style','q_dir'];
 function saveSettings() {
   const o = {};
   SETTING_IDS.forEach(id => { if ($(id)) o[id] = $(id).value; });
@@ -1029,20 +1029,23 @@ async function ensureStrokes() {
 }
 
 const choiceCount = () => parseInt($('q_count').value, 10) || 4;
-const allowMade = () => $('q_style').value === 'made';
+// the mirror sheet shows the kanji and asks for the reading; its choices are
+// kana, so it needs no drawing and no stroke data
+const askReading = () => $('q_dir').value === 'reading';
+const allowMade = () => $('q_style').value === 'made' && !askReading();
 
 // Build one question: the answer plus the best wrong spellings, more than the
 // sheet needs so the teacher has something to swap in.
 function makeQuestion(word, reading) {
   const { G } = baselineLevel();
-  const { answer, wrong } = generateChoices(word, reading, {
-    maxGrade: G, isWord: isRealWord, made: allowMade(), limit: 14,
-  });
+  const { answer, wrong } = askReading()
+    ? generateReadings(word, reading, { limit: 14 })
+    : generateChoices(word, reading, { maxGrade: G, isWord: isRealWord, made: allowMade(), limit: 14 });
   const n = choiceCount();
   const used = wrong.slice(0, n - 1);
   const at = Math.floor(Math.random() * (used.length + 1));
   used.splice(at, 0, answer);
-  return { word, reading, used, offered: wrong.slice(n - 1), answerAt: at };
+  return { word, reading, dir: askReading() ? 'reading' : 'kanji', used, offered: wrong.slice(n - 1), answerAt: at };
 }
 
 // keep a question per chosen word, leaving the ones already edited alone
@@ -1105,7 +1108,7 @@ function renderQuestions() {
     // the reading is shown, not edited: it belongs to the word, and the word is
     // picked one step earlier
     const tdR = document.createElement('td');
-    tdR.textContent = q.reading;
+    tdR.textContent = q.dir === 'reading' ? q.word : q.reading;
     tdR.style.whiteSpace = 'nowrap';
     tr.appendChild(tdR);
 
@@ -1340,6 +1343,7 @@ async function setKind(kind) {
   const perPageLabel = document.querySelector('[data-i18n="f_per_page"]');
   if (perPageLabel) perPageLabel.textContent = t(isChoice() ? 'f_per_page_q' : 'f_per_page');
   if (isChoice()) {
+    syncDirFields();
     await ensureDistractors();
     if (allowMade()) await ensureStrokes();
     if (selectedKanji().length) await runWordPicker();
@@ -1356,7 +1360,9 @@ function worksheet() {
   if (isChoice()) {
     return {
       mode: 'choice', header: header(), options: options(),
-      questions: state.questions.map(q => ({ reading: q.reading, choices: q.used, answerAt: q.answerAt })),
+      questions: state.questions.map(q => ({
+        reading: q.dir === 'reading' ? q.word : q.reading, choices: q.used, answerAt: q.answerAt,
+      })),
     };
   }
   return { header: header(), options: options(), sentences: state.sentences };
@@ -1520,6 +1526,11 @@ $('kind_sentences').addEventListener('click', () => setKind('sentences'));
 $('kind_choice').addEventListener('click', () => setKind('choice'));
 $('wpick_easyonly').addEventListener('change', () => { if (isChoice()) runWordPicker(); });
 $('q_count').addEventListener('change', () => { rebuildQuestions(); saveSettings(); });
+$('q_dir').addEventListener('change', () => { syncDirFields(); rebuildQuestions(); saveSettings(); });
+function syncDirFields() {
+  $('q_style_wrap').style.display = askReading() ? 'none' : '';
+  $('q_note').style.display = askReading() ? 'none' : '';
+}
 $('q_style').addEventListener('change', async () => {
   if (allowMade() && !(await ensureStrokes())) { alert(t('alert_no_strokes')); $('q_style').value = 'real'; }
   rebuildQuestions(); saveSettings();
@@ -1557,12 +1568,12 @@ function setData() {
       tokens: s.tokens.map(t => ({ surface: t.surface, reading: t.reading, hasKanji: t.hasKanji, state: t.state || (t.selected ? 'test' : 'plain') })),
     })),
     kind: sheetKind,
-    choice: { count: $('q_count').value, style: $('q_style').value },
+    choice: { count: $('q_count').value, style: $('q_style').value, dir: $('q_dir').value },
     words: state.words,
     // the wrong answers chosen for each question and the order they sit in, so
     // a reprint is exact and any hand placing survives
     questions: state.questions.map(q => ({
-      word: q.word, reading: q.reading, answerAt: q.answerAt, used: q.used, offered: q.offered,
+      word: q.word, reading: q.reading, dir: q.dir, answerAt: q.answerAt, used: q.used, offered: q.offered,
     })),
   };
 }
@@ -1588,10 +1599,12 @@ function applySet(d) {
   if (d.choice) {
     if (d.choice.count != null) $('q_count').value = d.choice.count;
     if (d.choice.style != null) $('q_style').value = d.choice.style;
+    if (d.choice.dir != null) $('q_dir').value = d.choice.dir;
   }
   state.words = d.words || [];
   state.questions = (d.questions || []).map(q => ({
-    word: q.word, reading: q.reading, answerAt: q.answerAt || 0, used: q.used || [], offered: q.offered || [],
+    word: q.word, reading: q.reading, dir: q.dir || 'kanji',
+    answerAt: q.answerAt || 0, used: q.used || [], offered: q.offered || [],
   }));
   saveSettings();
   renderTable();
