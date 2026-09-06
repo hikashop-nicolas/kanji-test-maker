@@ -12,7 +12,13 @@
 //    thinner than the rest of the character.
 
 const STROKE_W = 5.2;                              // in the 109-unit square
-// KanjiVG's ink sits inside a margin, so the em box is the ink box, not 0..109
+// KanjiVG's ink sits inside a margin, so the em box is the ink box, not 0..109.
+// It is only where the ink USUALLY sits, though: 916 of the 2383 kanji reach
+// past it, and the stroke is drawn half its width either side of the path on
+// top of that. The view box is widened per character to take whatever hangs
+// out, or the bottom of 感 is cut off at the edge of its cell.
+const INK_BOX = { x0: 10, y0: 10, x1: 99, y1: 99 };
+const OVERHANG = STROKE_W / 2 + 0.4;
 export const VIEW_BOX = '10 10 89 89';
 const ALONE = { x0: 13, y0: 10, x1: 98, y1: 100 }; // where a character sits on its own
 const RIGHT = { x0: 36, y0: 10, x1: 98, y1: 100 }; // ... and beside a left radical
@@ -198,6 +204,14 @@ export function canDraw(cell) {
 
 // An <svg> for one cell, sized so its ink matches a character of the same font
 // size. `cls` goes on the element; `color` defaults to the inherited colour.
+// the ink box, widened to hold this character's own strokes
+function viewBoxFor(paths) {
+  const b = bbox(paths);
+  const x0 = Math.min(INK_BOX.x0, b.x0 - OVERHANG), y0 = Math.min(INK_BOX.y0, b.y0 - OVERHANG);
+  const x1 = Math.max(INK_BOX.x1, b.x1 + OVERHANG), y1 = Math.max(INK_BOX.y1, b.y1 + OVERHANG);
+  return `${+x0.toFixed(1)} ${+y0.toFixed(1)} ${+(x1 - x0).toFixed(1)} ${+(y1 - y0).toFixed(1)}`;
+}
+
 export function cellSvg(cell, opts = {}) {
   const paths = cellPaths(cell);
   if (!paths) return '';
@@ -207,5 +221,5 @@ export function cellSvg(cell, opts = {}) {
     `<path d="${d}" fill="none" stroke="${stroke}" stroke-width="${STROKE_W}" stroke-linecap="round" stroke-linejoin="round"/>`).join('');
   const cls = opts.cls ? ` class="${opts.cls}"` : '';
   const extra = opts.style ? ` style="${opts.style}"` : '';
-  return `<svg${cls}${extra} xmlns="http://www.w3.org/2000/svg" viewBox="${VIEW_BOX}" width="${w}" height="${h}">${body}</svg>`;
+  return `<svg${cls}${extra} xmlns="http://www.w3.org/2000/svg" viewBox="${viewBoxFor(paths)}" width="${w}" height="${h}">${body}</svg>`;
 }

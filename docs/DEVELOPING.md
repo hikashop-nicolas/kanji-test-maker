@@ -174,6 +174,11 @@ Design and the reasoning behind it: [CHOICE_PLAN.md](CHOICE_PLAN.md). The parts:
   3x and passes the PNG on the run; `docxExport.js` emits an `ImageRun` sized to
   the em.
 
+- **The view box is per character.** KanjiVG's ink usually sits inside 10..99 of
+  the 109 square, which is what makes a drawn character match a typeset one in
+  size, but 916 of the 2383 kanji reach past it and the stroke is drawn half its
+  width either side of the path on top of that. `cellSvg` widens the box to hold
+  whatever hangs out, or the bottom of 感 is cut off at the edge of its cell.
 - **A fabricated character has to look like one.** A borrowed component sits
   where it sat in the kanji it came from, and when that is not where the one it
   replaced sat, the result has a band of nothing across it: a mark at the top,
