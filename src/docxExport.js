@@ -23,7 +23,8 @@ export function buildDocx(layout, docx, embeddedFonts = [], opts = {}) {
     Footer, PageNumber, ImageRun, HorizontalPositionRelativeFrom, VerticalPositionRelativeFrom,
   } = docx;
   const answers = !!opts.answers; // fill the boxes with the answer (answer key)
-  const inline = (layout.blankPos || 'inline') === 'inline'; // boxes in the flow vs a side column
+  const choice = !!layout.choice; // a word list with spellings to choose from
+  const inline = choice || (layout.blankPos || 'inline') === 'inline'; // boxes in the flow vs a side column
   const extras = !!layout.extras; // points + seal boxes beside the title
   const total = layout.pageCount || layout.pages.length;
   const rows = Math.max(1, layout.rows || 1);      // bands of sentences per page
@@ -128,11 +129,22 @@ export function buildDocx(layout, docx, embeddedFonts = [], opts = {}) {
     });
   }
 
+  // an invented character has no codepoint, so it goes in as a picture, sized
+  // to one character. app.js draws it before the export (see rasterizeGlyphs).
+  const emPx = Math.round(fontSize * 96 / 72);
+  function glyphRun(r) {
+    if (!r.png) return text('\u3013');
+    return new ImageRun({ type: 'png', data: r.png, transformation: { width: emPx, height: emPx } });
+  }
+
   function textCell(col) {
     const kids = [];
     if (col.number) kids.push(text(circledExtended(col.number)));
     for (const r of col.runs) {
-      if (r.t === 'plain' || r.t === 'kana') kids.push(text(r.s));
+      if (r.t === 'glyph') kids.push(glyphRun(r));
+      // the answer key marks the label of the right spelling
+      else if (r.hit && answers) kids.push(text(r.s, { color: 'C0392B', bold: true }));
+      else if (r.t === 'plain' || r.t === 'kana') kids.push(text(r.s));
       else if (r.t === 'furi') kids.push(rubyRun(r.base, r.rt));
       else if (r.t === 'read') kids.push(inline
         ? inlineTestRun(r)
@@ -145,7 +157,7 @@ export function buildDocx(layout, docx, embeddedFonts = [], opts = {}) {
       indent: { hanging: CELL_TW },
       spacing: { line: 312, lineRule: LineRuleType.AUTO }, // 312 = 1.3 x 240
       children: kids,
-    })], inline ? INLINE_W : TEXT_W);
+    })], choice ? TEXT_W : inline ? INLINE_W : TEXT_W);
   }
 
   // the answer boxes beside one sentence, as one cell per column of boxes. A
@@ -246,7 +258,8 @@ export function buildDocx(layout, docx, embeddedFonts = [], opts = {}) {
     const n = band.columns.length;
     const boxes = inline ? band.columns.map(() => []) : band.columns.map(boxCells);
     const imgTw = hasImage ? Math.round(imageSpaceMm(layout.imageDims) * MM) : 0;
-    const used = band.columns.reduce((w, c, i) => w + (inline ? INLINE_W : TEXT_W + boxes[i].length * BOX_W), 0)
+    const colW = choice ? TEXT_W : INLINE_W;
+    const used = band.columns.reduce((w, c, i) => w + (inline ? colW : TEXT_W + boxes[i].length * BOX_W), 0)
       + (hasTitle ? TEXT_W + 200 : 0) + (hasExtras ? EX_TW + 200 : 0) + imgTw;
     const gap = Math.max(120, Math.round((CONTENT_TW - used) / Math.max(1, n)));
     // visual left-to-right: [image, box_n, text_n, gap, ..., box_1, text_1, gap, extras, title]

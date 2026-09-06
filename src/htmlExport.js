@@ -3,6 +3,7 @@
 // Text flows at its natural pitch (tight); the answer boxes live in a parallel
 // column and are positioned (with push-down) so they never overlap.
 import { layoutBoxes, leadMm, imageSpaceMm } from './model.js';
+import { cellSvg } from './glyph.js';
 
 function esc(s) {
   return String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -10,7 +11,13 @@ function esc(s) {
 
 // 'column' layout: the tested word is shown inline (side-lined) and its answer
 // box lives in a parallel column (see sentenceHtml).
+// a character that does not exist is drawn, at the size of one of its neighbours
+function glyphHtml(cell) {
+  return cellSvg(cell, { cls: 'gl' }) || `<span class="plain">${esc(cell.draw || '\u3013')}</span>`;
+}
+
 function runHtml(r) {
+  if (r.t === 'glyph') return glyphHtml(r.cell);
   if (r.t === 'plain') return `<span class="plain">${esc(r.s)}</span>`;
   if (r.t === 'kana') return `<span class="plain">${esc(r.s)}</span>`; // reading in place of kanji
   if (r.t === 'furi') return `<ruby>${esc(r.base)}<rt>${esc(r.rt)}</rt></ruby>`;
@@ -21,6 +28,9 @@ function runHtml(r) {
 // where the word goes, with the reading as furigana to its right; 読み shows the
 // side-lined kanji with a blank reading slot to its right.
 function inlineRunHtml(r, answers) {
+  if (r.t === 'glyph') return glyphHtml(r.cell);
+  // on a choice sheet the answer key rings the label of the right spelling
+  if (r.hit && answers) return `<span class="hit">${esc(r.s)}</span>`;
   if (r.t === 'plain' || r.t === 'kana') return `<span class="plain">${esc(r.s)}</span>`;
   if (r.t === 'furi') return `<ruby>${esc(r.base)}<rt>${esc(r.rt)}</rt></ruby>`;
   if (r.t !== 'read') return '';
@@ -191,6 +201,17 @@ export function buildHtml(layout, opts = {}) {
            box-sizing: border-box; width: 1.5em; border: 1.2px solid #999;
            display: flex; align-items: flex-start; justify-content: center;
            writing-mode: vertical-rl; line-height: 1; font-size: .5em; color: #c0392b; white-space: nowrap; }
+  /* an invented character: drawn at the ink size of a real one, upright in the
+     line like any kanji (see docs/CHOICE_PLAN.md 8) */
+  .gl { width: 1em; height: 1em; display: inline-block; vertical-align: middle; color: inherit; }
+  /* answer key on a choice sheet: a ring round the right label */
+  .hit {
+    writing-mode: horizontal-tb;
+    display: inline-flex; align-items: center; justify-content: center;
+    box-sizing: border-box; width: 1.35em; height: 1.35em;
+    border: 1.6px solid #c0392b; border-radius: 50%; color: #c0392b;
+    font-size: .8em; vertical-align: middle;
+  }
   /* furigana: ruby to the right of the kanji in vertical writing */
   ruby { ruby-position: over; }
   rt { font-size: .5em; font-weight: normal; }

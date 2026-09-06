@@ -11,7 +11,7 @@
 //    carries its stroke width with it, so a narrowed element would come out
 //    thinner than the rest of the character.
 
-const STROKE_W = 4.6;                              // in the 109-unit square
+const STROKE_W = 5.2;                              // in the 109-unit square
 // KanjiVG's ink sits inside a margin, so the em box is the ink box, not 0..109
 export const VIEW_BOX = '10 10 89 89';
 const ALONE = { x0: 13, y0: 10, x1: 98, y1: 100 }; // where a character sits on its own
@@ -103,6 +103,9 @@ function findGroup(entry, element) {
 export function cellPaths(cell) {
   if (!cell || cell.ch) return null;
   if (!S) return null;
+  // a real character, drawn: on a sheet that invents characters every choice is
+  // drawn, or the invented ones would stand out by their weight alone
+  if (cell.draw) return S[cell.draw] ? S[cell.draw].s : null;
   const e = S[cell.base];
   if (!e || !e.s || !e.s.length) return null;
   // 川 and 火 have no component groups at all, which is exactly why they get a

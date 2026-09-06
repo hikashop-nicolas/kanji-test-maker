@@ -217,6 +217,39 @@ function sentenceColumn(sentence, index) {
   return { number: index + 1, runs, boxes, length: pos };
 }
 
+// ---- multiple-choice questions -------------------------------------------
+// A question is one column: the reading, then the spellings to choose from,
+// each behind its label. No boxes, so the column is a plain line of writing
+// that the existing wrapping and band packing already handle.
+export const CHOICE_LABELS = 'アイウエオ';
+
+function questionColumn(q, index, drawAll) {
+  const runs = [];
+  let pos = 0;
+  const text = (s) => { if (s) { runs.push({ t: 'plain', s: toFullWidth(s) }); pos += [...s].length; } };
+  text(q.reading || '');
+  (q.choices || []).forEach((c, i) => {
+    text('\u3000');
+    // the answer key rings the label of the right one
+    runs.push({ t: 'plain', s: CHOICE_LABELS[i] || '\u3000', hit: i === q.answerAt });
+    pos += 1;
+    for (const cell of c.cells || []) {
+      if (!cell.ch) runs.push({ t: 'glyph', cell });
+      else if (drawAll && KANJI_RE.test(cell.ch)) runs.push({ t: 'glyph', cell: { draw: cell.ch } });
+      else runs.push({ t: 'plain', s: cell.ch });
+      pos += 1;
+    }
+  });
+  return { number: index + 1, runs, boxes: [], length: pos };
+}
+
+// One invented character on the sheet means every choice is drawn: a drawn
+// glyph beside typeset text is spotted by its weight before it is read.
+function anyInvented(questions) {
+  return (questions || []).some(q =>
+    (q.choices || []).some(c => (c.cells || []).some(cell => !cell.ch)));
+}
+
 function chunk(arr, n) {
   const out = [];
   for (let i = 0; i < arr.length; i += n) out.push(arr.slice(i, i + n));
@@ -271,6 +304,7 @@ function piecesOf(col, pitch, boxSize, inline) {
   const text = (s) => { for (const _ of s) out.push({ h: pitch, w: lineW }); };
   for (const r of col.runs) {
     if (r.t === 'furi') text(r.base);
+    else if (r.t === 'glyph') out.push({ h: pitch, w: lineW });
     else if (r.t !== 'read') text(r.s);
     else if (!inline) text(r.s);
     else if (r.mode === 'yomi') {
@@ -366,7 +400,10 @@ export function buildLayout(worksheet) {
   const perPage = Math.max(1, o.perPage || 10);
   // stack the sentences in this many bands down the page. Short sentences leave
   // the bottom half of a one-band page empty; two bands fill it.
-  const rows = Math.max(1, Math.min(3, o.rows || 1));
+  // A choice sheet is a word list: no sentences, no blank cells, and one band,
+  // since a question is deeper than half a page (see docs/CHOICE_PLAN.md 5.8).
+  const choice = worksheet.mode === 'choice';
+  const rows = choice ? 1 : Math.max(1, Math.min(3, o.rows || 1));
   const font = o.font || 'Klee One';
   const fontSize = o.fontSize || 18; // pt
   const boxSize = o.boxSize || 10;   // mm, one writing cell
@@ -379,7 +416,10 @@ export function buildLayout(worksheet) {
   // the heading is optional: a sheet made to practise on carries no class,
   // title or name line, and the column they sat in goes back to the sentences
   const header = (worksheet.header || {}).show === false ? null : headerParts(worksheet.header);
-  const sentences = worksheet.sentences.map((s, i) => sentenceColumn(s, i));
+  const drawAll = choice && anyInvented(worksheet.questions);
+  const sentences = choice
+    ? (worksheet.questions || []).map((q, i) => questionColumn(q, i, drawAll))
+    : (worksheet.sentences || []).map((s, i) => sentenceColumn(s, i));
 
   // The title shares the column height; shrink its font so the whole line
   // (class, lesson, name field) fits. When the extra boxes are on, the text
@@ -416,5 +456,5 @@ export function buildLayout(worksheet) {
   const titleFontSize = Math.min(fontSize, Math.max(8, Math.floor(COLH_PT * fill / Math.max(1, headerLen))));
 
   return { font, fontSize, boxSize, titleFontSize, header, pages, extras, image, imageDims, blankPos,
-    rows, colH, bandGap: BAND_GAP_MM, pageCount: pages.length };
+    rows, colH, bandGap: BAND_GAP_MM, pageCount: pages.length, choice, drawAll };
 }
