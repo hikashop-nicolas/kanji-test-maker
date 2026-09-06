@@ -97,7 +97,8 @@ wide one claims the full 42mm.
 
 `tools/layout-probe.mjs` writes a sheet for four dozen combinations of blank
 position, band count, font size, mode, heading and corner picture into a
-directory;
+directory, plus six multiple-choice sheets (four and five choices, invented
+characters, a smaller font, a corner picture, no heading);
 `tools/layout-check.html`, served from that same directory, renders each one and
 reports any two sentences that overlap, any two boxes that overlap, anything off
 the sheet, anything under the picture, and any box that has drifted from the

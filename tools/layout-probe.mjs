@@ -7,6 +7,8 @@ import { fileURLToPath } from 'url';
 import kuromoji from 'kuromoji';
 import { normalizeTokens, joinInflections, buildLayout } from '../src/model.js';
 import { buildHtml } from '../src/htmlExport.js';
+import { init as initDistractors, generate as generateChoices } from '../src/distractors.js';
+import { setStrokes, cellSvg } from '../src/glyph.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const root = path.join(__dirname, '..');
@@ -56,8 +58,31 @@ for (const set of Object.keys(SETS)) {
   }
 }
 
+// the multiple-choice sheets go through the same sweep: a question is a column
+// like any other, and the checker's job here is that nothing runs off the sheet
+const readJson = (p) => JSON.parse(fs.readFileSync(path.join(root, p), 'utf8'));
+initDistractors(readJson('assets/data/kanji.json'), readJson('assets/data/kanji-parts.json'));
+setStrokes(readJson('assets/data/kanji-strokes.json'));
+const CHOICE_WORDS = [
+  ['日記', 'にっき'], ['昼食', 'ちゅうしょく'], ['顔色', 'かおいろ'], ['教科書', 'きょうかしょ'],
+  ['花火', 'はなび'], ['記念', 'きねん'], ['昼休み', 'ひるやすみ'], ['教室', 'きょうしつ'],
+  ['顔つき', 'かおつき'], ['生け花', 'いけばな'], ['大人', 'おとな'], ['川', 'かわ'],
+];
+const CHOICE_CASES = [
+  { name: 'choice-4', count: 4, made: false },
+  { name: 'choice-5', count: 5, made: false },
+  { name: 'choice-4-made', count: 4, made: true },
+  { name: 'choice-5-made-f14', count: 5, made: true, fontSize: 14 },
+  { name: 'choice-4-made-image', count: 4, made: true, image: png(300, 120) },
+  { name: 'choice-4-noheader', count: 4, made: false, header: false },
+];
+
 kuromoji.builder({ dicPath: path.join(root, 'node_modules', 'kuromoji', 'dict') }).build((err, tok) => {
   if (err) throw err;
+  const isWord = (w) => {
+    const t = tok.tokenize(w);
+    return t.length === 1 && t[0].word_type === 'KNOWN' && t[0].surface_form === w;
+  };
   const tokenized = {};
   for (const [k, lines] of Object.entries(SETS)) tokenized[k] = lines.map(s => normalizeTokens(joinInflections(tok.tokenize(s))));
   const names = [];
@@ -83,5 +108,29 @@ kuromoji.builder({ dicPath: path.join(root, 'node_modules', 'kuromoji', 'dict') 
     names.push(name);
     console.log(`${name}: ${layout.pages.length} pages, ${layout.pages.map(p => p.bands.map(b => b.columns.length).join('+')).join(' | ')}`);
   });
+
+  CHOICE_CASES.forEach((c) => {
+    const questions = CHOICE_WORDS.map(([word, reading], qi) => {
+      const { answer, wrong } = generateChoices(word, reading, {
+        maxGrade: 2, isWord, made: c.made, limit: 20,
+      });
+      const used = wrong.slice(0, c.count - 1);
+      const at = qi % (used.length + 1);
+      used.splice(at, 0, answer);
+      return { reading, choices: used, answerAt: at };
+    });
+    const layout = buildLayout({
+      mode: 'choice',
+      header: c.header === false ? { show: false } : { classCode: '小2', title: 'こんしゅうのかんじ', lessonNo: '1', nameLabel: 'なまえ' },
+      options: { autoPerPage: true, font: 'Klee One', fontSize: c.fontSize || 18, ...(c.image || {}) },
+      questions,
+    });
+    const html = buildHtml(layout, { glyph: (cell) => cellSvg(cell, { cls: 'gl' }) })
+      .replace(/@import url\('https:[^']*'\);/, '');
+    fs.writeFileSync(path.join(out, `${c.name}.html`), html);
+    names.push(c.name);
+    console.log(`${c.name}: ${layout.pages.length} pages, ${questions.length} questions`);
+  });
+
   fs.writeFileSync(path.join(out, 'cases.json'), JSON.stringify(names));
 });
