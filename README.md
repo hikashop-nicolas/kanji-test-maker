@@ -87,7 +87,8 @@ worksheet a second time with every box filled in.
 
 The switch at the top of the page turns the whole app round: instead of
 sentences it asks for **words**, and each word becomes a question with four or
-five spellings of which one is right.
+five spellings of which one is right. The pupil rings the one they think is
+correct.
 
 ![Choosing words and editing the questions](docs/screenshots/en-05-multiple-choice.png)
 
@@ -126,8 +127,13 @@ marked with a ✓ and cannot be removed: the app knows which one is right, so
 there is nothing to choose there. **Shuffle where the answers sit** scatters
 them again across every question.
 
+**The reading sits under the word, and you can correct it.** The dictionary is
+not always right: 新出 is in it only as a surname, so it comes back にいで rather
+than しんしゅつ. Type over it and the wrong answers are rebuilt from what you
+typed, since they are made out of the reading.
+
 The answer sheet works as it does elsewhere: tick the box and you get the same
-sheet with the right label ringed.
+sheet with the correct spelling in red.
 
 ## Your own sentences
 
