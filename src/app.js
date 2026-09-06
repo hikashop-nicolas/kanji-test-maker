@@ -63,6 +63,8 @@ $('lang_select').addEventListener('change', () => {
   applyI18n();
   $('status').textContent = tokenizer ? '' : t('status_loading');
   if (state.sentences.length) renderTable();
+  applyKindLabels();
+  if (isChoice()) { renderQuestions(); renderWordPicker(); }
   refreshLabels();
   if ($('pickerPanel').style.display !== 'none') runPicker();
 });
@@ -993,6 +995,7 @@ let strokesData = null;                      // KanjiVG strokes, only for invent
 let strokesPending = null;
 
 const isChoice = () => sheetKind === 'choice';
+const drawCell = (cell) => cellSvg(cell, { cls: 'gl' });
 const kata2hira = (s) => (s || '').replace(/[ァ-ヶ]/g, c => String.fromCharCode(c.charCodeAt(0) - 0x60));
 
 // a word the dictionary knows: a wrong spelling that is one would be a second
@@ -1322,26 +1325,32 @@ function addWordsFromText(text) {
 }
 
 // ---- switching between the two kinds of sheet ----------------------------
-async function setKind(kind) {
-  sheetKind = kind === 'choice' ? 'choice' : 'sentences';
+// The labels that depend on the kind of sheet. applyI18n resets them to the
+// markup's own text, so a language change has to put them back.
+function applyKindLabels() {
   $('kind_sentences').classList.toggle('on', !isChoice());
   $('kind_choice').classList.toggle('on', isChoice());
   $('kind_hint').textContent = t(isChoice() ? 'kind_hint_choice' : 'kind_hint_sentences');
   // the material step changes with the sheet: words, not sentences
   $('secAdd').querySelector('summary').textContent = t(isChoice() ? 'sec_add_words' : 'sec_add');
-  $('pickerPanel').style.display = 'none';
-  $('wordPickerPanel').style.display = 'none';
   $('lesson_find').textContent = t(isChoice() ? 'btn_find_words' : 'btn_find');
   $('process').textContent = t(isChoice() ? 'btn_extract_words' : 'btn_process');
   $('src_add').textContent = t(isChoice() ? 'btn_extract_words' : 'src_add');
+  const perPageLabel = document.querySelector('[data-i18n="f_per_page"]');
+  if (perPageLabel) perPageLabel.textContent = t(isChoice() ? 'f_per_page_q' : 'f_per_page');
+}
+
+async function setKind(kind) {
+  sheetKind = kind === 'choice' ? 'choice' : 'sentences';
+  applyKindLabels();
+  $('pickerPanel').style.display = 'none';
+  $('wordPickerPanel').style.display = 'none';
   $('tablePanel').style.display = !isChoice() && state.sentences.length ? '' : 'none';
   $('choicePanel').style.display = isChoice() && state.questions.length ? '' : 'none';
   // a choice sheet has no blank cells and only ever one band (5.8)
   $('o_blankpos').closest('div').style.display = isChoice() ? 'none' : '';
   $('o_boxsize').closest('div').style.display = isChoice() ? 'none' : '';
   $('o_rows').closest('div').style.display = isChoice() ? 'none' : '';
-  const perPageLabel = document.querySelector('[data-i18n="f_per_page"]');
-  if (perPageLabel) perPageLabel.textContent = t(isChoice() ? 'f_per_page_q' : 'f_per_page');
   if (isChoice()) {
     syncDirFields();
     await ensureDistractors();
@@ -1371,7 +1380,7 @@ function worksheet() {
 // ---- preview -------------------------------------------------------------
 function refreshPreview() {
   if (isChoice() ? !state.questions.length : !state.sentences.length) return;
-  const html = buildHtml(buildLayout(worksheet()), { font: options().font, fontFace: customFontCss() });
+  const html = buildHtml(buildLayout(worksheet()), { font: options().font, fontFace: customFontCss(), glyph: drawCell });
   const pp = $('previewPanel');
   pp.style.display = '';   // un-hide
   pp.open = true;          // expand so the iframe has a measurable width for fitPreview
@@ -1445,7 +1454,7 @@ function blobToDataUrl(b) { return new Promise(r => { const fr = new FileReader(
 
 // ---- PDF (browser print) -------------------------------------------------
 function exportPdf(answers) {
-  const html = buildHtml(buildLayout(worksheet()), { font: options().font, fontFace: customFontCss(), answers });
+  const html = buildHtml(buildLayout(worksheet()), { font: options().font, fontFace: customFontCss(), answers, glyph: drawCell });
   const w = window.open('', '_blank');
   w.document.open(); w.document.write(html); w.document.close();
   w.onload = () => { w.focus(); w.print(); };
@@ -1526,7 +1535,12 @@ $('kind_sentences').addEventListener('click', () => setKind('sentences'));
 $('kind_choice').addEventListener('click', () => setKind('choice'));
 $('wpick_easyonly').addEventListener('change', () => { if (isChoice()) runWordPicker(); });
 $('q_count').addEventListener('change', () => { rebuildQuestions(); saveSettings(); });
-$('q_dir').addEventListener('change', () => { syncDirFields(); rebuildQuestions(); saveSettings(); });
+$('q_dir').addEventListener('change', async () => {
+  syncDirFields();
+  // coming back from the mirror can turn invented characters on again
+  if (allowMade() && !(await ensureStrokes())) { alert(t('alert_no_strokes')); $('q_style').value = 'real'; }
+  rebuildQuestions(); saveSettings();
+});
 function syncDirFields() {
   $('q_style_wrap').style.display = askReading() ? 'none' : '';
   $('q_note').style.display = askReading() ? 'none' : '';

@@ -21,7 +21,9 @@ worksheets never leave your computer.
 2. Tick the example sentences you like.
 3. **Save PDF**.
 
-That is a whole worksheet. Everything below is there when you want more control.
+That is a whole worksheet. Everything below is there when you want more
+control, including a second kind of sheet where the pupil picks the right
+spelling out of four.
 
 ## Making a worksheet
 
@@ -78,6 +80,54 @@ reading (ざけ, from 甘酒). Click it to take it.
 you can edit, with the font packed inside so it looks right on a computer that
 does not have that font. Tick **Also make an answer sheet** and you get the same
 worksheet a second time with every box filled in.
+
+## The other kind of test: multiple choice
+
+![A multiple-choice sheet](docs/screenshots/choice-worksheet.png)
+
+The switch at the top of the page turns the whole app round: instead of
+sentences it asks for **words**, and each word becomes a question with four or
+five spellings of which one is right.
+
+![Choosing words and editing the questions](docs/screenshots/en-05-multiple-choice.png)
+
+**Choosing the words** works like choosing sentences. Pick your kanji, and each
+one offers the words that use it, commonest first, with the reading above. Tick
+the ones you want. You can also paste a list, or take the words out of a file or
+a photograph, exactly as with sentences.
+
+**The wrong spellings are made for you**, and they are meant to be hard. Every
+one of them reads the same as the answer, so the reading gives nothing away
+(かんじ: 漢字, 感字, 幹字, 漢自), or shares a component with it, which is the
+confusion a pupil actually makes (待 against 持, 語 against 誤). They are picked
+from kanji your class has already met: one built from a kanji they cannot read
+is no distractor at all, because the answer would be the only line they can
+read.
+
+**Or invent the kanji.** Set **How wrong answers are made** to "Also invented
+kanji" and the wrong spellings can be characters that do not exist: a real one
+with a component taken away, another put in, or one exchanged. They are drawn
+stroke by stroke, so they look like kanji the pupil has simply never seen, and
+they are the only way to make a hard question out of 川 or 花, which have no
+lookalikes to borrow. Two things come with it: every choice on the sheet is then
+drawn, so your chosen font no longer applies, and in the `.docx` the choices are
+pictures rather than text.
+
+**Or turn the question round.** Set **Direction** to "Kanji, pick the reading"
+and the pupil is given the word and picks its reading out of four. Those wrong
+readings are the mistakes the writing system invites: a voicing added or
+dropped, a long vowel lost, a small kana written large, or one character read by
+another of its own readings.
+
+**Everything is yours to change.** Each question shows the spellings that will
+print and, beside them, more the app thought of. Drag to reorder, drag one in
+from the right to swap it, or press ↻ for a fresh set. The correct spelling is
+marked with a ✓ and cannot be removed: the app knows which one is right, so
+there is nothing to choose there. **Shuffle where the answers sit** scatters
+them again across every question.
+
+The answer sheet works as it does elsewhere: tick the box and you get the same
+sheet with the right label ringed.
 
 ## Your own sentences
 

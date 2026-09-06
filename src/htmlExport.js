@@ -3,7 +3,6 @@
 // Text flows at its natural pitch (tight); the answer boxes live in a parallel
 // column and are positioned (with push-down) so they never overlap.
 import { layoutBoxes, leadMm, imageSpaceMm } from './model.js';
-import { cellSvg } from './glyph.js?v=2';
 
 function esc(s) {
   return String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -11,9 +10,14 @@ function esc(s) {
 
 // 'column' layout: the tested word is shown inline (side-lined) and its answer
 // box lives in a parallel column (see sentenceHtml).
-// a character that does not exist is drawn, at the size of one of its neighbours
+// A character that does not exist is drawn, at the size of one of its
+// neighbours. The drawing function comes from the caller (opts.glyph) rather
+// than from an import: glyph.js holds the stroke data in module state, and an
+// import with a different query string would quietly be a second copy of it
+// with no strokes in it.
+let drawGlyph = () => '';
 function glyphHtml(cell) {
-  return cellSvg(cell, { cls: 'gl' }) || `<span class="plain">${esc(cell.draw || '\u3013')}</span>`;
+  return drawGlyph(cell) || `<span class="plain">${esc(cell.draw || '\u3013')}</span>`;
 }
 
 function runHtml(r) {
@@ -99,6 +103,7 @@ export function buildHtml(layout, opts = {}) {
   const header = layout.header; // null when the sheet carries no heading
 
   const answers = !!opts.answers;
+  drawGlyph = opts.glyph || (() => '');
   const inline = (layout.blankPos || 'inline') === 'inline';
   const total = layout.pageCount || layout.pages.length;
   const colH = layout.colH || 190;                   // one band's column height, mm

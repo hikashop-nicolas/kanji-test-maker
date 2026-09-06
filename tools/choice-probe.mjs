@@ -12,11 +12,11 @@ import kuromoji from 'kuromoji';
 import * as docx from 'docx';
 import { fileURLToPath } from 'url';
 import { init, generate } from '../src/distractors.js';
-import { setStrokes } from '../src/glyph.js';
+import { setStrokes, cellSvg } from '../src/glyph.js';
 import { buildLayout } from '../src/model.js';
 import { buildHtml } from '../src/htmlExport.js';
 import { buildDocx } from '../src/docxExport.js';
-import { cellSvg } from '../src/glyph.js';
+
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const root = path.join(here, '..');
@@ -49,7 +49,7 @@ kuromoji.builder({ dicPath: path.join(root, 'node_modules/kuromoji/dict') }).bui
     questions,
   });
   const out = path.join(here, 'choice-probe.html');
-  fs.writeFileSync(out, buildHtml(layout, { font: 'Hiragino Sans', answers }));
+  fs.writeFileSync(out, buildHtml(layout, { font: 'Hiragino Sans', answers, glyph: (c) => cellSvg(c, { cls: 'gl' }) }));
   console.log(`${out}  ${layout.pageCount} page(s), ${questions.length} questions`);
   if (process.env.DOCX) {
     rasterize(layout);
