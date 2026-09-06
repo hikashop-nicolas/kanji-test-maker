@@ -142,8 +142,8 @@ export function buildDocx(layout, docx, embeddedFonts = [], opts = {}) {
     if (col.number) kids.push(text(circledExtended(col.number)));
     for (const r of col.runs) {
       if (r.t === 'glyph') kids.push(glyphRun(r));
-      // the answer key marks the label of the right spelling
-      else if (r.hit && answers) kids.push(text(r.s, { color: 'C0392B', bold: true }));
+      // the answer key marks the right spelling
+      else if (r.hit && answers) kids.push(text(r.s, { color: 'C0392B' }));
       else if (r.t === 'plain' || r.t === 'kana') kids.push(text(r.s));
       else if (r.t === 'furi') kids.push(rubyRun(r.base, r.rt));
       else if (r.t === 'read') kids.push(inline

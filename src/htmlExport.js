@@ -16,8 +16,10 @@ function esc(s) {
 // import with a different query string would quietly be a second copy of it
 // with no strokes in it.
 let drawGlyph = () => '';
-function glyphHtml(cell) {
-  return drawGlyph(cell) || `<span class="plain">${esc(cell.draw || '\u3013')}</span>`;
+function glyphHtml(cell, hit) {
+  const svg = drawGlyph(cell, hit);
+  if (svg) return svg;
+  return `<span class="plain${hit ? ' hit' : ''}">${esc(cell.draw || '\u3013')}</span>`;
 }
 
 function runHtml(r) {
@@ -32,10 +34,9 @@ function runHtml(r) {
 // where the word goes, with the reading as furigana to its right; 読み shows the
 // side-lined kanji with a blank reading slot to its right.
 function inlineRunHtml(r, answers) {
-  if (r.t === 'glyph') return glyphHtml(r.cell);
-  // on a choice sheet the answer key rings the label of the right spelling
-  if (r.hit && answers) return `<span class="hit">${esc(r.s)}</span>`;
-  if (r.t === 'plain' || r.t === 'kana') return `<span class="plain">${esc(r.s)}</span>`;
+  const hit = !!(r.hit && answers);   // the right spelling, on the answer key
+  if (r.t === 'glyph') return glyphHtml(r.cell, hit);
+  if (r.t === 'plain' || r.t === 'kana') return `<span class="plain${hit ? ' hit' : ''}">${esc(r.s)}</span>`;
   if (r.t === 'furi') return `<ruby>${esc(r.base)}<rt>${esc(r.rt)}</rt></ruby>`;
   if (r.t !== 'read') return '';
   if (r.mode === 'yomi') {
@@ -209,14 +210,8 @@ export function buildHtml(layout, opts = {}) {
   /* an invented character: drawn at the ink size of a real one, upright in the
      line like any kanji (see docs/CHOICE_PLAN.md 8) */
   .gl { width: 1em; height: 1em; display: inline-block; vertical-align: middle; color: inherit; }
-  /* answer key on a choice sheet: a ring round the right label */
-  .hit {
-    writing-mode: horizontal-tb;
-    display: inline-flex; align-items: center; justify-content: center;
-    box-sizing: border-box; width: 1.35em; height: 1.35em;
-    border: 1.6px solid #c0392b; border-radius: 50%; color: #c0392b;
-    font-size: .8em; vertical-align: middle;
-  }
+  /* answer key on a choice sheet: the right spelling stands out in red */
+  .hit, svg.hit { color: #c0392b; }
   /* furigana: ruby to the right of the kanji in vertical writing */
   ruby { ruby-position: over; }
   rt { font-size: .5em; font-weight: normal; }

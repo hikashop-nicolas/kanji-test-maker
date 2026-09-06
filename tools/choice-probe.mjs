@@ -49,7 +49,7 @@ kuromoji.builder({ dicPath: path.join(root, 'node_modules/kuromoji/dict') }).bui
     questions,
   });
   const out = path.join(here, 'choice-probe.html');
-  fs.writeFileSync(out, buildHtml(layout, { font: 'Hiragino Sans', answers, glyph: (c) => cellSvg(c, { cls: 'gl' }) }));
+  fs.writeFileSync(out, buildHtml(layout, { font: 'Hiragino Sans', answers, glyph: (c, hit) => cellSvg(c, { cls: hit ? 'gl hit' : 'gl' }) }));
   console.log(`${out}  ${layout.pageCount} page(s), ${questions.length} questions`);
   if (process.env.DOCX) {
     rasterize(layout);

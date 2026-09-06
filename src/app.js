@@ -995,7 +995,7 @@ let strokesData = null;                      // KanjiVG strokes, only for invent
 let strokesPending = null;
 
 const isChoice = () => sheetKind === 'choice';
-const drawCell = (cell) => cellSvg(cell, { cls: 'gl' });
+const drawCell = (cell, hit) => cellSvg(cell, { cls: hit ? 'gl hit' : 'gl' });
 const kata2hira = (s) => (s || '').replace(/[ァ-ヶ]/g, c => String.fromCharCode(c.charCodeAt(0) - 0x60));
 
 // a word the dictionary knows: a wrong spelling that is one would be a second
@@ -1060,7 +1060,18 @@ function syncQuestions() {
 function regenerate(qi) {
   const q = state.questions[qi];
   state.questions[qi] = makeQuestion(q.word, q.reading);
-  renderQuestions(); refreshPreview();
+  renderQuestions(); renderWordPicker(); refreshPreview();
+}
+
+// A corrected reading belongs to the word, not to the question, so it follows
+// the word wherever it is shown. Words are keyed by spelling AND reading (顔 is
+// offered as both かお and がお), so leaving the picker on the old one would
+// show the word as unpicked while its question sat below.
+function correctReading(word, from, to) {
+  for (const w of state.words) if (w.word === word && w.reading === from) w.reading = to;
+  for (const g of wordGroups) {
+    for (const w of g.words) if (w.word === word && w.reading === from) w.reading = to;
+  }
 }
 
 // ---- drawing a choice in the editor --------------------------------------
@@ -1110,9 +1121,32 @@ function renderQuestions() {
 
     // the reading is shown, not edited: it belongs to the word, and the word is
     // picked one step earlier
+    // The word, with its reading under it and editable. The dictionary is not
+    // always right and there is nowhere else to correct it: a choice sheet is
+    // made of words, so 語を編集 never appears. 新出 is only in the dictionary as
+    // a surname, so it comes back にいで rather than しんしゅつ.
     const tdR = document.createElement('td');
-    tdR.textContent = q.dir === 'reading' ? q.word : q.reading;
-    tdR.style.whiteSpace = 'nowrap';
+    const wordEl = document.createElement('div');
+    wordEl.textContent = q.word;
+    wordEl.style.cssText = 'white-space:nowrap;font-size:1.05rem';
+    const rd = document.createElement('input');
+    rd.value = q.reading;
+    rd.className = 'qreading';
+    rd.title = t('lbl_reading');
+    const fit = () => { rd.style.width = `${Math.max(4, rd.value.length + 1)}em`; };
+    fit();
+    rd.oninput = fit;
+    rd.onchange = () => {
+      const next = rd.value.trim();
+      if (!next || next === q.reading) { rd.value = q.reading; fit(); return; }
+      correctReading(q.word, q.reading, next);
+      q.reading = next;
+      // the wrong answers are built from the reading, so a corrected reading
+      // means a new set of them
+      regenerate(qi);
+    };
+    tdR.appendChild(wordEl);
+    tdR.appendChild(rd);
     tr.appendChild(tdR);
 
     const tdC = document.createElement('td');
@@ -1296,13 +1330,57 @@ function afterWordsChanged() {
   refreshPreview();
 }
 
+// kuromoji cuts a numeral off its counter (一列 comes back as 一 + 列), but a
+// worksheet tests 一列 as one word. Rejoining them needs the sound changes
+// Japanese makes at the join, or 一本 would come out いちほん.
+const GEMINATING = { イチ: 'イッ', ロク: 'ロッ', ハチ: 'ハッ', ジュウ: 'ジュッ', ハッ: 'ハッ' };
+const VOICELESS_HEAD = /^[カキクケコサシスセソタチツテトハヒフヘホ]/;
+const H_ROW = /^[ハヒフヘホ]/;
+const TO_P = { ハ: 'パ', ヒ: 'ピ', フ: 'プ', ヘ: 'ペ', ホ: 'ポ' };
+const TO_B = { ハ: 'バ', ヒ: 'ビ', フ: 'ブ', ヘ: 'ベ', ホ: 'ボ' };
+// the ones no rule covers
+const IRREGULAR_COUNT = { 一人: 'ヒトリ', 二人: 'フタリ', 一日: 'ツイタチ', 二十歳: 'ハタチ', 一昨日: 'オトトイ' };
+
+function joinCount(surface, numReading, counterReading) {
+  if (IRREGULAR_COUNT[surface]) return IRREGULAR_COUNT[surface];
+  if (GEMINATING[numReading] && VOICELESS_HEAD.test(counterReading)) {
+    const head = H_ROW.test(counterReading) ? TO_P[counterReading[0]] : counterReading[0];
+    return GEMINATING[numReading] + head + counterReading.slice(1);
+  }
+  if ((numReading === 'サン' || numReading === 'ナン') && H_ROW.test(counterReading)) {
+    return numReading + TO_B[counterReading[0]] + counterReading.slice(1);
+  }
+  return numReading + counterReading;
+}
+
+// A suffix belongs to the word in front of it: 一 + 列, 三 + 年生.
+function joinSuffixes(tokens) {
+  const out = [];
+  for (const tk of tokens) {
+    const prev = out[out.length - 1];
+    const both = prev && /^\p{Script=Han}+$/u.test(prev.surface_form) && /^\p{Script=Han}+$/u.test(tk.surface_form);
+    if (both && tk.pos === '名詞' && tk.pos_detail_1 === '接尾' && prev.reading && tk.reading
+        && prev.reading !== '*' && tk.reading !== '*') {
+      const surface = prev.surface_form + tk.surface_form;
+      out[out.length - 1] = {
+        ...prev, surface_form: surface,
+        reading: prev.pos_detail_1 === '数' ? joinCount(surface, prev.reading, tk.reading)
+                                            : prev.reading + tk.reading,
+      };
+      continue;
+    }
+    out.push(tk);
+  }
+  return out;
+}
+
 // Words out of pasted text or a file: the tokenizer picks the kanji words out,
 // so a list of words and a paragraph both work.
 function wordsFromText(text) {
   if (!tokenizer) return [];
   const out = [], seen = new Set();
   for (const line of text.split(/\r?\n/)) {
-    for (const tk of tokenizer.tokenize(line.trim())) {
+    for (const tk of joinSuffixes(tokenizer.tokenize(line.trim()))) {
       const s = tk.surface_form;
       if (!/\p{Script=Han}/u.test(s) || s.length > 6) continue;
       if (!tk.reading || tk.reading === '*') continue;

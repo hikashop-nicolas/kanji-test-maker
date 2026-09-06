@@ -122,6 +122,7 @@ const STR = {
   hint_choice_made: { ja: '作った漢字を使うと、選択肢は絵として印刷されます（フォントの指定は効きません）。', en: 'With invented kanji the choices print as pictures, so the sheet\u2019s font no longer applies.', fr: 'Avec des kanji invent\u00e9s, les choix sont imprim\u00e9s comme des images : la police ne s\u2019applique plus.' },
   hint_choice_edit: { ja: '左のものが印刷されます。ドラッグで並べ替え、「ほかの案」と入れ替えられます。✓ は正しい書き方で、外せません。', en: 'The ones on the left are printed. Drag to reorder, or swap one for an idea on the right. ✓ is the correct spelling and cannot be removed.', fr: 'Ceux de gauche sont imprim\u00e9s. Glissez pour r\u00e9ordonner ou \u00e9changer avec une autre id\u00e9e. ✓ est la bonne graphie et ne peut pas \u00eatre retir\u00e9e.' },
   th_reading: { ja: 'よみ', en: 'Reading', fr: 'Lecture' },
+  th_word_reading: { ja: '語・よみ', en: 'Word and reading', fr: 'Mot et lecture' },
   th_choices: { ja: '選択肢', en: 'Choices', fr: 'Choix' },
   lbl_other_ideas: { ja: 'ほかの案', en: 'other ideas', fr: 'autres id\u00e9es' },
   made_tag: { ja: '作', en: 'made', fr: 'inv.' },

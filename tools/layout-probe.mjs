@@ -125,7 +125,7 @@ kuromoji.builder({ dicPath: path.join(root, 'node_modules', 'kuromoji', 'dict') 
       options: { autoPerPage: true, font: 'Klee One', fontSize: c.fontSize || 18, ...(c.image || {}) },
       questions,
     });
-    const html = buildHtml(layout, { glyph: (cell) => cellSvg(cell, { cls: 'gl' }) })
+    const html = buildHtml(layout, { glyph: (cell, hit) => cellSvg(cell, { cls: hit ? 'gl hit' : 'gl' }) })
       .replace(/@import url\('https:[^']*'\);/, '');
     fs.writeFileSync(path.join(out, `${c.name}.html`), html);
     names.push(c.name);

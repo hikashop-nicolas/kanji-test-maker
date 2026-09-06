@@ -221,22 +221,21 @@ function sentenceColumn(sentence, index) {
 // A question is one column: the reading, then the spellings to choose from,
 // each behind its label. No boxes, so the column is a plain line of writing
 // that the existing wrapping and band packing already handle.
-export const CHOICE_LABELS = 'アイウエオ';
-
 function questionColumn(q, index, drawAll) {
   const runs = [];
   let pos = 0;
-  const text = (s) => { if (s) { runs.push({ t: 'plain', s: toFullWidth(s) }); pos += [...s].length; } };
+  const text = (s, hit) => { if (s) { runs.push({ t: 'plain', s: toFullWidth(s), hit }); pos += [...s].length; } };
   text(q.reading || '');
   (q.choices || []).forEach((c, i) => {
     text('\u3000');
-    // the answer key rings the label of the right one
-    runs.push({ t: 'plain', s: CHOICE_LABELS[i] || '\u3000', hit: i === q.answerAt });
-    pos += 1;
+    // No ア イ ウ labels: each costs a cell of a column that is already deep,
+    // and the pupil rings the spelling itself. The answer key marks the right
+    // one in red instead.
+    const hit = i === q.answerAt;
     for (const cell of c.cells || []) {
-      if (!cell.ch) runs.push({ t: 'glyph', cell });
-      else if (drawAll && KANJI_RE.test(cell.ch)) runs.push({ t: 'glyph', cell: { draw: cell.ch } });
-      else runs.push({ t: 'plain', s: cell.ch });
+      if (!cell.ch) runs.push({ t: 'glyph', cell, hit });
+      else if (drawAll && KANJI_RE.test(cell.ch)) runs.push({ t: 'glyph', cell: { draw: cell.ch }, hit });
+      else runs.push({ t: 'plain', s: cell.ch, hit });
       pos += 1;
     }
   });
