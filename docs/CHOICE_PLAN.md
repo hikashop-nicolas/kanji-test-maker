@@ -1,7 +1,12 @@
 # Multiple-choice sheets, plan
 
-Draft for review. Nothing below is implemented; every number and the figure come
-from prototypes run against the data the app already ships.
+Built. This was the design document, and it is kept because the reasoning behind
+several decisions is not obvious from the code: why a wrong spelling that is
+itself a word has to go, why a borrowed component is never scaled, why the sheet
+is one band. Every number and figure came from a prototype run against the data
+the app ships. What shipped differs from the draft in one place, noted in 5.1:
+the sheet kind is a switch at the top rather than a third mode beside 書き and
+読み.
 
 ## 1. What it is
 
