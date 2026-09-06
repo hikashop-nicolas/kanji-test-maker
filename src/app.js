@@ -1376,17 +1376,37 @@ function joinSuffixes(tokens) {
   return out;
 }
 
+// The reading of a word in its plain form, which the token only carries for the
+// shape it was found in (読ん is ヨン).
+const basicReadings = new Map();
+function basicReading(form) {
+  if (basicReadings.has(form)) return basicReadings.get(form);
+  const t = tokenizer.tokenize(form);
+  const r = t.every(x => x.reading && x.reading !== '*') ? t.map(x => x.reading).join('') : '';
+  basicReadings.set(form, r);
+  return r;
+}
+
 // Words out of pasted text or a file: the tokenizer picks the kanji words out,
 // so a list of words and a paragraph both work.
 function wordsFromText(text) {
   if (!tokenizer) return [];
   const out = [], seen = new Set();
   for (const line of text.split(/\r?\n/)) {
-    for (const tk of joinSuffixes(tokenizer.tokenize(line.trim()))) {
-      const s = tk.surface_form;
+    // kuromoji cuts a verb from its ending (読ん + で), and 読ん is not a word
+    for (const tk of joinSuffixes(joinInflections(tokenizer.tokenize(line.trim())))) {
+      let s = tk.surface_form;
+      let reading = tk.reading;
+      // and a worksheet tests 読む, not 読んで: the word, not the shape grammar
+      // bent it into. The corpus lists do the same.
+      if ((tk.pos === '動詞' || tk.pos === '形容詞') && tk.basic_form
+          && tk.basic_form !== '*' && tk.basic_form !== s) {
+        const r = basicReading(tk.basic_form);
+        if (r) { s = tk.basic_form; reading = r; }
+      }
       if (!/\p{Script=Han}/u.test(s) || s.length > 6) continue;
-      if (!tk.reading || tk.reading === '*') continue;
-      const w = { word: s, reading: kata2hira(tk.reading) };
+      if (!reading || reading === '*') continue;
+      const w = { word: s, reading: kata2hira(reading) };
       if (seen.has(wordKey(w))) continue;
       seen.add(wordKey(w));
       out.push(w);
