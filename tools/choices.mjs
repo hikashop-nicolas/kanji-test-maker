@@ -7,11 +7,13 @@ import path from 'path';
 import kuromoji from 'kuromoji';
 import { fileURLToPath } from 'url';
 import { init, generate, splitReading, choiceText } from '../src/distractors.js';
+import { setStrokes, canDraw } from '../src/glyph.js';
 
 const root = path.join(path.dirname(fileURLToPath(import.meta.url)), '..');
 const K = JSON.parse(fs.readFileSync(path.join(root, 'assets/data/kanji.json'), 'utf8'));
 const P = JSON.parse(fs.readFileSync(path.join(root, 'assets/data/kanji-parts.json'), 'utf8'));
 init(K, P);
+if (process.env.MADE) setStrokes(JSON.parse(fs.readFileSync(path.join(root, 'assets/data/kanji-strokes.json'), 'utf8')));
 
 const words = process.argv.slice(2);
 const G = +(process.env.G || 4), made = !!process.env.MADE;
@@ -24,7 +26,7 @@ kuromoji.builder({ dicPath: path.join(root, 'node_modules/kuromoji/dict') }).bui
   for (const w of words) {
     const reading = tok.tokenize(w).map(t => (t.reading && t.reading !== '*' ? t.reading : t.surface_form)).join('');
     const split = splitReading(w, reading);
-    const { wrong } = generate(w, reading, { maxGrade: G, isWord, made, limit: 10 });
+    const { wrong } = generate(w, reading, { maxGrade: G, isWord, made, canDraw, limit: 10 });
     const op = c => { const m = c.cells.find(x => !x.ch); return m ? `作:${m.op}${m.part ? '/' + m.part : ''}` : ''; };
     const tag = c => (c.made ? op(c) : c.sound && c.shape ? '⁑' : c.sound ? '音' : '形');
     console.log(`${w} (${reading})${split ? '' : '  [reading does not split]'}`);

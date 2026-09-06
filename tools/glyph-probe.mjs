@@ -7,7 +7,7 @@ import path from 'path';
 import kuromoji from 'kuromoji';
 import { fileURLToPath } from 'url';
 import { init, generate } from '../src/distractors.js';
-import { setStrokes, cellSvg } from '../src/glyph.js';
+import { setStrokes, cellSvg, canDraw } from '../src/glyph.js';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const root = path.join(here, '..');
@@ -29,7 +29,7 @@ kuromoji.builder({ dicPath: path.join(root, 'node_modules/kuromoji/dict') }).bui
   const rows = [];
   for (const w of words) {
     const reading = tok.tokenize(w).map(t => (t.reading && t.reading !== '*' ? t.reading : t.surface_form)).join('');
-    const { answer, wrong } = generate(w, reading, { maxGrade: G, isWord, made: true, limit: 60 });
+    const { answer, wrong } = generate(w, reading, { maxGrade: G, isWord, made: true, canDraw, limit: 60 });
     const made = wrong.filter(c => c.made).slice(0, 6);
     rows.push(`<div style="display:flex;gap:8px;align-items:center;margin-bottom:10px">
       <span style="width:6em;color:#666;font-size:13px">${w}（${reading}）</span>${box(answer, 0)}

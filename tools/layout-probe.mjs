@@ -8,7 +8,7 @@ import kuromoji from 'kuromoji';
 import { normalizeTokens, joinInflections, buildLayout } from '../src/model.js';
 import { buildHtml } from '../src/htmlExport.js';
 import { init as initDistractors, generate as generateChoices } from '../src/distractors.js';
-import { setStrokes, cellSvg } from '../src/glyph.js';
+import { setStrokes, cellSvg, canDraw } from '../src/glyph.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const root = path.join(__dirname, '..');
@@ -112,7 +112,7 @@ kuromoji.builder({ dicPath: path.join(root, 'node_modules', 'kuromoji', 'dict') 
   CHOICE_CASES.forEach((c) => {
     const questions = CHOICE_WORDS.map(([word, reading], qi) => {
       const { answer, wrong } = generateChoices(word, reading, {
-        maxGrade: 2, isWord, made: c.made, limit: 20,
+        maxGrade: 2, isWord, made: c.made, canDraw, limit: 20,
       });
       const used = wrong.slice(0, c.count - 1);
       const at = qi % (used.length + 1);

@@ -271,7 +271,11 @@ export function generate(word, reading, opts = {}) {
     }
     // a character that does not exist, when the sheet allows one
     if (opts.made) {
+      const canDraw = opts.canDraw || (() => true);
       for (const m of madeCells(ch, maxGrade)) {
+        // a swap can land a component where the one it replaced never sat,
+        // leaving a band of nothing across the character
+        if (!m.real && !canDraw(m.cell)) continue;
         // a drawn character sits with the shape-based ones: real spellings
         // come first, and these fill the gap where there are none
         const s = m.real

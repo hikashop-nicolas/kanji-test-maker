@@ -174,6 +174,15 @@ Design and the reasoning behind it: [CHOICE_PLAN.md](CHOICE_PLAN.md). The parts:
   3x and passes the PNG on the run; `docxExport.js` emits an `ImageRun` sized to
   the em.
 
+- **A fabricated character has to look like one.** A borrowed component sits
+  where it sat in the kanji it came from, and when that is not where the one it
+  replaced sat, the result has a band of nothing across it: a mark at the top,
+  the body at the bottom, a hole between. `glyph.js` exports `canDraw`, which
+  bins the ink over the drawing square and rejects anything with an empty run
+  over 27% of it in either direction. `generate()` takes it as an option, so a
+  shape like that never becomes a candidate. Over the whole grade-2 word list it
+  turns down 7% of the invented spellings and leaves two words of 1405 with none.
+
 The generator is worth reading before changing: a wrong spelling that is itself
 a word is dropped, since a word list gives no context to rule it out, and the
 level weight is what stops it reaching for kanji the class has never seen.

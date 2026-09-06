@@ -5,7 +5,7 @@ import { buildDocx } from './docxExport.js?v=2';
 import { addFontEmbedFlag } from './docxEmbed.js?v=2';
 import { initLessonBuilder, onLessonChange, selectedKanji, gradeOf, jlptOf, setSelection, currentGrade, refreshLabels, loadKanji, kanjiData } from './lesson.js?v=2';
 import { init as initDistractors, generate as generateChoices, generateReadings } from './distractors.js?v=2';
-import { setStrokes, cellSvg } from './glyph.js?v=2';
+import { setStrokes, cellSvg, canDraw } from './glyph.js?v=2';
 import { buildCandidates } from './sentences.js?v=2';
 import { t, initLang, applyI18n, getLang, setLang } from './i18n.js?v=2';
 import { readingIndex, readingHints } from './readingHints.js?v=2';
@@ -1043,7 +1043,9 @@ function makeQuestion(word, reading) {
   const { G } = baselineLevel();
   const { answer, wrong } = askReading()
     ? generateReadings(word, reading, { limit: 14 })
-    : generateChoices(word, reading, { maxGrade: G, isWord: isRealWord, made: allowMade(), limit: 14 });
+    : generateChoices(word, reading, {
+        maxGrade: G, isWord: isRealWord, made: allowMade(), canDraw, limit: 14,
+      });
   const n = choiceCount();
   const used = wrong.slice(0, n - 1);
   const at = Math.floor(Math.random() * (used.length + 1));

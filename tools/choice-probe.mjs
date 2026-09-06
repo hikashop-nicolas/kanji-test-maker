@@ -12,7 +12,7 @@ import kuromoji from 'kuromoji';
 import * as docx from 'docx';
 import { fileURLToPath } from 'url';
 import { init, generate } from '../src/distractors.js';
-import { setStrokes, cellSvg } from '../src/glyph.js';
+import { setStrokes, cellSvg, canDraw } from '../src/glyph.js';
 import { buildLayout } from '../src/model.js';
 import { buildHtml } from '../src/htmlExport.js';
 import { buildDocx } from '../src/docxExport.js';
@@ -36,7 +36,7 @@ kuromoji.builder({ dicPath: path.join(root, 'node_modules/kuromoji/dict') }).bui
   const kata2hira = (s) => s.replace(/[ァ-ヶ]/g, c => String.fromCharCode(c.charCodeAt(0) - 0x60));
   const questions = words.map((w, i) => {
     const reading = tok.tokenize(w).map(t => (t.reading && t.reading !== '*' ? t.reading : t.surface_form)).join('');
-    const { answer, wrong } = generate(w, reading, { maxGrade: G, isWord, made, limit: 20 });
+    const { answer, wrong } = generate(w, reading, { maxGrade: G, isWord, made, canDraw, limit: 20 });
     const choices = wrong.slice(0, N - 1);
     const at = i % Math.max(1, Math.min(N, choices.length + 1));
     choices.splice(at, 0, answer);

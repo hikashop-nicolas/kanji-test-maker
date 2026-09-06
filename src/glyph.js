@@ -133,6 +133,69 @@ export function cellPaths(cell) {
   return null;
 }
 
+// Is the assembled character a believable one? A borrowed component sits where
+// it sits in the kanji it came from, and when that is not where the one it
+// replaced sat, the result has a band of nothing across it: a mark at the top,
+// the body at the bottom, and a hole between. No kanji looks like that, so the
+// choice should never be offered.
+const BINS = 24;
+const MAX_GAP = 0.27;          // of the square, in either direction
+const SQUARE = { lo: 8, hi: 101 };
+
+function points(paths) {
+  const xs = [], ys = [];
+  for (const d of paths) {
+    const toks = d.match(/[a-zA-Z]|-?[\d.]+(?:e-?\d+)?/g) || [];
+    let cx = 0, cy = 0, rel = false, nums = [], first = true;
+    const flush = () => {
+      for (let k = 0; k + 1 < nums.length; k += 2) {
+        const x = rel ? cx + nums[k] : nums[k], y = rel ? cy + nums[k + 1] : nums[k + 1];
+        xs.push(x); ys.push(y);
+      }
+      if (nums.length >= 2) {
+        const n = nums.length;
+        cx = rel ? cx + nums[n - 2] : nums[n - 2];
+        cy = rel ? cy + nums[n - 1] : nums[n - 1];
+      }
+      nums = [];
+    };
+    for (const t of toks) {
+      if (/[a-zA-Z]/.test(t)) { flush(); rel = t === t.toLowerCase() && !(first && t === 'm'); first = false; }
+      else nums.push(parseFloat(t));
+    }
+    flush();
+  }
+  return { xs, ys };
+}
+
+// the longest run of empty bins over the drawing square, as a fraction of it
+function widestGap(values) {
+  const filled = new Array(BINS).fill(false);
+  const span = SQUARE.hi - SQUARE.lo;
+  for (const v of values) {
+    const b = Math.floor(((v - SQUARE.lo) / span) * BINS);
+    if (b >= 0 && b < BINS) filled[b] = true;
+  }
+  let worst = 0, run = 0;
+  for (const f of filled) { if (f) run = 0; else worst = Math.max(worst, ++run); }
+  return worst / BINS;
+}
+
+export function plausible(paths) {
+  if (!paths || !paths.length) return false;
+  const { xs, ys } = points(paths);
+  if (!xs.length) return false;
+  return widestGap(xs) <= MAX_GAP && widestGap(ys) <= MAX_GAP;
+}
+
+// Can this cell be drawn as something that looks like a character? Real
+// characters always can; only the invented ones are worth checking.
+export function canDraw(cell) {
+  if (!cell || cell.ch || cell.draw) return true;
+  const paths = cellPaths(cell);
+  return !!paths && plausible(paths);
+}
+
 // An <svg> for one cell, sized so its ink matches a character of the same font
 // size. `cls` goes on the element; `color` defaults to the inherited colour.
 export function cellSvg(cell, opts = {}) {
