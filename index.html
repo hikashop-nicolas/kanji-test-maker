@@ -52,6 +52,27 @@
   table.sheet { width:100%; border-collapse:collapse; }
   table.sheet th, table.sheet td { border-bottom:1px solid #eee; padding:.5rem .4rem; vertical-align:top; text-align:left; }
   table.sheet th { font-size:.78rem; color:#666; font-weight:600; }
+  /* the sheet-type switch */
+  .seg { display:inline-flex; border:1px solid #d4d8de; border-radius:6px; overflow:hidden; }
+  .seg button { background:#fff; color:#555; border:0; border-radius:0; padding:.3rem .8rem; font-size:.85rem; }
+  .seg button.on { background:var(--accent); color:#fff; font-weight:600; }
+  /* question editor */
+  .qsettings { display:flex; gap:1.2rem; align-items:center; flex-wrap:wrap; padding:.55rem .7rem;
+               background:#f7f9fc; border:1px solid #e6eaf0; border-radius:6px; margin:.2rem 0 .5rem; }
+  .qsettings label { display:inline; margin:0; }
+  .qrow-choices { display:flex; gap:.32rem; flex-wrap:wrap; align-items:center; }
+  .qchip { display:inline-flex; align-items:center; gap:.15rem; border:1px solid #c3cad3; border-radius:5px;
+           padding:.14rem .42rem; font-size:1.05rem; background:#fff; cursor:grab; user-select:none; }
+  .qchip.ans { border-color:var(--accent); background:#eaf2fd; color:#16407e; font-weight:600; cursor:grab; }
+  .qchip.alt { border-color:#e2e5ea; background:#f4f6f8; color:#7a828c; }
+  .qchip.made { border-style:dashed; }
+  .qchip.drop { outline:2px solid var(--accent); outline-offset:1px; }
+  .qchip .grip { color:#b9bfc7; font-size:.7rem; letter-spacing:-1px; }
+  .qchip .tick { font-size:.68rem; }
+  .qchip .made-tag { font-size:.6rem; opacity:.75; margin-left:.1rem; color:#7b5ea7; }
+  .qchip svg { width:1.05em; height:1.05em; vertical-align:-.14em; }
+  .qsep { align-self:stretch; width:1px; background:#e2e5ea; margin:0 .35rem; }
+  .qalt-label { font-size:.7rem; color:#98a0aa; align-self:center; margin-right:.3rem; }
   .chips { display:flex; flex-wrap:wrap; gap:.25rem; }
   .chip { border:1px solid #d0d5dc; border-radius:5px; padding:.1rem .35rem; cursor:pointer; user-select:none; background:#fafbfc; }
   .chip.kanji { border-color:#bcd; }
@@ -93,6 +114,15 @@
   .toolbar { display:flex; gap:.6rem; flex-wrap:wrap; align-items:center; margin-top:.4rem; }
   iframe#preview { width:100%; height:460px; border:1px solid #ddd; border-radius:6px; background:#fff; }
   .muted { color:#888; font-size:.85rem; }
+  /* word picker: the reading over the word, clicked to make it a question */
+  .wgroup { display:flex; gap:.7rem; align-items:flex-start; padding:.5rem 0; border-bottom:1px solid #f0f1f4; }
+  .wgroup .wk { font-size:1.5rem; width:1.7em; text-align:center; color:#333; }
+  .wlist { display:flex; gap:.35rem; flex-wrap:wrap; flex:1; }
+  .wchip { display:inline-flex; flex-direction:column; align-items:center; line-height:1.25;
+           border:1px solid #d0d5dc; background:#fafbfc; border-radius:5px; padding:.15rem .45rem; cursor:pointer; }
+  .wchip .wr { font-size:.62rem; opacity:.8; }
+  .wchip .ww { font-size:1rem; }
+  .wchip.on { background:var(--accent); border-color:var(--accent); color:#fff; }
   .kanji-grid { display:flex; flex-wrap:wrap; gap:3px; align-items:center; max-height:320px; overflow:auto; margin-top:.4rem; padding:.2rem; border:1px solid #eee; border-radius:6px; }
   .kanji-grid:empty { display:none; }
   .stroke-label { flex-basis:100%; font-size:.72rem; color:#999; margin:.5rem 0 .1rem; }
@@ -138,6 +168,15 @@
 </header>
 
 <main>
+  <div class="panel" id="modeBar" style="display:flex;align-items:center;gap:.7rem;flex-wrap:wrap;padding:.6rem .9rem;margin-bottom:1rem">
+    <span style="font-size:.85rem;color:#555" data-i18n="lbl_sheet_kind">テストの種類：</span>
+    <span class="seg">
+      <button id="kind_sentences" class="on" data-kind="sentences" data-i18n="kind_sentences">文のテスト</button>
+      <button id="kind_choice" data-kind="choice" data-i18n="kind_choice">選択問題</button>
+    </span>
+    <span class="muted" id="kind_hint" style="font-size:.8rem"></span>
+  </div>
+
   <details class="acc" id="secInfo" open>
     <summary data-i18n="sec_info">テスト情報</summary>
     <div class="acc-body">
@@ -308,6 +347,16 @@
       </div>
     </div>
       </div><!-- /tab_file -->
+  <div id="wordPickerPanel" class="subhead" style="display:none">
+    <div class="row-actions">
+      <strong data-i18n="lbl_pick_words">語をえらぶ</strong>
+      <label style="display:flex;align-items:center;gap:.35rem;margin:0;font-size:.85rem;color:#333">
+        <input type="checkbox" id="wpick_easyonly" checked> <span data-i18n="chk_easy_words">やさしい語だけ（学年以下の漢字）</span>
+      </label>
+      <span class="muted" id="wpick_summary"></span>
+    </div>
+    <div id="wordPicker"></div>
+  </div>
     </div>
   </details>
 
@@ -344,6 +393,48 @@
       <span id="ans_buttons" style="display:none">
         <button id="btnPdfAns" data-i18n="btn_pdf_ans">解答 PDF</button>
         <button id="btnDocxAns" data-i18n="btn_docx_ans">解答 Word (.docx)</button>
+      </span>
+    </div>
+    </div>
+  </details>
+
+  <details class="acc" id="choicePanel" open style="display:none">
+    <summary data-i18n="sec_edit_questions">問題を編集</summary>
+    <div class="acc-body">
+    <div class="qsettings">
+      <span><label style="display:inline" data-i18n="f_choice_count">選択肢の数</label>
+        <select id="q_count"><option value="4">4</option><option value="5">5</option></select></span>
+      <span><label style="display:inline" data-i18n="f_choice_style">まちがいの作り方</label>
+        <select id="q_style">
+          <option value="real" data-i18n="choice_style_real">実在する漢字だけ</option>
+          <option value="made" data-i18n="choice_style_made">作った漢字も使う（むずかしい）</option>
+        </select></span>
+      <button id="q_shuffle" class="secondary" data-i18n="btn_shuffle_answers">正解の位置をシャッフル</button>
+      <span class="muted" id="q_note" data-i18n="hint_choice_made"></span>
+    </div>
+    <p class="muted" style="font-size:.78rem;margin:.1rem 0 .5rem" data-i18n="hint_choice_edit"></p>
+    <table class="sheet">
+      <thead><tr>
+        <th style="width:2rem"></th>
+        <th style="width:7rem" data-i18n="th_reading">よみ</th>
+        <th data-i18n="th_choices">選択肢</th>
+        <th style="width:5rem"></th>
+      </tr></thead>
+      <tbody id="qrows"></tbody>
+    </table>
+    <div class="toolbar">
+      <button id="btnPreview2" class="secondary" data-i18n="btn_preview">プレビュー更新</button>
+      <button id="btnPdf2" data-i18n="btn_pdf">PDF を保存</button>
+      <button id="btnDocx2" data-i18n="btn_docx">Word (.docx) を保存</button>
+      <button id="btnSave3" class="secondary" data-i18n="save_set">セットを保存</button>
+    </div>
+    <div class="toolbar" style="margin-top:.2rem">
+      <label style="display:flex;align-items:center;gap:.35rem;margin:0;font-size:.9rem;color:#333">
+        <input type="checkbox" id="ans_enable2"> <span data-i18n="chk_answer">解答シートも作成する</span>
+      </label>
+      <span id="ans_buttons2" style="display:none">
+        <button id="btnPdfAns2" data-i18n="btn_pdf_ans">解答 PDF</button>
+        <button id="btnDocxAns2" data-i18n="btn_docx_ans">解答 Word (.docx)</button>
       </span>
     </div>
     </div>

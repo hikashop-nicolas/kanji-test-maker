@@ -1,9 +1,11 @@
 // Browser app: paste -> kuromoji -> editable table -> DOCX / PDF.
-import { normalizeTokens, joinInflections, buildLayout } from './model.js?v=2';
+import { normalizeTokens, joinInflections, buildLayout, circledExtended } from './model.js?v=2';
 import { buildHtml } from './htmlExport.js?v=2';
 import { buildDocx } from './docxExport.js?v=2';
 import { addFontEmbedFlag } from './docxEmbed.js?v=2';
-import { initLessonBuilder, onLessonChange, selectedKanji, gradeOf, jlptOf, setSelection, currentGrade, refreshLabels, loadKanji } from './lesson.js?v=2';
+import { initLessonBuilder, onLessonChange, selectedKanji, gradeOf, jlptOf, setSelection, currentGrade, refreshLabels, loadKanji, kanjiData } from './lesson.js?v=2';
+import { init as initDistractors, generate as generateChoices } from './distractors.js?v=2';
+import { setStrokes, cellSvg } from './glyph.js?v=2';
 import { buildCandidates } from './sentences.js?v=2';
 import { t, initLang, applyI18n, getLang, setLang } from './i18n.js?v=2';
 import { readingIndex, readingHints } from './readingHints.js?v=2';
@@ -33,13 +35,13 @@ function nextState(cur, hasKanji) {
 }
 
 const $ = (id) => document.getElementById(id);
-const state = { sentences: [] };
+const state = { sentences: [], words: [], questions: [] };
 let tokenizer = null;
 let customFontFamily = null; // set when a font file is uploaded
 let customFontBytes = null;  // uploaded font bytes, for docx embedding
 
 // ---- persist settings ----------------------------------------------------
-const SETTING_IDS = ['h_class','h_title','h_lesson','h_name','o_perpage','o_rows','o_font','o_fontsize','o_boxsize','o_blankpos'];
+const SETTING_IDS = ['h_class','h_title','h_lesson','h_name','o_perpage','o_rows','o_font','o_fontsize','o_boxsize','o_blankpos','q_count','q_style'];
 function saveSettings() {
   const o = {};
   SETTING_IDS.forEach(id => { if ($(id)) o[id] = $(id).value; });
@@ -144,7 +146,7 @@ async function runPicker() {
   $('lesson_find').disabled = false;
   $('lesson_find').textContent = t('btn_find');
 }
-$('lesson_find').addEventListener('click', runPicker);
+$('lesson_find').addEventListener('click', () => (isChoice() ? runWordPicker() : runPicker()));
 $('pick_easyonly').addEventListener('change', () => { if ($('pickerPanel').style.display !== 'none') runPicker(); });
 $('pick_add').addEventListener('click', addPickedSentences);
 
@@ -396,7 +398,7 @@ function addLinesAsSentences(text, replace) {
   refreshPreview();
   return made.length;
 }
-$('process').addEventListener('click', () => addLinesAsSentences($('input').value, true));
+$('process').addEventListener('click', () => (isChoice() ? addWordsFromText($('input').value) : addLinesAsSentences($('input').value, true)));
 
 // ---- sentences out of a file --------------------------------------------
 // Documents give their text up directly; a photo, and a PDF page that turns out
@@ -870,6 +872,7 @@ async function readQueue() {
 }
 
 $('src_add').addEventListener('click', () => {
+  if (isChoice()) { addWordsFromText($('src_text').value); return; }
   if (addLinesAsSentences($('src_text').value, false)) $('tablePanel').scrollIntoView({ behavior: 'smooth', block: 'start' });
 });
 
@@ -979,14 +982,389 @@ function renderTable() {
   });
 }
 
+// ---- multiple-choice sheets ----------------------------------------------
+// A word list where the pupil picks the correct spelling. The material is words
+// rather than sentences, so the picker, the paste box and the file reader all
+// offer words; every chosen word becomes one question. See docs/CHOICE_PLAN.md.
+
+let sheetKind = 'sentences';                 // 'sentences' | 'choice'
+let partsData = null;                        // component index, for shape swaps
+let strokesData = null;                      // KanjiVG strokes, only for invented characters
+let strokesPending = null;
+
+const isChoice = () => sheetKind === 'choice';
+const kata2hira = (s) => (s || '').replace(/[ァ-ヶ]/g, c => String.fromCharCode(c.charCodeAt(0) - 0x60));
+
+// a word the dictionary knows: a wrong spelling that is one would be a second
+// defensible answer, and a word list gives no context to rule it out
+function isRealWord(s) {
+  if (!tokenizer) return false;
+  const t = tokenizer.tokenize(s);
+  return t.length === 1 && t[0].word_type === 'KNOWN' && t[0].surface_form === s;
+}
+
+async function ensureDistractors() {
+  await loadKanji();
+  if (!partsData) {
+    try { partsData = await (await fetch('assets/data/kanji-parts.json')).json(); }
+    catch (e) { console.warn('component index unavailable', e); partsData = {}; }
+  }
+  initDistractors(kanjiData(), partsData);
+}
+
+// the strokes are 2.3 MB, so they are only fetched when a sheet invents
+// characters, and kept from then on
+async function ensureStrokes() {
+  if (strokesData) return true;
+  if (!strokesPending) {
+    strokesPending = fetch('assets/data/kanji-strokes.json')
+      .then(r => (r.ok ? r.json() : null))
+      .catch(() => null);
+  }
+  const data = await strokesPending;
+  if (!data) { strokesPending = null; return false; }
+  strokesData = data;
+  setStrokes(data);
+  return true;
+}
+
+const choiceCount = () => parseInt($('q_count').value, 10) || 4;
+const allowMade = () => $('q_style').value === 'made';
+
+// Build one question: the answer plus the best wrong spellings, more than the
+// sheet needs so the teacher has something to swap in.
+function makeQuestion(word, reading) {
+  const { G } = baselineLevel();
+  const { answer, wrong } = generateChoices(word, reading, {
+    maxGrade: G, isWord: isRealWord, made: allowMade(), limit: 14,
+  });
+  const n = choiceCount();
+  const used = wrong.slice(0, n - 1);
+  const at = Math.floor(Math.random() * (used.length + 1));
+  used.splice(at, 0, answer);
+  return { word, reading, used, offered: wrong.slice(n - 1), answerAt: at };
+}
+
+// keep a question per chosen word, leaving the ones already edited alone
+function syncQuestions() {
+  const have = new Map(state.questions.map(q => [q.word + '\t' + q.reading, q]));
+  state.questions = state.words.map(w => have.get(w.word + '\t' + w.reading) || makeQuestion(w.word, w.reading));
+}
+
+function regenerate(qi) {
+  const q = state.questions[qi];
+  state.questions[qi] = makeQuestion(q.word, q.reading);
+  renderQuestions(); refreshPreview();
+}
+
+// ---- drawing a choice in the editor --------------------------------------
+function choiceNode(c, kind) {
+  const el = document.createElement('span');
+  el.className = 'qchip ' + kind + (c.made ? ' made' : '');
+  if (kind !== 'alt') {
+    const g = document.createElement('span');
+    g.className = 'grip'; g.textContent = '⠿';
+    el.appendChild(g);
+  }
+  if (kind === 'ans') {
+    const tick = document.createElement('span');
+    tick.className = 'tick'; tick.textContent = '✓';
+    el.appendChild(tick);
+  }
+  for (const cell of c.cells) {
+    if (cell.ch) { el.appendChild(document.createTextNode(cell.ch)); continue; }
+    const svg = cellSvg(cell);
+    if (svg) {
+      const holder = document.createElement('span');
+      holder.innerHTML = svg;
+      el.appendChild(holder.firstChild);
+    } else el.appendChild(document.createTextNode('〓'));
+  }
+  if (c.made) {
+    const tag = document.createElement('span');
+    tag.className = 'made-tag'; tag.textContent = t('made_tag');
+    el.appendChild(tag);
+  }
+  return el;
+}
+
+// ---- the question table --------------------------------------------------
+let dragFrom = null;   // { qi, zone, ci }
+
+function renderQuestions() {
+  const tbody = $('qrows');
+  tbody.innerHTML = '';
+  state.questions.forEach((q, qi) => {
+    const tr = document.createElement('tr');
+
+    const tdN = document.createElement('td');
+    tdN.style.color = '#8a9099';
+    tdN.textContent = circledExtended(qi + 1);
+    tr.appendChild(tdN);
+
+    // the reading is shown, not edited: it belongs to the word, and the word is
+    // picked one step earlier
+    const tdR = document.createElement('td');
+    tdR.textContent = q.reading;
+    tdR.style.whiteSpace = 'nowrap';
+    tr.appendChild(tdR);
+
+    const tdC = document.createElement('td');
+    const wrap = document.createElement('div');
+    wrap.className = 'qrow-choices';
+    const drop = (zone, ci) => (e) => {
+      e.preventDefault();
+      if (!dragFrom || dragFrom.qi !== qi) return;
+      moveChoice(qi, dragFrom, { zone, ci });
+      dragFrom = null;
+      renderQuestions(); refreshPreview();
+    };
+    q.used.forEach((c, ci) => {
+      const node = choiceNode(c, ci === q.answerAt ? 'ans' : 'use');
+      node.draggable = true;
+      node.ondragstart = () => { dragFrom = { qi, zone: 'used', ci }; };
+      node.ondragover = (e) => e.preventDefault();
+      node.ondrop = drop('used', ci);
+      wrap.appendChild(node);
+    });
+    if (q.offered.length) {
+      const sep = document.createElement('span');
+      sep.className = 'qsep';
+      wrap.appendChild(sep);
+      const lab = document.createElement('span');
+      lab.className = 'qalt-label';
+      lab.textContent = t('lbl_other_ideas');
+      wrap.appendChild(lab);
+      q.offered.slice(0, 6).forEach((c, ci) => {
+        const node = choiceNode(c, 'alt');
+        node.draggable = true;
+        node.ondragstart = () => { dragFrom = { qi, zone: 'offered', ci }; };
+        node.ondragover = (e) => e.preventDefault();
+        node.ondrop = drop('offered', ci);
+        node.onclick = () => {                    // click also swaps it in
+          const last = q.used.findIndex((_, i) => i !== q.answerAt);
+          moveChoice(qi, { zone: 'offered', ci }, { zone: 'used', ci: last });
+          renderQuestions(); refreshPreview();
+        };
+        wrap.appendChild(node);
+      });
+    }
+    tdC.appendChild(wrap);
+    tr.appendChild(tdC);
+
+    const tdX = document.createElement('td');
+    tdX.style.whiteSpace = 'nowrap';
+    const again = document.createElement('button');
+    again.className = 'secondary'; again.textContent = '↻';
+    again.title = t('btn_regenerate');
+    again.onclick = () => regenerate(qi);
+    tdX.appendChild(again);
+    const x = document.createElement('button');
+    x.className = 'secondary'; x.textContent = '×';
+    x.style.marginLeft = '.2rem';
+    x.onclick = () => {
+      const q0 = state.questions[qi];
+      state.words = state.words.filter(w => !(w.word === q0.word && w.reading === q0.reading));
+      state.questions.splice(qi, 1);
+      renderQuestions(); renderWordPicker(); refreshPreview();
+      if (!state.questions.length) $('choicePanel').style.display = 'none';
+    };
+    tdX.appendChild(x);
+    tr.appendChild(tdX);
+
+    tbody.appendChild(tr);
+  });
+}
+
+// Reorder within the printed choices, or swap one for an offered one. The
+// answer moves about like the rest but can never leave: the app knows which
+// spelling is right, so it is not for the teacher to choose.
+function moveChoice(qi, from, to) {
+  const q = state.questions[qi];
+  if (from.zone === 'used' && to.zone === 'used') {
+    const [c] = q.used.splice(from.ci, 1);
+    q.used.splice(to.ci, 0, c);
+    // follow the answer through the move
+    if (from.ci === q.answerAt) q.answerAt = to.ci;
+    else if (from.ci < q.answerAt && to.ci >= q.answerAt) q.answerAt--;
+    else if (from.ci > q.answerAt && to.ci <= q.answerAt) q.answerAt++;
+    return;
+  }
+  if (from.zone === 'offered' && to.zone === 'used') {
+    if (to.ci === q.answerAt) return;             // the answer stays
+    const c = q.offered[from.ci];
+    if (!c) return;
+    q.offered.splice(from.ci, 1);
+    q.offered.unshift(q.used[to.ci]);
+    q.used[to.ci] = c;
+    return;
+  }
+  if (from.zone === 'used' && to.zone === 'offered') {
+    if (from.ci === q.answerAt) return;
+    const c = q.offered[to.ci];
+    if (!c) return;
+    q.offered[to.ci] = q.used[from.ci];
+    q.used[from.ci] = c;
+  }
+}
+
+// ---- picking words -------------------------------------------------------
+const wordCache = {};
+async function loadWordFile(name) {
+  if (wordCache[name]) return wordCache[name];
+  try {
+    const res = await fetch(`assets/data/lesson-words/grade-${name}.json`);
+    if (res.ok) { wordCache[name] = await res.json(); return wordCache[name]; }
+  } catch (e) { /* transient: do not cache a failure */ }
+  return {};
+}
+
+const wordKey = (w) => w.word + '\t' + w.reading;
+function hasWord(w) { return state.words.some(x => wordKey(x) === wordKey(w)); }
+
+async function runWordPicker() {
+  const kanji = selectedKanji();
+  const { G, levelOf } = baselineLevel();
+  const names = new Set();
+  for (const ch of kanji) { const g = gradeOf(ch); if (g != null) names.add(g === 8 ? 'secondary' : String(g)); }
+  const files = {};
+  await Promise.all([...names].map(async n => { files[n] = await loadWordFile(n); }));
+  const easy = $('wpick_easyonly').checked;
+  const groups = kanji.map(ch => {
+    const g = gradeOf(ch);
+    const rows = (g == null ? [] : (files[g === 8 ? 'secondary' : String(g)] || {})[ch] || []);
+    const words = rows
+      .map(([word, reading]) => ({ word, reading: kata2hira(reading) }))
+      .filter(w => !easy || [...w.word].every(c => !/\p{Script=Han}/u.test(c) || (levelOf(c) != null && levelOf(c) <= G)));
+    return { kanji: ch, words };
+  });
+  renderWordPicker(groups);
+}
+
+let wordGroups = [];
+function renderWordPicker(groups) {
+  if (groups) wordGroups = groups;
+  const host = $('wordPicker');
+  host.innerHTML = '';
+  for (const g of wordGroups) {
+    const row = document.createElement('div');
+    row.className = 'wgroup';
+    const k = document.createElement('div');
+    k.className = 'wk'; k.textContent = g.kanji;
+    row.appendChild(k);
+    const list = document.createElement('div');
+    list.className = 'wlist';
+    if (!g.words.length) {
+      const none = document.createElement('span');
+      none.className = 'muted'; none.style.fontSize = '.85rem';
+      none.textContent = t('no_words');
+      list.appendChild(none);
+    }
+    for (const w of g.words) {
+      const chip = document.createElement('span');
+      chip.className = 'wchip' + (hasWord(w) ? ' on' : '');
+      chip.innerHTML = `<span class="wr"></span><span class="ww"></span>`;
+      chip.firstChild.textContent = w.reading;
+      chip.lastChild.textContent = w.word;
+      chip.onclick = () => toggleWord(w);
+      list.appendChild(chip);
+    }
+    row.appendChild(list);
+    host.appendChild(row);
+  }
+  $('wpick_summary').textContent = state.words.length ? t('count_words', { n: state.words.length }) : '';
+  $('wordPickerPanel').style.display = wordGroups.length ? '' : 'none';
+}
+
+function toggleWord(w) {
+  if (hasWord(w)) state.words = state.words.filter(x => wordKey(x) !== wordKey(w));
+  else state.words.push({ word: w.word, reading: w.reading });
+  afterWordsChanged();
+}
+
+function afterWordsChanged() {
+  syncQuestions();
+  renderQuestions();
+  renderWordPicker();
+  $('choicePanel').style.display = state.questions.length ? '' : 'none';
+  refreshPreview();
+}
+
+// Words out of pasted text or a file: the tokenizer picks the kanji words out,
+// so a list of words and a paragraph both work.
+function wordsFromText(text) {
+  if (!tokenizer) return [];
+  const out = [], seen = new Set();
+  for (const line of text.split(/\r?\n/)) {
+    for (const tk of tokenizer.tokenize(line.trim())) {
+      const s = tk.surface_form;
+      if (!/\p{Script=Han}/u.test(s) || s.length > 6) continue;
+      if (!tk.reading || tk.reading === '*') continue;
+      const w = { word: s, reading: kata2hira(tk.reading) };
+      if (seen.has(wordKey(w))) continue;
+      seen.add(wordKey(w));
+      out.push(w);
+    }
+  }
+  return out;
+}
+
+function addWordsFromText(text) {
+  const found = wordsFromText(text);
+  if (!found.length) { alert(t('alert_no_words')); return; }
+  wordGroups = [{ kanji: t('lbl_from_text'), words: found }];
+  renderWordPicker(wordGroups);
+  $('wordPickerPanel').style.display = '';
+  $('wordPickerPanel').scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+// ---- switching between the two kinds of sheet ----------------------------
+async function setKind(kind) {
+  sheetKind = kind === 'choice' ? 'choice' : 'sentences';
+  $('kind_sentences').classList.toggle('on', !isChoice());
+  $('kind_choice').classList.toggle('on', isChoice());
+  $('kind_hint').textContent = t(isChoice() ? 'kind_hint_choice' : 'kind_hint_sentences');
+  // the material step changes with the sheet: words, not sentences
+  $('secAdd').querySelector('summary').textContent = t(isChoice() ? 'sec_add_words' : 'sec_add');
+  $('pickerPanel').style.display = 'none';
+  $('wordPickerPanel').style.display = 'none';
+  $('lesson_find').textContent = t(isChoice() ? 'btn_find_words' : 'btn_find');
+  $('process').textContent = t(isChoice() ? 'btn_extract_words' : 'btn_process');
+  $('src_add').textContent = t(isChoice() ? 'btn_extract_words' : 'src_add');
+  $('tablePanel').style.display = !isChoice() && state.sentences.length ? '' : 'none';
+  $('choicePanel').style.display = isChoice() && state.questions.length ? '' : 'none';
+  // a choice sheet has no blank cells and only ever one band (5.8)
+  $('o_blankpos').closest('div').style.display = isChoice() ? 'none' : '';
+  $('o_boxsize').closest('div').style.display = isChoice() ? 'none' : '';
+  $('o_rows').closest('div').style.display = isChoice() ? 'none' : '';
+  const perPageLabel = document.querySelector('[data-i18n="f_per_page"]');
+  if (perPageLabel) perPageLabel.textContent = t(isChoice() ? 'f_per_page_q' : 'f_per_page');
+  if (isChoice()) {
+    await ensureDistractors();
+    if (allowMade()) await ensureStrokes();
+    if (selectedKanji().length) await runWordPicker();
+    syncQuestions();
+    renderQuestions();
+    $('choicePanel').style.display = state.questions.length ? '' : 'none';
+  }
+  saveSettings();
+  refreshPreview();
+}
+
 // ---- worksheet / layout --------------------------------------------------
 function worksheet() {
+  if (isChoice()) {
+    return {
+      mode: 'choice', header: header(), options: options(),
+      questions: state.questions.map(q => ({ reading: q.reading, choices: q.used, answerAt: q.answerAt })),
+    };
+  }
   return { header: header(), options: options(), sentences: state.sentences };
 }
 
 // ---- preview -------------------------------------------------------------
 function refreshPreview() {
-  if (!state.sentences.length) return;
+  if (isChoice() ? !state.questions.length : !state.sentences.length) return;
   const html = buildHtml(buildLayout(worksheet()), { font: options().font, fontFace: customFontCss() });
   const pp = $('previewPanel');
   pp.style.display = '';   // un-hide
@@ -1070,8 +1448,42 @@ $('btnPdf').addEventListener('click', () => exportPdf(false));
 $('btnPdfAns').addEventListener('click', () => exportPdf(true));
 
 // ---- DOCX ----------------------------------------------------------------
+// An invented character goes into the .docx as a picture, so it is drawn to a
+// canvas first, at 3x the printed size.
+function svgToPng(svg, px) {
+  return new Promise((resolve) => {
+    if (!svg) { resolve(null); return; }
+    const img = new Image();
+    img.onload = () => {
+      const c = document.createElement('canvas');
+      c.width = px; c.height = px;
+      c.getContext('2d').drawImage(img, 0, 0, px, px);
+      c.toBlob(b => (b ? b.arrayBuffer().then(a => resolve(new Uint8Array(a))) : resolve(null)), 'image/png');
+    };
+    img.onerror = () => resolve(null);
+    img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg);
+  });
+}
+const cellKey = (c) => (c.draw ? 'd' + c.draw : `${c.op}|${c.base}|${c.at}|${c.part}|${c.donor}`);
+async function rasterizeGlyphs(layout) {
+  const px = Math.round((layout.fontSize || 18) * 96 / 72) * 3;
+  const runs = [];
+  for (const page of layout.pages) {
+    for (const band of (page.bands || [])) {
+      for (const col of band.columns) for (const r of col.runs) if (r.t === 'glyph') runs.push(r);
+    }
+  }
+  const drawn = new Map();
+  for (const r of runs) {
+    const key = cellKey(r.cell);
+    if (!drawn.has(key)) drawn.set(key, await svgToPng(cellSvg(r.cell, { width: px, height: px, color: '#000' }), px));
+    r.png = drawn.get(key);
+  }
+}
+
 async function exportDocx(answers, filename) {
   const layout = buildLayout(worksheet());
+  if (layout.choice) await rasterizeGlyphs(layout);
   const fontName = $('o_font').value;
   let embed = [];
   if (customFontFamily && customFontBytes) {
@@ -1099,6 +1511,38 @@ $('btnDocxAns').addEventListener('click', () => exportDocx(true, 'kanji-test-ans
 $('ans_enable').addEventListener('change', () => {
   $('ans_buttons').style.display = $('ans_enable').checked ? '' : 'none';
 });
+$('ans_enable2').addEventListener('change', () => {
+  $('ans_buttons2').style.display = $('ans_enable2').checked ? '' : 'none';
+});
+
+// ---- choice-sheet controls -----------------------------------------------
+$('kind_sentences').addEventListener('click', () => setKind('sentences'));
+$('kind_choice').addEventListener('click', () => setKind('choice'));
+$('wpick_easyonly').addEventListener('change', () => { if (isChoice()) runWordPicker(); });
+$('q_count').addEventListener('change', () => { rebuildQuestions(); saveSettings(); });
+$('q_style').addEventListener('change', async () => {
+  if (allowMade() && !(await ensureStrokes())) { alert(t('alert_no_strokes')); $('q_style').value = 'real'; }
+  rebuildQuestions(); saveSettings();
+});
+// scatter the answers again, for a teacher who does not want to place them
+$('q_shuffle').addEventListener('click', () => {
+  for (const q of state.questions) {
+    const [ans] = q.used.splice(q.answerAt, 1);
+    q.answerAt = Math.floor(Math.random() * (q.used.length + 1));
+    q.used.splice(q.answerAt, 0, ans);
+  }
+  renderQuestions(); refreshPreview();
+});
+function rebuildQuestions() {
+  state.questions = state.words.map(w => makeQuestion(w.word, w.reading));
+  renderQuestions(); refreshPreview();
+}
+$('btnPreview2').addEventListener('click', refreshPreview);
+$('btnPdf2').addEventListener('click', () => exportPdf(false));
+$('btnPdfAns2').addEventListener('click', () => exportPdf(true));
+$('btnDocx2').addEventListener('click', () => exportDocx(false, 'kanji-choice.docx'));
+$('btnDocxAns2').addEventListener('click', () => exportDocx(true, 'kanji-choice-answers.docx'));
+$('btnSave3').addEventListener('click', saveSet);
 
 // ---- save / load a worksheet set (JSON) ----------------------------------
 // the whole worksheet as plain data: what the save button writes out, and what
@@ -1111,6 +1555,14 @@ function setData() {
     sentences: state.sentences.map(s => ({
       mode: s.mode,
       tokens: s.tokens.map(t => ({ surface: t.surface, reading: t.reading, hasKanji: t.hasKanji, state: t.state || (t.selected ? 'test' : 'plain') })),
+    })),
+    kind: sheetKind,
+    choice: { count: $('q_count').value, style: $('q_style').value },
+    words: state.words,
+    // the wrong answers chosen for each question and the order they sit in, so
+    // a reprint is exact and any hand placing survives
+    questions: state.questions.map(q => ({
+      word: q.word, reading: q.reading, answerAt: q.answerAt, used: q.used, offered: q.offered,
     })),
   };
 }
@@ -1133,10 +1585,22 @@ function applySet(d) {
   if (o.boxSize != null) $('o_boxsize').value = o.boxSize;
   if (o.blankPos != null) $('o_blankpos').value = o.blankPos;
   state.sentences = (d.sentences || []).map(s => ({ mode: s.mode || 'kaki', tokens: s.tokens || [] }));
+  if (d.choice) {
+    if (d.choice.count != null) $('q_count').value = d.choice.count;
+    if (d.choice.style != null) $('q_style').value = d.choice.style;
+  }
+  state.words = d.words || [];
+  state.questions = (d.questions || []).map(q => ({
+    word: q.word, reading: q.reading, answerAt: q.answerAt || 0, used: q.used || [], offered: q.offered || [],
+  }));
   saveSettings();
   renderTable();
-  $('tablePanel').style.display = state.sentences.length ? '' : 'none';
-  refreshPreview();
+  $('tablePanel').style.display = !isChoice() && state.sentences.length ? '' : 'none';
+  // a set saved before choice sheets existed has no kind, and is a sentence sheet
+  setKind(d.kind || 'sentences').then(() => {
+    if (isChoice()) { renderQuestions(); $('choicePanel').style.display = state.questions.length ? '' : 'none'; }
+    refreshPreview();
+  });
 }
 function loadSet(file) {
   const fr = new FileReader();

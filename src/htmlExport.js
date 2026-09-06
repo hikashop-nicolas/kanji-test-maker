@@ -3,7 +3,7 @@
 // Text flows at its natural pitch (tight); the answer boxes live in a parallel
 // column and are positioned (with push-down) so they never overlap.
 import { layoutBoxes, leadMm, imageSpaceMm } from './model.js';
-import { cellSvg } from './glyph.js';
+import { cellSvg } from './glyph.js?v=2';
 
 function esc(s) {
   return String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));

@@ -184,6 +184,9 @@ function madeCells(ch, maxGrade) {
   // swap a component for one that lives in the same place
   for (let i = 0; i < ps.length; i++) {
     const [el, pos] = ps[i];
+    // without a position there is no telling what belongs in the slot, and the
+    // swap comes out as a component dropped somewhere arbitrary (昼)
+    if (!pos) continue;
     let taken = 0;
     for (const [ael, list] of sameSlot(el, pos)) {
       const donor = list.find(d => d !== ch && known(d, maxGrade) >= 5);
