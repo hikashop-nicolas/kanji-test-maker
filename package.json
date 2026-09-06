@@ -7,7 +7,7 @@
   "scripts": {
     "serve": "node tools/gen-sw.mjs && python3 tools/devserver.py",
     "gen": "node tools/gen.mjs",
-    "build:data": "node tools/build-data.mjs && node tools/build-sentences.mjs",
+    "build:data": "node tools/build-data.mjs && node tools/build-sentences.mjs && node tools/build-parts.mjs && node tools/build-words.mjs",
     "validate:authored": "node tools/validate-authored.mjs",
     "build:sw": "node tools/gen-sw.mjs",
     "build:icons": "node tools/gen-icons.mjs",
