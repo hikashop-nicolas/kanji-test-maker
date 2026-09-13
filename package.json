@@ -23,7 +23,7 @@
   ],
   "devDependencies": {
     "docx": "^9.7.1",
-    "jszip": "^3.10.1",
+    "jszip": "^3.10.2",
     "kuromoji": "^0.1.2",
     "onnxruntime-web": "^1.29.0",
     "pdfjs-dist": "^6.3.289",
