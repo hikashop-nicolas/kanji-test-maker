@@ -215,6 +215,18 @@ on their own. It does not see the fonts in `assets/fonts/` (Google Fonts) or the
 OCR models in `assets/tessdata/` and `assets/ppocr/`; both change rarely and are
 updated by hand.
 
+### Publishers to keep an eye on
+
+A bump released by someone new to a package gets a closer look before it is
+merged: read the diff of the published tarball against the previous version
+(`npm pack pkg@old pkg@new`, then diff the two), not only the changelog, and
+check the release commit upstream. Dependabot's "Maintainer changes" section is
+what flags these.
+
+| Package | Publisher | First seen | Checked |
+|---|---|---|---|
+| jszip | jkoops (Jon Koops) | 3.10.2, 2026-09 (PR #28) | Code diff limited to the two changelog fixes; release commit verified upstream. Keep diffing their releases until they have a track record. |
+
 ## PWA
 
 `sw.js` is generated from what is actually in the repo by `tools/gen-sw.mjs`,
