@@ -26,7 +26,7 @@
 		enumerable: true
 	}) : target, mod));
 	//#endregion
-	//#region \0@oxc-project+runtime@0.132.0/helpers/typeof.js
+	//#region \0@oxc-project+runtime@0.133.0/helpers/esm/typeof.js
 	function _typeof(o) {
 		"@babel/helpers - typeof";
 		return _typeof = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function(o) {
@@ -36,7 +36,7 @@
 		}, _typeof(o);
 	}
 	//#endregion
-	//#region \0@oxc-project+runtime@0.132.0/helpers/toPrimitive.js
+	//#region \0@oxc-project+runtime@0.133.0/helpers/esm/toPrimitive.js
 	function toPrimitive(t, r) {
 		if ("object" != _typeof(t) || !t) return t;
 		var e = t[Symbol.toPrimitive];
@@ -48,13 +48,13 @@
 		return ("string" === r ? String : Number)(t);
 	}
 	//#endregion
-	//#region \0@oxc-project+runtime@0.132.0/helpers/toPropertyKey.js
+	//#region \0@oxc-project+runtime@0.133.0/helpers/esm/toPropertyKey.js
 	function toPropertyKey(t) {
 		var i = toPrimitive(t, "string");
 		return "symbol" == _typeof(i) ? i : i + "";
 	}
 	//#endregion
-	//#region \0@oxc-project+runtime@0.132.0/helpers/defineProperty.js
+	//#region \0@oxc-project+runtime@0.133.0/helpers/esm/defineProperty.js
 	function _defineProperty(e, r, t) {
 		return (r = toPropertyKey(r)) in e ? Object.defineProperty(e, r, {
 			value: t,
@@ -254,7 +254,7 @@
 		}
 	};
 	//#endregion
-	//#region \0@oxc-project+runtime@0.132.0/helpers/objectSpread2.js
+	//#region \0@oxc-project+runtime@0.133.0/helpers/esm/objectSpread2.js
 	function ownKeys(e, r) {
 		var t = Object.keys(e);
 		if (Object.getOwnPropertySymbols) {
@@ -888,7 +888,7 @@
 			return 0;
 		};
 		browserExports = browser.exports;
-		process$1 = /* @__PURE__ */ getDefaultExportFromCjs(browserExports);
+		process$1 = /*@__PURE__*/ getDefaultExportFromCjs(browserExports);
 	}));
 	//#endregion
 	//#region node_modules/stream-browserify/node_modules/readable-stream/lib/internal/streams/stream-browser.js
@@ -3942,7 +3942,7 @@
 		function copyBuffer(src, target, offset) {
 			Buffer.prototype.copy.call(src, target, offset);
 		}
-		module.exports = /* @__PURE__ */ function() {
+		module.exports = /*#__PURE__*/ function() {
 			function BufferList() {
 				_classCallCheck(this, BufferList);
 				this.head = null;
@@ -4199,7 +4199,7 @@
 				if (typeof message === "string") return message;
 				else return message(arg1, arg2, arg3);
 			}
-			var NodeError = /* @__PURE__ */ function(_Base) {
+			var NodeError = /*#__PURE__*/ function(_Base) {
 				_inheritsLoose(NodeError, _Base);
 				function NodeError(arg1, arg2, arg3) {
 					return _Base.call(this, getMessage(arg1, arg2, arg3)) || this;
@@ -12276,7 +12276,7 @@ DOT: "dot" };
 		};
 	}));
 	//#endregion
-	//#region node_modules/nanoid/non-secure/index.js
+	//#region node_modules/nanoid/url-alphabet/index.js
 	var import_hash = /* @__PURE__ */ __toESM((/* @__PURE__ */ __commonJSMin(((exports) => {
 		var hash = exports;
 		hash.utils = require_utils();
@@ -12292,18 +12292,20 @@ DOT: "dot" };
 		hash.ripemd160 = hash.ripemd.ripemd160;
 	})))(), 1);
 	var urlAlphabet = "useandom-26T198340PX75pxJACKVERYMINDBUSHWOLF_GQZbfghjklqvwyzrict";
+	//#endregion
+	//#region node_modules/nanoid/non-secure/index.js
 	var customAlphabet = (alphabet, defaultSize = 21) => {
 		return (size = defaultSize) => {
 			let id = "";
 			let i = size | 0;
-			while (i--) id += alphabet[Math.random() * alphabet.length | 0];
+			while (i-- > 0) id += alphabet[Math.random() * alphabet.length | 0];
 			return id;
 		};
 	};
 	var nanoid = (size = 21) => {
 		let id = "";
 		let i = size | 0;
-		while (i--) id += urlAlphabet[Math.random() * 64 | 0];
+		while (i-- > 0) id += urlAlphabet[Math.random() * 64 | 0];
 		return id;
 	};
 	//#endregion
@@ -15738,6 +15740,7 @@ EXTERNAL: "External" };
 			super("w:comments");
 			_defineProperty(this, "relationships", void 0);
 			_defineProperty(this, "threadData", void 0);
+			_defineProperty(this, "commentIdsData", void 0);
 			this.root.push(new RootCommentsAttributes({
 				"xmlns:cx": "http://schemas.microsoft.com/office/drawing/2014/chartex",
 				"xmlns:cx1": "http://schemas.microsoft.com/office/drawing/2015/9/8/chartex",
@@ -15771,14 +15774,23 @@ EXTERNAL: "External" };
 				"xmlns:wne": "http://schemas.microsoft.com/office/word/2006/wordml",
 				"xmlns:wps": "http://schemas.microsoft.com/office/word/2010/wordprocessingShape"
 			}));
-			if (children.some((child) => child.parentId !== void 0)) {
+			const hasThreading = children.some((child) => child.parentId !== void 0);
+			const hasDurableIds = children.some((child) => child.durableId !== void 0);
+			if (hasThreading || hasDurableIds) {
 				const idToParaId = new Map(children.map((child) => [child.id, commentIdToParaId(child.id)]));
 				for (const child of children) this.root.push(new Comment(child, idToParaId.get(child.id)));
-				this.threadData = children.map((child) => ({
+				if (hasThreading) this.threadData = children.map((child) => ({
 					paraId: idToParaId.get(child.id),
 					parentParaId: child.parentId !== void 0 ? idToParaId.get(child.parentId) : void 0,
 					done: child.resolved
 				}));
+				if (hasDurableIds) this.commentIdsData = children.map((child) => {
+					var _child$durableId;
+					return {
+						paraId: idToParaId.get(child.id),
+						durableId: (_child$durableId = child.durableId) !== null && _child$durableId !== void 0 ? _child$durableId : idToParaId.get(child.id)
+					};
+				});
 			} else for (const child of children) this.root.push(new Comment(child));
 			this.relationships = new Relationships();
 		}
@@ -15788,6 +15800,10 @@ EXTERNAL: "External" };
 		/** Thread data for commentsExtended.xml, or undefined when no comments use parentId. */
 		get ThreadData() {
 			return this.threadData;
+		}
+		/** Comment id data for commentsIds.xml, or undefined when no comments carry a durableId. */
+		get CommentIdsData() {
+			return this.commentIdsData;
 		}
 	};
 	//#endregion
@@ -15867,6 +15883,69 @@ EXTERNAL: "External" };
 				"mc:Ignorable": "w15"
 			}));
 			for (const data of threadData) this.root.push(new CommentEx(data));
+		}
+	};
+	/**
+	* @internal
+	*/
+	var CommentIdAttributes = class extends XmlAttributeComponent {
+		constructor(..._args3) {
+			super(..._args3);
+			_defineProperty(this, "xmlKeys", {
+				paraId: "w16cid:paraId",
+				durableId: "w16cid:durableId"
+			});
+		}
+	};
+	/**
+	* @internal
+	*/
+	var CommentId = class extends XmlComponent {
+		constructor(options) {
+			super("w16cid:commentId");
+			this.root.push(new CommentIdAttributes({
+				paraId: options.paraId,
+				durableId: options.durableId
+			}));
+		}
+	};
+	/**
+	* @internal
+	*/
+	var CommentsIdsAttributes = class extends XmlAttributeComponent {
+		constructor(..._args4) {
+			super(..._args4);
+			_defineProperty(this, "xmlKeys", {
+				"xmlns:w16cid": "xmlns:w16cid",
+				"xmlns:mc": "xmlns:mc",
+				"mc:Ignorable": "mc:Ignorable"
+			});
+		}
+	};
+	/**
+	* Represents the commentsIds part (word/commentsIds.xml).
+	*
+	* Contains w16cid:commentId elements that map each comment's volatile paraId
+	* to a stable w16cid:durableId preserved by Word across edits.
+	*
+	* ## XSD Schema (wml-cid.xsd)
+	* ```xml
+	* <xsd:complexType name="CT_CommentsIds">
+	*   <xsd:sequence>
+	*     <xsd:element name="commentId" type="CT_CommentId" minOccurs="0" maxOccurs="unbounded"/>
+	*   </xsd:sequence>
+	* </xsd:complexType>
+	* ```
+	*/
+	var CommentsIds = class extends XmlComponent {
+		constructor(commentIdsData) {
+			super("w16cid:commentsIds");
+			this.root.push(new CommentsIdsAttributes({
+				"xmlns:w16cid": "http://schemas.microsoft.com/office/word/2016/wordml/cid",
+				"xmlns:mc": "http://schemas.openxmlformats.org/markup-compatibility/2006",
+				"mc:Ignorable": "w16cid"
+			}));
+			for (const data of commentIdsData) this.root.push(new CommentId(data));
 		}
 	};
 	//#endregion
@@ -21879,6 +21958,12 @@ MAX: 9026 };
 			this.root.push(createOverride("application/vnd.openxmlformats-officedocument.wordprocessingml.commentsExtended+xml", "/word/commentsExtended.xml"));
 		}
 		/**
+		* Registers the commentsIds part in the content types.
+		*/
+		addCommentsIds() {
+			this.root.push(createOverride("application/vnd.openxmlformats-officedocument.wordprocessingml.commentsIds+xml", "/word/commentsIds.xml"));
+		}
+		/**
 		* Registers a footer part in the content types.
 		*
 		* @param index - Footer index number (e.g., 1 for footer1.xml)
@@ -26802,6 +26887,12 @@ MAX: 9026 };
 				"commentsExtended",
 				void 0
 			);
+			_defineProperty(
+				this,
+				/** Durable comment id mapping (word/commentsIds.xml). */
+				"commentsIds",
+				void 0
+			);
 			_defineProperty(this, "fontWrapper", void 0);
 			this.coreProperties = new CoreProperties(_objectSpread2(_objectSpread2({}, options), {}, {
 				creator: (_options$creator = options.creator) !== null && _options$creator !== void 0 ? _options$creator : "Un-named",
@@ -26811,6 +26902,7 @@ MAX: 9026 };
 			this.numbering = new Numbering(options.numbering ? options.numbering : { config: [] });
 			this.comments = new Comments((_options$comments = options.comments) !== null && _options$comments !== void 0 ? _options$comments : { children: [] });
 			if (this.comments.ThreadData) this.commentsExtended = new CommentsExtended(this.comments.ThreadData);
+			if (this.comments.CommentIdsData) this.commentsIds = new CommentsIds(this.comments.CommentIdsData);
 			this.fileRelationships = new Relationships();
 			this.customProperties = new CustomProperties((_options$customProper = options.customProperties) !== null && _options$customProper !== void 0 ? _options$customProper : []);
 			this.appProperties = new AppProperties();
@@ -26909,6 +27001,10 @@ MAX: 9026 };
 				this.documentWrapper.Relationships.addRelationship(this.currentRelationshipId++, "http://schemas.microsoft.com/office/2011/relationships/commentsExtended", "commentsExtended.xml");
 				this.contentTypes.addCommentsExtended();
 			}
+			if (this.commentsIds) {
+				this.documentWrapper.Relationships.addRelationship(this.currentRelationshipId++, "http://schemas.microsoft.com/office/2016/09/relationships/commentsIds", "commentsIds.xml");
+				this.contentTypes.addCommentsIds();
+			}
 		}
 		get Document() {
 			return this.documentWrapper;
@@ -26958,6 +27054,10 @@ MAX: 9026 };
 		/** Extended comments part for reply threading. Undefined when no comment threads exist. */
 		get CommentsExtended() {
 			return this.commentsExtended;
+		}
+		/** Durable comment id part. Undefined when no comment carries a durableId. */
+		get CommentsIds() {
+			return this.commentsIds;
 		}
 		get FontTable() {
 			return this.fontWrapper;
@@ -27128,7 +27228,7 @@ MAX: 9026 };
 		}
 	};
 	//#endregion
-	//#region \0@oxc-project+runtime@0.132.0/helpers/objectWithoutPropertiesLoose.js
+	//#region \0@oxc-project+runtime@0.133.0/helpers/esm/objectWithoutPropertiesLoose.js
 	function _objectWithoutPropertiesLoose(r, e) {
 		if (null == r) return {};
 		var t = {};
@@ -27139,7 +27239,7 @@ MAX: 9026 };
 		return t;
 	}
 	//#endregion
-	//#region \0@oxc-project+runtime@0.132.0/helpers/objectWithoutProperties.js
+	//#region \0@oxc-project+runtime@0.133.0/helpers/esm/objectWithoutProperties.js
 	function _objectWithoutProperties(e, t) {
 		if (null == e) return {};
 		var o, r, i = _objectWithoutPropertiesLoose(e, t);
@@ -31535,7 +31635,7 @@ while (n === a[++i] && n === a[++i] && n === a[++i] && n === a[++i] && n === a[+
 			const documentMediaDatas = this.imageReplacer.getMediaData(documentXmlData, file.Media);
 			const commentMediaDatas = this.imageReplacer.getMediaData(commentXmlData, file.Media);
 			const footnoteMediaDatas = this.imageReplacer.getMediaData(footnoteXmlData, file.Media);
-			return _objectSpread2(_objectSpread2({
+			return _objectSpread2(_objectSpread2(_objectSpread2({
 				Relationships: {
 					data: (() => {
 						documentMediaDatas.forEach((mediaData, i) => {
@@ -31836,6 +31936,22 @@ while (n === a[++i] && n === a[++i] && n === a[++i] && n === a[++i] && n === a[+
 					}
 				}),
 				path: "word/commentsExtended.xml"
+			} } : {}), file.CommentsIds ? { CommentsIds: {
+				data: (0, import_xml.default)(this.formatter.format(file.CommentsIds, {
+					viewWrapper: {
+						View: file.CommentsIds,
+						Relationships: file.Comments.Relationships
+					},
+					file,
+					stack: []
+				}), {
+					indent: prettify,
+					declaration: {
+						standalone: "yes",
+						encoding: "UTF-8"
+					}
+				}),
+				path: "word/commentsIds.xml"
 			} } : {}), {}, {
 				FontTable: {
 					data: (0, import_xml.default)(this.formatter.format(file.FontTable.View, {
@@ -31852,21 +31968,21 @@ while (n === a[++i] && n === a[++i] && n === a[++i] && n === a[++i] && n === a[+
 					path: "word/fontTable.xml"
 				},
 				FontTableRelationships: {
-					data: (0, import_xml.default)(this.formatter.format(file.FontTable.Relationships, {
+					data: (() => (0, import_xml.default)(this.formatter.format(file.FontTable.Relationships, {
 						viewWrapper: file.Document,
 						file,
 						stack: []
 					}), {
 						indent: prettify,
 						declaration: { encoding: "UTF-8" }
-					}),
+					}))(),
 					path: "word/_rels/fontTable.xml.rels"
 				}
 			});
 		}
 	};
 	//#endregion
-	//#region \0@oxc-project+runtime@0.132.0/helpers/asyncToGenerator.js
+	//#region \0@oxc-project+runtime@0.133.0/helpers/esm/asyncToGenerator.js
 	function asyncGeneratorStep(n, t, e, r, o, a, c) {
 		try {
 			var i = n[a](c), u = i.value;
@@ -32892,6 +33008,7 @@ while (n === a[++i] && n === a[++i] && n === a[++i] && n === a[++i] && n === a[+
 	exports.CommentReference = CommentReference;
 	exports.Comments = Comments;
 	exports.CommentsExtended = CommentsExtended;
+	exports.CommentsIds = CommentsIds;
 	exports.ConcreteHyperlink = ConcreteHyperlink;
 	exports.ConcreteNumbering = ConcreteNumbering;
 	exports.ContinuationSeparator = ContinuationSeparator;
