@@ -38,7 +38,6 @@ const STR = {
   src_ocr_page: { ja: '認識中… {n}/{total} ページ {p}%', en: 'Recognizing… page {n} of {total}, {p}%', fr: 'Reconnaissance… page {n} sur {total}, {p}%' },
   src_running: { ja: '認識中… {p}%', en: 'Recognizing… {p}%', fr: 'Reconnaissance… {p}%' },
   src_of_file: { ja: '{name}（{n}/{total}）', en: '{name} ({n} of {total})', fr: '{name} ({n} sur {total})' },
-  src_failed: { ja: '{n} 個のファイルを読み取れませんでした。', en: '{n} file(s) could not be read.', fr: '{n} fichier(s) n’ont pas pu être lus.' },
   src_add: { ja: 'この文を追加', en: 'Add these sentences', fr: 'Ajouter ces phrases' },
   src_hint: { ja: '読み取り結果を確認し、いらない行を消してから追加してください。', en: 'Check the result and delete unwanted lines before adding.', fr: 'Vérifiez le résultat et supprimez les lignes inutiles avant d’ajouter.' },
   src_ph: { ja: '読み取った文がここに出ます。1行に1文。', en: 'Recognized sentences appear here, one per line.', fr: 'Les phrases reconnues apparaissent ici, une par ligne.' },
@@ -206,6 +205,21 @@ const STR = {
   footer_kanji_data: { ja: '漢字データ', en: 'Kanji data', fr: 'Données kanji' },
   footer_examples: { ja: '例文', en: 'Example sentences', fr: "Phrases d'exemple" },
   lang_label: { ja: '言語', en: 'Language', fr: 'Langue' },
+  // reading a file: what is being downloaded or recognized, and what broke
+  src_dl_engine: { ja: '認識エンジンを取得しています…（{done} MB）', en: 'Downloading the recognition engine… ({done} MB)', fr: 'Téléchargement du moteur de reconnaissance… ({done} Mo)' },
+  src_dl_model: { ja: '認識モデルを取得しています…（{done} MB）', en: 'Downloading the recognition model… ({done} MB)', fr: 'Téléchargement du modèle de reconnaissance… ({done} Mo)' },
+  src_dl_tess: { ja: '予備の認識エンジンを読み込んでいます…', en: 'Loading the fallback recognizer…', fr: 'Chargement du moteur de secours…' },
+  src_at_page: { ja: '（{n}/{total} ページ目）', en: ' (page {n} of {total})', fr: ' (page {n} sur {total})' },
+  src_failed_file: { ja: '{name}{where}：{why}', en: '{name}{where}: {why}', fr: '{name}{where} : {why}' },
+  err_engine: { ja: '認識エンジン（約 14 MB）を取得できませんでした。通信状態を確認してもう一度お試しください。', en: 'The recognition engine (about 14 MB) could not be downloaded. Check the connection and try again.', fr: 'Le moteur de reconnaissance (environ 14 Mo) n’a pas pu être téléchargé. Vérifiez la connexion et réessayez.' },
+  err_model: { ja: '認識モデル（約 18 MB）を取得できませんでした。通信状態を確認してもう一度お試しください。', en: 'The recognition model (about 18 MB) could not be downloaded. Check the connection and try again.', fr: 'Le modèle de reconnaissance (environ 18 Mo) n’a pas pu être téléchargé. Vérifiez la connexion et réessayez.' },
+  err_session: { ja: 'このブラウザーでは認識エンジンを実行できませんでした。最新の Chrome または Edge でお試しください。', en: 'This browser could not run the recognition engine. Try a recent Chrome or Edge.', fr: 'Ce navigateur n’a pas pu exécuter le moteur de reconnaissance. Essayez avec un Chrome ou un Edge récent.' },
+  err_tesseract: { ja: '予備の認識エンジンを読み込めませんでした。通信状態を確認してもう一度お試しください。', en: 'The fallback recognizer could not be loaded. Check the connection and try again.', fr: 'Le moteur de secours n’a pas pu être chargé. Vérifiez la connexion et réessayez.' },
+  err_pdf: { ja: 'PDF を開けませんでした（破損しているかパスワード付きの可能性があります）。', en: 'The PDF could not be opened (it may be damaged or password-protected).', fr: 'Le PDF n’a pas pu être ouvert (il est peut-être endommagé ou protégé par mot de passe).' },
+  err_document: { ja: '文書を開けませんでした。', en: 'The document could not be opened.', fr: 'Le document n’a pas pu être ouvert.' },
+  err_image: { ja: '画像を読み込めませんでした。', en: 'The image could not be opened.', fr: 'L’image n’a pas pu être ouverte.' },
+  err_unsupported: { ja: 'このブラウザーは文字認識に対応していません（{detail}）。最新の Chrome または Edge でお試しください。', en: 'This browser does not support text recognition ({detail}). Try a recent Chrome or Edge.', fr: 'Ce navigateur ne prend pas en charge la reconnaissance de texte ({detail}). Essayez avec un Chrome ou un Edge récent.' },
+  err_other: { ja: '読み取れませんでした（{detail}）。', en: 'It could not be read ({detail}).', fr: 'La lecture a échoué ({detail}).' },
 };
 
 let lang = 'ja';

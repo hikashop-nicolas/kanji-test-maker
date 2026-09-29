@@ -14,7 +14,8 @@ import { decodeText, docxLines, odtLines } from './fileText.js?v=2';
 import { docText } from './msDoc.js?v=2';
 import { directionOfImage, densestCrop, turned } from './orientation.js?v=2';
 import { textLines, looksSplit } from './textLines.js?v=2';
-import { readLines } from './ppocr.js?v=2';
+import { readLines, onLoading } from './ppocr.js?v=3';
+import { StageError, during, stageOf } from './failure.js';
 
 // fonts we ship a TTF for and can embed in the .docx (all OFL-licensed)
 const FONT_TTF = {
@@ -412,9 +413,10 @@ function loadTesseract() {
   ocrScript = new Promise((resolve, reject) => {
     const s = document.createElement('script');
     s.src = 'vendor/tesseract/tesseract.min.js';
-    s.onload = resolve; s.onerror = reject;
+    s.onload = resolve;
+    s.onerror = () => reject(new StageError('tesseract', s.src));
     document.head.appendChild(s);
-  });
+  }).catch((e) => { ocrScript = null; throw e; }); // a retry is worth having
   return ocrScript;
 }
 let pdfModule = null; // promise: pdf.min.mjs imported once, on first PDF
@@ -423,7 +425,7 @@ function loadPdfjs() {
   pdfModule = import('../vendor/pdfjs/pdf.min.mjs').then(m => {
     m.GlobalWorkerOptions.workerSrc = 'vendor/pdfjs/pdf.worker.min.mjs';
     return m;
-  });
+  }).catch((e) => { pdfModule = null; throw e; });
   return pdfModule;
 }
 // split recognized text into candidate sentences: break on JP enders + newlines,
@@ -471,34 +473,44 @@ function splitTextLines(rows) {
 function makeReader() {
   const workers = new Map();
   let report = () => {};
+  const build = async (lang) => {
+    await loadTesseract();
+    const worker = await window.Tesseract.createWorker(lang, 1, {
+      workerPath: 'vendor/tesseract/worker.min.js',
+      corePath: 'vendor/tesseract/tesseract-core-simd-lstm.wasm.js',
+      langPath: 'assets/tessdata',
+      // the engine and its Japanese model are another 20 MB, fetched the first
+      // time a page needs them: say so rather than sit silent
+      logger: m => (m.status === 'recognizing text'
+        ? report(t('src_running', { p: Math.round(m.progress * 100) }), m.progress * 100)
+        : report(t('src_dl_tess'), m.progress * 100)),
+    });
+    // the vertical model only makes sense with page layout analysis; the
+    // default "one horizontal block" mode reads the columns crosswise
+    if (lang === 'jpn_vert') await worker.setParameters({ tessedit_pageseg_mode: window.Tesseract.PSM.AUTO });
+    return worker;
+  };
   const get = (lang) => {
     if (!workers.has(lang)) {
-      workers.set(lang, loadTesseract().then(() => window.Tesseract.createWorker(lang, 1, {
-        workerPath: 'vendor/tesseract/worker.min.js',
-        corePath: 'vendor/tesseract/tesseract-core-simd-lstm.wasm.js',
-        langPath: 'assets/tessdata',
-        logger: m => { if (m.status === 'recognizing text') report(Math.round(m.progress * 100)); },
-      })).then(async (worker) => {
-        // the vertical model only makes sense with page layout analysis; the
-        // default "one horizontal block" mode reads the columns crosswise
-        if (lang === 'jpn_vert') await worker.setParameters({ tessedit_pageseg_mode: window.Tesseract.PSM.AUTO });
-        return worker;
-      }));
+      // named so a failure can be explained, and forgotten so the next file
+      // tries again rather than inheriting this one's bad minute
+      workers.set(lang, during('tesseract', lang, () => build(lang))
+        .catch((e) => { workers.delete(lang); throw e; }));
     }
     return workers.get(lang);
   };
   return {
-    async read(image, vertical, onPercent = () => {}, want = { text: true, blocks: true }) {
-      const worker = await get(vertical ? 'jpn_vert' : 'jpn');
-      report = onPercent;
+    async read(image, vertical, onStep = () => {}, want = { text: true, blocks: true }) {
+      report = onStep;
       try {
+        const worker = await get(vertical ? 'jpn_vert' : 'jpn');
         return (await worker.recognize(image, {}, want)).data;
       } finally {
         report = () => {};
       }
     },
     async close() {
-      for (const pending of workers.values()) await (await pending).terminate();
+      for (const pending of workers.values()) await pending.then(w => w.terminate(), () => {});
       workers.clear();
     },
   };
@@ -517,7 +529,7 @@ const MODEL_OK = 0.25; // a page reading this word-like needs no second opinion
 async function readWithModel(image, vertical, say) {
   const lines = textLines(image, vertical);
   if (!looksSplit(lines, image, vertical)) return null;
-  const texts = await readLines(lines.flat(), p => say(t('src_running', { p })));
+  const texts = await readLines(lines.flat(), p => say(t('src_running', { p }), p));
   // a line split by a wide gap comes back in pieces; they are still one line
   const rows = [];
   let at = 0;
@@ -527,17 +539,27 @@ async function readWithModel(image, vertical, say) {
   return rows;
 }
 
+// The first reader failing is not itself a failure: the page goes to the
+// second one. It is worth remembering, though, because when both give out it
+// is usually for the same reason, and the first one knows what that reason was
+// (a download that never arrived) where tesseract only reports its own end of
+// it. The run keeps the first such reason and the interface prefers it.
+function noteTrouble(run, e) {
+  console.error('the line reader failed', e);
+  if (!run.trouble && e instanceof StageError) run.trouble = e;
+}
+
 // the better of the two readings, and only the second one when it is needed
-async function readPage(image, vertical, reader, say) {
+async function readPage(image, vertical, run, say) {
   let mine = null;
   try {
     mine = await readWithModel(image, vertical, say);
   } catch (e) {
-    console.error('the line reader failed', e);
+    noteTrouble(run, e);
   }
   const scoreOf = (rows) => readsAsWords(rows.map(r => r.text).join(''));
   if (mine && scoreOf(mine) >= MODEL_OK) return mine;
-  const theirs = rowsOf(await reader.read(image, vertical, p => say(t('src_running', { p }))));
+  const theirs = rowsOf(await run.reader.read(image, vertical, say));
   if (!mine) return theirs;
   return scoreOf(theirs) > scoreOf(mine) ? theirs : mine;
 }
@@ -588,19 +610,19 @@ function turnsFor(vertical, hint) {
   return hint ? [...all.filter(t => same(t, hint)), ...all.filter(t => !same(t, hint))] : all;
 }
 
-async function findOrientation(source, reader, say, hint) {
+async function findOrientation(source, run, say) {
   const geometry = directionOfImage(source) || { vertical: false };
   const crop = densestCrop(source, TRIAL_PX);
   let best = null;
   let most = 0; // the most text any way up produced
-  const tries = turnsFor(geometry.vertical, hint);
+  const tries = turnsFor(geometry.vertical, run.hint);
   for (const [n, candidate] of tries.entries()) {
-    say(t('src_checking', { n: n + 1, total: tries.length }));
+    say(t('src_checking', { n: n + 1, total: tries.length }), (n / tries.length) * 100);
     const patch = turned(crop, candidate.turn);
     let text = '';
-    const rows = await readWithModel(patch, candidate.vertical, () => {}).catch(() => null);
+    const rows = await readWithModel(patch, candidate.vertical, say).catch((e) => { noteTrouble(run, e); return null; });
     if (rows) text = rows.map(r => r.text).join('');
-    else text = (await reader.read(patch, candidate.vertical, () => {}, { text: true })).text;
+    else text = (await run.reader.read(patch, candidate.vertical, say, { text: true })).text;
     const score = readsAsWords(text);
     most = Math.max(most, text.replace(/\s+/g, '').length);
     if (!best || score > best.score) best = { ...candidate, score };
@@ -644,8 +666,8 @@ function askOrientation(crop, name) {
 }
 
 // a scanned page -> the same page the right way up, and how to read it
-async function uprightPage(source, reader, say, state, name) {
-  const best = await findOrientation(source, reader, say, state.hint);
+async function uprightPage(source, say, state, name) {
+  const best = await findOrientation(source, state, say);
   const choice = best.sparse || best.score > TRIAL_ASK
     ? best
     : await askOrientation(densestCrop(source, TRIAL_PX), name);
@@ -671,28 +693,34 @@ async function renderPage(page, dpi = 200) {
 // picture of it. A scan carries none, so those pages are rendered and read the
 // same way an image is.
 async function linesFromPdf(buf, run, say, name) {
-  const pdfjs = await loadPdfjs();
+  const pdfjs = await during('pdf', 'vendor/pdfjs', () => loadPdfjs());
   const task = pdfjs.getDocument({
     data: new Uint8Array(buf),
     cMapUrl: 'vendor/pdfjs/cmaps/',
     cMapPacked: true,
     wasmUrl: 'vendor/pdfjs/wasm/',
   });
-  const doc = await task.promise;
+  const doc = await during('pdf', name, () => task.promise);
   const lines = [];
   const scans = [];
   try {
     for (let n = 1; n <= doc.numPages; n++) {
-      say(t('src_pdf_page', { n, total: doc.numPages }));
+      say(t('src_pdf_page', { n, total: doc.numPages }), ((n - 1) / doc.numPages) * 100);
       const page = await doc.getPage(n);
       const found = pageLines((await page.getTextContent()).items, page.getViewport({ scale: 1 }).transform);
       if (found.length) lines.push(...found.map(text => ({ text })));
       else scans.push(await renderPage(page));
     }
     for (const [n, scan] of scans.entries()) {
-      const upright = await uprightPage(scan, run.reader, say, run, t('src_pdf_page', { n: n + 1, total: scans.length }));
-      const where = t('src_pdf_page', { n: n + 1, total: scans.length });
-      lines.push(...await readPage(upright.image, upright.vertical, run.reader, msg => say(`${where} ${msg}`)));
+      const where = t('src_at_page', { n: n + 1, total: scans.length });
+      try {
+        const upright = await uprightPage(scan, (msg, pc) => say(`${where} ${msg}`, pc), run, `${name}${where}`);
+        lines.push(...await readPage(upright.image, upright.vertical, run, (msg, pc) => say(`${where} ${msg}`, pc)));
+      } catch (e) {
+        // which page it gave up on is the first thing the teacher will ask
+        if (e instanceof StageError) e.where = where;
+        throw e;
+      }
     }
   } finally {
     await task.destroy();
@@ -731,8 +759,8 @@ const MAX_LINES = 300;
 async function readFile(kind, buf, run, say, name) {
   switch (kind) {
     case 'pdf': return linesFromPdf(buf, run, say, name);
-    case 'zip': return (await linesFromZip(buf)).map(text => ({ text }));
-    case 'doc': return (docText(buf) || '').split('\n').map(text => ({ text }));
+    case 'zip': return (await during('document', name, () => linesFromZip(buf))).map(text => ({ text }));
+    case 'doc': return (during('document', name, () => docText(buf)) || '').split('\n').map(text => ({ text }));
     default: return decodeText(buf).split(/\r?\n/).map(text => ({ text }));
   }
 }
@@ -754,9 +782,9 @@ async function readOneFile(file, run, say) {
   const buf = await file.arrayBuffer();
   const kind = sniff(buf, file);
   if (kind !== 'image') return readFile(kind, buf, run, say, file.name);
-  const page = await bitmapOf(file);
-  const upright = await uprightPage(page, run.reader, say, run, file.name);
-  return readPage(upright.image, upright.vertical, run.reader, say);
+  const page = await during('image', file.name, () => bitmapOf(file));
+  const upright = await uprightPage(page, say, run, file.name);
+  return readPage(upright.image, upright.vertical, run, say);
 }
 
 // The queue. A teacher scanning a workbook ends up with one file per page, so
@@ -806,6 +834,53 @@ function addFiles(files) {
   readQueue().catch(e => console.error('the queue stopped', e));
 }
 
+// ---- what is going on ----------------------------------------------------
+// Reading a file takes a spinner and a bar, not a word that sits there: the
+// first page to be recognized downloads 30 MB of engine and model, which on a
+// school connection is a minute of a screen that otherwise looks stuck.
+
+const busy = {
+  show(text, percent) {
+    $('src_progress').hidden = false;
+    $('src_step').textContent = text;
+    const bar = $('src_bar');
+    const known = typeof percent === 'number' && isFinite(percent);
+    bar.hidden = !known;
+    if (known) bar.firstElementChild.style.width = `${Math.max(0, Math.min(100, percent))}%`;
+  },
+  hide() {
+    $('src_progress').hidden = true;
+    $('src_step').textContent = '';
+  },
+};
+
+// the download of the recognizer, which happens inside ppocr.js, said in the
+// words of whatever file asked for it
+let tell = () => {};
+let told = 0;
+onLoading(({ what, loaded, total }) => {
+  const now = Date.now();
+  if (now - told < 100 && loaded !== total) return; // a chunk arrives faster than an eye reads
+  told = now;
+  const done = (loaded / (1024 * 1024)).toFixed(1);
+  tell(t(what === 'engine' ? 'src_dl_engine' : 'src_dl_model', { done }), total ? (loaded / total) * 100 : null);
+});
+
+// why a file could not be read, in words a teacher can act on
+function explain(e) {
+  const key = {
+    engine: 'err_engine',
+    model: 'err_model',
+    session: 'err_session',
+    tesseract: 'err_tesseract',
+    pdf: 'err_pdf',
+    document: 'err_document',
+    image: 'err_image',
+    unsupported: 'err_unsupported',
+  }[stageOf(e)];
+  return key ? t(key, { detail: e.detail || '' }) : t('err_other', { detail: (e && e.message) || e });
+}
+
 // Read the queue to the end, one file at a time, and put each file's sentences
 // up as it finishes. Anything dropped while this runs joins the same pass, so
 // the recognizer is loaded once however the files arrive.
@@ -813,18 +888,22 @@ async function readQueue() {
   if (reading || !picked.length) return;
   reading = true;
   const status = $('src_status');
-  const run = { reader: makeReader(), hint: null };
-  let failed = 0, found = 0, over = 0, done = 0;
+  const run = { reader: makeReader(), hint: null, trouble: null };
+  const problems = [];
+  let found = 0, over = 0, done = 0;
+  status.textContent = '';
+  status.classList.remove('bad');
   try {
     while (picked.length) {
       const file = picked[0];
       const total = done + picked.length;
       renderFiles(); // the head loses its × while it is being read
-      const say = (msg) => {
-        status.textContent = total > 1
+      const say = (msg, percent) => {
+        busy.show(total > 1
           ? `${t('src_of_file', { name: file.name, n: done + 1, total })} ${msg}`
-          : msg;
+          : msg, percent);
       };
+      tell = say;
       say(t('src_reading'));
       try {
         const lines = splitTextLines(await readOneFile(file, run, say));
@@ -832,18 +911,26 @@ async function readQueue() {
         over += appendLines(lines);
       } catch (e) {
         console.error('reading the file failed', file.name, e);
-        failed++;
+        // both readers give out together when the reason is the connection,
+        // and the first one is the one that knows what it was
+        const why = stageOf(e) === 'tesseract' && run.trouble ? run.trouble : e;
+        problems.push(t('src_failed_file', { name: file.name, where: why.where || '', why: explain(why) }));
+        status.classList.add('bad');
+        status.textContent = problems.join('\n');
       }
+      tell = () => {};
       picked.shift();
       done++;
       renderFiles();
     }
   } finally {
+    busy.hide();
+    tell = () => {};
     await run.reader.close();
     reading = false;
   }
+  if (problems.length) return; // the reasons are already up, one per file
   status.textContent = over ? t('src_truncated', { n: MAX_LINES, total: MAX_LINES + over })
-    : failed ? t('src_failed', { n: failed })
     : found ? '' : t('src_no_text');
 }
 

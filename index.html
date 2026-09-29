@@ -107,6 +107,17 @@
   .turns canvas { width:120px; height:120px; background:#fff; }
   .status:empty { display:none; }
   .status { margin:.5rem 0 0; }
+  /* reading a file: a spinner while the step is unmeasured, a bar once it is */
+  .progress[hidden] { display:none; }
+  .progress { margin:.5rem 0 0; }
+  .progress p { display:flex; align-items:center; gap:.45rem; margin:0; }
+  .spinner { flex:none; width:.85em; height:.85em; border:2px solid #dfe3e9; border-top-color:var(--accent); border-radius:50%; animation:spin .9s linear infinite; }
+  @keyframes spin { to { transform:rotate(360deg); } }
+  @media (prefers-reduced-motion:reduce) { .spinner { animation-duration:3s; } }
+  .bar { height:5px; margin-top:.35rem; border-radius:3px; background:#e6e9ee; overflow:hidden; }
+  .bar[hidden] { display:none; }
+  .bar i { display:block; height:100%; width:0; background:var(--accent); transition:width .25s linear; }
+  .status.bad { color:#c0392b; white-space:pre-line; }
   #src_out { margin-top:.6rem; }
   .filelist { list-style:none; display:flex; flex-wrap:wrap; gap:.35rem; margin:.5rem 0 0; padding:0; }
   .filelist:empty { display:none; }
@@ -336,7 +347,11 @@
       <p class="muted" data-i18n="src_lbl_file">ここにドロップしてもかまいません（PDF・Word・テキスト、または教科書のページなどの画像。複数まとめて可）</p>
     </div>
     <ul class="filelist" id="src_files"></ul>
-    <p class="muted status" id="src_status"></p>
+    <div class="progress" id="src_progress" hidden>
+      <p class="muted"><span class="spinner" aria-hidden="true"></span><span id="src_step" role="status"></span></p>
+      <div class="bar" id="src_bar" hidden><i></i></div>
+    </div>
+    <p class="muted status" id="src_status" role="status"></p>
     <div class="ask" id="src_ask" style="display:none">
       <p><span data-i18n="src_ask">どの向きなら文字が読めますか。</span> <span class="muted" id="src_ask_for"></span></p>
       <div class="turns" id="src_turns"></div>

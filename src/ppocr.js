@@ -14,22 +14,65 @@
 // slot 0 means "nothing here". Reading it back is the standard greedy collapse,
 // dropping blanks and runs of the same character.
 
+import { StageError, during } from './failure.js';
+
 const MODEL = 'assets/ppocr/rec.onnx.gz';
 const DICT = 'assets/ppocr/dict.txt';
 const HEIGHT = 48; // the line height the model was trained at
 const MIN_WIDTH = 16;
 const MAX_WIDTH = 3000; // a very long line is split rather than squeezed
+const ENGINE = '../vendor/onnx/ort-wasm-simd-threaded.wasm';
+
+// The engine is 14 MB and the model 18 MB, and neither is part of the app
+// shell: the first page that has to be recognized downloads both. That is a
+// long wait on a slow line, so every byte is counted and passed on.
+let watching = () => {};
+export function onLoading(fn) { watching = fn || (() => {}); }
+
+// fetch, reporting the bytes as they arrive. A server that compresses the
+// reply counts them in its own units, so a total that turns out to be too
+// small is dropped rather than shown as more than a whole.
+async function download(url, what) {
+  const res = await fetch(url);
+  if (!res.ok) throw new StageError(what, `${url} -> ${res.status}`);
+  let total = Number(res.headers.get('Content-Length')) || 0;
+  const reader = res.body?.getReader?.();
+  if (!reader) return new Uint8Array(await res.arrayBuffer()); // no stream: no progress
+  const chunks = [];
+  let loaded = 0;
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    chunks.push(value);
+    loaded += value.length;
+    if (loaded > total) total = 0;
+    watching({ what, loaded, total });
+  }
+  const bytes = new Uint8Array(loaded);
+  let at = 0;
+  for (const chunk of chunks) { bytes.set(chunk, at); at += chunk.length; }
+  return bytes;
+}
 
 let runtime = null; // promise: the onnx runtime, loaded on first use
 function loadRuntime() {
   if (!runtime) {
-    runtime = import('../vendor/onnx/ort.wasm.bundle.min.mjs').then(ort => {
+    runtime = (async () => {
+      if (typeof WebAssembly === 'undefined') throw new StageError('unsupported', 'WebAssembly');
+      // fetched here rather than left to the runtime, which offers no way to
+      // follow the download; handing it the bytes stops it fetching them again
+      const binary = await download(new URL(ENGINE, import.meta.url).href, 'engine');
+      const ort = await during('engine', ENGINE, () => import('../vendor/onnx/ort.wasm.bundle.min.mjs'));
       // an absolute URL: the runtime imports its own glue as a module, and a
       // bare path would be read as a package name
       ort.env.wasm.wasmPaths = new URL('../vendor/onnx/', import.meta.url).href;
+      ort.env.wasm.wasmBinary = binary.buffer;
       ort.env.wasm.numThreads = 1; // no cross-origin isolation on a static host
       return ort;
-    });
+    })();
+    // a download that failed is worth trying again: forget it rather than
+    // keeping the rejection and answering every later file with it
+    runtime = runtime.catch((e) => { runtime = null; throw e; });
   }
   return runtime;
 }
@@ -39,15 +82,17 @@ function loadModel() {
   if (!model) {
     model = (async () => {
       const ort = await loadRuntime();
+      if (typeof DecompressionStream === 'undefined') throw new StageError('unsupported', 'DecompressionStream');
       const [bytes, dict] = await Promise.all([
-        fetch(MODEL).then(r => r.arrayBuffer()).then(gunzip),
-        fetch(DICT).then(r => r.text()),
+        during('model', MODEL, async () => gunzip(await download(MODEL, 'model'))),
+        during('model', DICT, () => fetch(DICT).then(r => r.text())),
       ]);
-      const session = await ort.InferenceSession.create(bytes, { executionProviders: ['wasm'] });
+      const session = await during('session', MODEL, () => ort.InferenceSession.create(bytes, { executionProviders: ['wasm'] }));
       // slot 0 is the CTC blank, and PaddleOCR appends a space after the file
       const vocab = ['', ...dict.split('\n').map(line => line.replace(/[\r\n]+$/, '')), ' '];
       return { ort, session, vocab };
     })();
+    model = model.catch((e) => { model = null; throw e; });
   }
   return model;
 }
@@ -133,7 +178,6 @@ export async function ready() {
     return true;
   } catch (e) {
     console.error('the recognizer could not be loaded', e);
-    model = null;
     return false;
   }
 }
