@@ -22,7 +22,7 @@
     "vertical-writing"
   ],
   "devDependencies": {
-    "docx": "^9.7.2",
+    "docx": "^9.8.1",
     "jszip": "^3.10.2",
     "kuromoji": "^0.1.2",
     "onnxruntime-web": "^1.30.0",

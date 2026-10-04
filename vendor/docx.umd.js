@@ -9,7 +9,14 @@
 	var __getOwnPropNames = Object.getOwnPropertyNames;
 	var __getProtoOf = Object.getPrototypeOf;
 	var __hasOwnProp = Object.prototype.hasOwnProperty;
-	var __esmMin = (fn, res) => () => (fn && (res = fn(fn = 0)), res);
+	var __esmMin = (fn, res, err) => () => {
+		if (err) throw err[0];
+		try {
+			return fn && (res = fn(fn = 0)), res;
+		} catch (e) {
+			throw err = [e], e;
+		}
+	};
 	var __commonJSMin = (cb, mod) => () => (mod || (cb((mod = { exports: {} }).exports, mod), cb = null), mod.exports);
 	var __copyProps = (to, from, except, desc) => {
 		if (from && typeof from === "object" || typeof from === "function") for (var keys = __getOwnPropNames(from), i = 0, n = keys.length, key; i < n; i++) {
@@ -21,12 +28,12 @@
 		}
 		return to;
 	};
-	var __toESM = (mod, isNodeMode, target) => (target = mod != null ? __create(__getProtoOf(mod)) : {}, __copyProps(isNodeMode || !mod || !mod.__esModule ? __defProp(target, "default", {
+	var __toESM = (mod, isNodeMode, target) => (target = mod != null ? __create(__getProtoOf(mod)) : {}, __copyProps(isNodeMode || !mod || !mod.__esModule || !__hasOwnProp.call(mod, "default") ? __defProp(target, "default", {
 		value: mod,
 		enumerable: true
 	}) : target, mod));
 	//#endregion
-	//#region \0@oxc-project+runtime@0.133.0/helpers/esm/typeof.js
+	//#region \0@oxc-project+runtime@0.150.0/helpers/esm/typeof.js
 	function _typeof(o) {
 		"@babel/helpers - typeof";
 		return _typeof = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function(o) {
@@ -36,7 +43,7 @@
 		}, _typeof(o);
 	}
 	//#endregion
-	//#region \0@oxc-project+runtime@0.133.0/helpers/esm/toPrimitive.js
+	//#region \0@oxc-project+runtime@0.150.0/helpers/esm/toPrimitive.js
 	function toPrimitive(t, r) {
 		if ("object" != _typeof(t) || !t) return t;
 		var e = t[Symbol.toPrimitive];
@@ -48,13 +55,13 @@
 		return ("string" === r ? String : Number)(t);
 	}
 	//#endregion
-	//#region \0@oxc-project+runtime@0.133.0/helpers/esm/toPropertyKey.js
+	//#region \0@oxc-project+runtime@0.150.0/helpers/esm/toPropertyKey.js
 	function toPropertyKey(t) {
 		var i = toPrimitive(t, "string");
 		return "symbol" == _typeof(i) ? i : i + "";
 	}
 	//#endregion
-	//#region \0@oxc-project+runtime@0.133.0/helpers/esm/defineProperty.js
+	//#region \0@oxc-project+runtime@0.150.0/helpers/esm/defineProperty.js
 	function _defineProperty(e, r, t) {
 		return (r = toPropertyKey(r)) in e ? Object.defineProperty(e, r, {
 			value: t,
@@ -100,6 +107,13 @@
 			);
 			this.rootKey = rootKey;
 		}
+		/**
+		* The components written in this one's place, one after another, when it can't be written as a single element,
+		* such as a run with another run in its children. Undefined when it is written as itself.
+		*
+		* @internal
+		*/
+		get writtenAs() {}
 	};
 	//#endregion
 	//#region src/file/xml-components/xml-component.ts
@@ -190,8 +204,11 @@
 		prepForXml(context) {
 			var _children$;
 			context.stack.push(this);
-			const children = this.root.map((comp) => {
-				if (comp instanceof BaseXmlComponent) return comp.prepForXml(context);
+			const children = this.root.flatMap((comp) => {
+				if (comp instanceof BaseXmlComponent) {
+					const parts = comp.writtenAs;
+					return parts ? parts.map((part) => part.prepForXml(context)) : comp.prepForXml(context);
+				}
 				return comp;
 			}).filter((comp) => comp !== void 0);
 			context.stack.pop();
@@ -250,11 +267,11 @@
 		prepForXml(context) {
 			const result = super.prepForXml(context);
 			if (this.includeIfEmpty) return result;
-			if (result && (typeof result[this.rootKey] !== "object" || Object.keys(result[this.rootKey]).length)) return result;
+			return result && (typeof result[this.rootKey] !== "object" || Object.keys(result[this.rootKey]).length) ? result : void 0;
 		}
 	};
 	//#endregion
-	//#region \0@oxc-project+runtime@0.133.0/helpers/esm/objectSpread2.js
+	//#region \0@oxc-project+runtime@0.150.0/helpers/esm/objectSpread2.js
 	function ownKeys(e, r) {
 		var t = Object.keys(e);
 		if (Object.getOwnPropertySymbols) {
@@ -604,12 +621,13 @@
 			if (events === void 0) return this;
 			list = events[type];
 			if (list === void 0) return this;
-			if (list === listener || list.listener === listener) if (--this._eventsCount === 0) this._events = Object.create(null);
-			else {
-				delete events[type];
-				if (events.removeListener) this.emit("removeListener", type, list.listener || listener);
-			}
-			else if (typeof list !== "function") {
+			if (list === listener || list.listener === listener) {
+				if (--this._eventsCount === 0) this._events = Object.create(null);
+				else {
+					delete events[type];
+					if (events.removeListener) this.emit("removeListener", type, list.listener || listener);
+				}
+			} else if (typeof list !== "function") {
 				position = -1;
 				for (i = list.length - 1; i >= 0; i--) if (list[i] === listener || list[i].listener === listener) {
 					originalListener = list[i].listener;
@@ -632,8 +650,10 @@
 				if (arguments.length === 0) {
 					this._events = Object.create(null);
 					this._eventsCount = 0;
-				} else if (events[type] !== void 0) if (--this._eventsCount === 0) this._events = Object.create(null);
-				else delete events[type];
+				} else if (events[type] !== void 0) {
+					if (--this._eventsCount === 0) this._events = Object.create(null);
+					else delete events[type];
+				}
 				return this;
 			}
 			if (arguments.length === 0) {
@@ -717,9 +737,10 @@
 			if (typeof emitter.on === "function") eventTargetAgnosticAddListener(emitter, "error", handler, flags);
 		}
 		function eventTargetAgnosticAddListener(emitter, name, listener, flags) {
-			if (typeof emitter.on === "function") if (flags.once) emitter.once(name, listener);
-			else emitter.on(name, listener);
-			else if (typeof emitter.addEventListener === "function") emitter.addEventListener(name, function wrapListener(arg) {
+			if (typeof emitter.on === "function") {
+				if (flags.once) emitter.once(name, listener);
+				else emitter.on(name, listener);
+			} else if (typeof emitter.addEventListener === "function") emitter.addEventListener(name, function wrapListener(arg) {
 				if (flags.once) emitter.removeEventListener(name, wrapListener);
 				listener(arg);
 			});
@@ -936,8 +957,8 @@
 			var arr = new Arr(_byteLength(b64, validLen, placeHoldersLen));
 			var curByte = 0;
 			var len = placeHoldersLen > 0 ? validLen - 4 : validLen;
-			var i;
-			for (i = 0; i < len; i += 4) {
+			var i = 0;
+			for (; i < len; i += 4) {
 				tmp = revLookup[b64.charCodeAt(i)] << 18 | revLookup[b64.charCodeAt(i + 1)] << 12 | revLookup[b64.charCodeAt(i + 2)] << 6 | revLookup[b64.charCodeAt(i + 3)];
 				arr[curByte++] = tmp >> 16 & 255;
 				arr[curByte++] = tmp >> 8 & 255;
@@ -1091,7 +1112,7 @@
 		if (!Buffer.TYPED_ARRAY_SUPPORT && typeof console !== "undefined" && typeof console.error === "function") console.error("This browser lacks typed array (Uint8Array) support which is required by `buffer` v5.x. Use `buffer` v4.x if you require old browser support.");
 		function typedArraySupport() {
 			try {
-				var arr = new Uint8Array(1);
+				var arr = /* @__PURE__ */ new Uint8Array(1);
 				var proto = { foo: function() {
 					return 42;
 				} };
@@ -1300,9 +1321,10 @@
 			var pos = 0;
 			for (i = 0; i < list.length; ++i) {
 				var buf = list[i];
-				if (isInstance(buf, Uint8Array)) if (pos + buf.length > buffer.length) Buffer.from(buf).copy(buffer, pos);
-				else Uint8Array.prototype.set.call(buffer, buf, pos);
-				else if (!Buffer.isBuffer(buf)) throw new TypeError("\"list\" argument must be an Array of Buffers");
+				if (isInstance(buf, Uint8Array)) {
+					if (pos + buf.length > buffer.length) Buffer.from(buf).copy(buffer, pos);
+					else Uint8Array.prototype.set.call(buffer, buf, pos);
+				} else if (!Buffer.isBuffer(buf)) throw new TypeError("\"list\" argument must be an Array of Buffers");
 				else buf.copy(buffer, pos);
 				pos += buf.length;
 			}
@@ -1455,18 +1477,23 @@
 			byteOffset = +byteOffset;
 			if (numberIsNaN(byteOffset)) byteOffset = dir ? 0 : buffer.length - 1;
 			if (byteOffset < 0) byteOffset = buffer.length + byteOffset;
-			if (byteOffset >= buffer.length) if (dir) return -1;
-			else byteOffset = buffer.length - 1;
-			else if (byteOffset < 0) if (dir) byteOffset = 0;
-			else return -1;
+			if (byteOffset >= buffer.length) {
+				if (dir) return -1;
+				else byteOffset = buffer.length - 1;
+			} else if (byteOffset < 0) {
+				if (dir) byteOffset = 0;
+				else return -1;
+			}
 			if (typeof val === "string") val = Buffer.from(val, encoding);
 			if (Buffer.isBuffer(val)) {
 				if (val.length === 0) return -1;
 				return arrayIndexOf(buffer, val, byteOffset, encoding, dir);
 			} else if (typeof val === "number") {
 				val = val & 255;
-				if (typeof Uint8Array.prototype.indexOf === "function") if (dir) return Uint8Array.prototype.indexOf.call(buffer, val, byteOffset);
-				else return Uint8Array.prototype.lastIndexOf.call(buffer, val, byteOffset);
+				if (typeof Uint8Array.prototype.indexOf === "function") {
+					if (dir) return Uint8Array.prototype.indexOf.call(buffer, val, byteOffset);
+					else return Uint8Array.prototype.lastIndexOf.call(buffer, val, byteOffset);
+				}
 				return arrayIndexOf(buffer, [val], byteOffset, encoding, dir);
 			}
 			throw new TypeError("val must be string, number or Buffer");
@@ -2975,8 +3002,10 @@
 		var hasOwnProperty = Object.prototype.hasOwnProperty;
 		/** @type {<This, A extends readonly unknown[]>(arr: A, iterator: (this: This | void, value: A[number], index: number, arr: A) => void, receiver: This | undefined) => void} */
 		var forEachArray = function forEachArray(array, iterator, receiver) {
-			for (var i = 0, len = array.length; i < len; i++) if (hasOwnProperty.call(array, i)) if (receiver == null) iterator(array[i], i, array);
-			else iterator.call(receiver, array[i], i, array);
+			for (var i = 0, len = array.length; i < len; i++) if (hasOwnProperty.call(array, i)) {
+				if (receiver == null) iterator(array[i], i, array);
+				else iterator.call(receiver, array[i], i, array);
+			}
 		};
 		/** @type {<This, S extends string>(string: S, iterator: (this: This | void, value: S[number], index: number, string: S) => void, receiver: This | undefined) => void} */
 		var forEachString = function forEachString(string, iterator, receiver) {
@@ -2985,8 +3014,10 @@
 		};
 		/** @type {<This, O>(obj: O, iterator: (this: This | void, value: O[keyof O], index: keyof O, obj: O) => void, receiver: This | undefined) => void} */
 		var forEachObject = function forEachObject(object, iterator, receiver) {
-			for (var k in object) if (hasOwnProperty.call(object, k)) if (receiver == null) iterator(object[k], k, object);
-			else iterator.call(receiver, object[k], k, object);
+			for (var k in object) if (hasOwnProperty.call(object, k)) {
+				if (receiver == null) iterator(object[k], k, object);
+				else iterator.call(receiver, object[k], k, object);
+			}
 		};
 		/** @type {(x: unknown) => x is readonly unknown[]} */
 		function isArray(x) {
@@ -3101,8 +3132,10 @@
 				if (desc && !desc.configurable) functionLengthIsConfigurable = false;
 				if (desc && !desc.writable) functionLengthIsWritable = false;
 			}
-			if (functionLengthIsConfigurable || functionLengthIsWritable || !loose) if (hasDescriptors) define(fn, "length", length, true, true);
-			else define(fn, "length", length);
+			if (functionLengthIsConfigurable || functionLengthIsWritable || !loose) {
+				if (hasDescriptors) define(fn, "length", length, true, true);
+				else define(fn, "length", length);
+			}
 			return fn;
 		};
 	}));
@@ -3499,13 +3532,15 @@
 		}
 		exports.debuglog = function(set) {
 			set = set.toUpperCase();
-			if (!debugs[set]) if (debugEnvRegex.test(set)) {
-				var pid = process$1.pid;
-				debugs[set] = function() {
-					var msg = exports.format.apply(exports, arguments);
-					console.error("%s %d: %s", set, pid, msg);
-				};
-			} else debugs[set] = function() {};
+			if (!debugs[set]) {
+				if (debugEnvRegex.test(set)) {
+					var pid = process$1.pid;
+					debugs[set] = function() {
+						var msg = exports.format.apply(exports, arguments);
+						console.error("%s %d: %s", set, pid, msg);
+					};
+				} else debugs[set] = function() {};
+			}
 			return debugs[set];
 		};
 		/**
@@ -3603,8 +3638,10 @@
 			if (isDate(value)) base = " " + Date.prototype.toUTCString.call(value);
 			if (isError(value)) base = " " + formatError(value);
 			if (keys.length === 0 && (!array || value.length == 0)) return braces[0] + base + braces[1];
-			if (recurseTimes < 0) if (isRegExp(value)) return ctx.stylize(RegExp.prototype.toString.call(value), "regexp");
-			else return ctx.stylize("[Object]", "special");
+			if (recurseTimes < 0) {
+				if (isRegExp(value)) return ctx.stylize(RegExp.prototype.toString.call(value), "regexp");
+				else return ctx.stylize("[Object]", "special");
+			}
 			ctx.seen.push(value);
 			var output;
 			if (array) output = formatArray(ctx, value, recurseTimes, visibleKeys, keys);
@@ -3638,20 +3675,25 @@
 		}
 		function formatProperty(ctx, value, recurseTimes, visibleKeys, key, array) {
 			var name, str, desc = Object.getOwnPropertyDescriptor(value, key) || { value: value[key] };
-			if (desc.get) if (desc.set) str = ctx.stylize("[Getter/Setter]", "special");
-			else str = ctx.stylize("[Getter]", "special");
-			else if (desc.set) str = ctx.stylize("[Setter]", "special");
+			if (desc.get) {
+				if (desc.set) str = ctx.stylize("[Getter/Setter]", "special");
+				else str = ctx.stylize("[Getter]", "special");
+			} else if (desc.set) str = ctx.stylize("[Setter]", "special");
 			if (!hasOwnProperty(visibleKeys, key)) name = "[" + key + "]";
-			if (!str) if (ctx.seen.indexOf(desc.value) < 0) {
-				if (isNull(recurseTimes)) str = formatValue(ctx, desc.value, null);
-				else str = formatValue(ctx, desc.value, recurseTimes - 1);
-				if (str.indexOf("\n") > -1) if (array) str = str.split("\n").map(function(line) {
-					return "  " + line;
-				}).join("\n").slice(2);
-				else str = "\n" + str.split("\n").map(function(line) {
-					return "   " + line;
-				}).join("\n");
-			} else str = ctx.stylize("[Circular]", "special");
+			if (!str) {
+				if (ctx.seen.indexOf(desc.value) < 0) {
+					if (isNull(recurseTimes)) str = formatValue(ctx, desc.value, null);
+					else str = formatValue(ctx, desc.value, recurseTimes - 1);
+					if (str.indexOf("\n") > -1) {
+						if (array) str = str.split("\n").map(function(line) {
+							return "  " + line;
+						}).join("\n").slice(2);
+						else str = "\n" + str.split("\n").map(function(line) {
+							return "   " + line;
+						}).join("\n");
+					}
+				} else str = ctx.stylize("[Circular]", "special");
+			}
 			if (isUndefined(name)) {
 				if (array && key.match(/^\d+$/)) return str;
 				name = JSON.stringify("" + key);
@@ -4131,12 +4173,13 @@
 			if (this._readableState) this._readableState.destroyed = true;
 			if (this._writableState) this._writableState.destroyed = true;
 			this._destroy(err || null, function(err) {
-				if (!cb && err) if (!_this._writableState) process$1.nextTick(emitErrorAndCloseNT, _this, err);
-				else if (!_this._writableState.errorEmitted) {
-					_this._writableState.errorEmitted = true;
-					process$1.nextTick(emitErrorAndCloseNT, _this, err);
-				} else process$1.nextTick(emitCloseNT, _this);
-				else if (cb) {
+				if (!cb && err) {
+					if (!_this._writableState) process$1.nextTick(emitErrorAndCloseNT, _this, err);
+					else if (!_this._writableState.errorEmitted) {
+						_this._writableState.errorEmitted = true;
+						process$1.nextTick(emitErrorAndCloseNT, _this, err);
+					} else process$1.nextTick(emitCloseNT, _this);
+				} else if (cb) {
 					process$1.nextTick(emitCloseNT, _this);
 					cb(err);
 				} else process$1.nextTick(emitCloseNT, _this);
@@ -4282,7 +4325,7 @@
 				if (!(isFinite(hwm) && Math.floor(hwm) === hwm) || hwm < 0) throw new ERR_INVALID_OPT_VALUE(isDuplex ? duplexKey : "highWaterMark", hwm);
 				return Math.floor(hwm);
 			}
-			return state.objectMode ? 16 : 16 * 1024;
+			return state.objectMode ? 16 : 16384;
 		}
 		module.exports = { getHighWaterMark };
 	}));
@@ -4371,7 +4414,15 @@
 		}
 		var destroyImpl = require_destroy();
 		var getHighWaterMark = require_state().getHighWaterMark;
-		var _require$codes = require_errors_browser().codes, ERR_INVALID_ARG_TYPE = _require$codes.ERR_INVALID_ARG_TYPE, ERR_METHOD_NOT_IMPLEMENTED = _require$codes.ERR_METHOD_NOT_IMPLEMENTED, ERR_MULTIPLE_CALLBACK = _require$codes.ERR_MULTIPLE_CALLBACK, ERR_STREAM_CANNOT_PIPE = _require$codes.ERR_STREAM_CANNOT_PIPE, ERR_STREAM_DESTROYED = _require$codes.ERR_STREAM_DESTROYED, ERR_STREAM_NULL_VALUES = _require$codes.ERR_STREAM_NULL_VALUES, ERR_STREAM_WRITE_AFTER_END = _require$codes.ERR_STREAM_WRITE_AFTER_END, ERR_UNKNOWN_ENCODING = _require$codes.ERR_UNKNOWN_ENCODING;
+		var _require$codes = require_errors_browser().codes;
+		var ERR_INVALID_ARG_TYPE = _require$codes.ERR_INVALID_ARG_TYPE;
+		var ERR_METHOD_NOT_IMPLEMENTED = _require$codes.ERR_METHOD_NOT_IMPLEMENTED;
+		var ERR_MULTIPLE_CALLBACK = _require$codes.ERR_MULTIPLE_CALLBACK;
+		var ERR_STREAM_CANNOT_PIPE = _require$codes.ERR_STREAM_CANNOT_PIPE;
+		var ERR_STREAM_DESTROYED = _require$codes.ERR_STREAM_DESTROYED;
+		var ERR_STREAM_NULL_VALUES = _require$codes.ERR_STREAM_NULL_VALUES;
+		var ERR_STREAM_WRITE_AFTER_END = _require$codes.ERR_STREAM_WRITE_AFTER_END;
+		var ERR_UNKNOWN_ENCODING = _require$codes.ERR_UNKNOWN_ENCODING;
 		var errorOrDestroy = destroyImpl.errorOrDestroy;
 		require_inherits_browser()(Writable, Stream);
 		function nop() {}
@@ -4699,13 +4750,15 @@
 			});
 		}
 		function prefinish(stream, state) {
-			if (!state.prefinished && !state.finalCalled) if (typeof stream._final === "function" && !state.destroyed) {
-				state.pendingcb++;
-				state.finalCalled = true;
-				process$1.nextTick(callFinal, stream, state);
-			} else {
-				state.prefinished = true;
-				stream.emit("prefinish");
+			if (!state.prefinished && !state.finalCalled) {
+				if (typeof stream._final === "function" && !state.destroyed) {
+					state.pendingcb++;
+					state.finalCalled = true;
+					process$1.nextTick(callFinal, stream, state);
+				} else {
+					state.prefinished = true;
+					stream.emit("prefinish");
+				}
 			}
 		}
 		function finishMaybe(stream, state) {
@@ -4726,8 +4779,10 @@
 		function endWritable(stream, state, cb) {
 			state.ending = true;
 			finishMaybe(stream, state);
-			if (cb) if (state.finished) process$1.nextTick(cb);
-			else stream.once("finish", cb);
+			if (cb) {
+				if (state.finished) process$1.nextTick(cb);
+				else stream.once("finish", cb);
+			}
 			state.ended = true;
 			stream.writable = false;
 		}
@@ -4853,9 +4908,10 @@
 		SafeBuffer.alloc = function(size, fill, encoding) {
 			if (typeof size !== "number") throw new TypeError("Argument must be a number");
 			var buf = Buffer(size);
-			if (fill !== void 0) if (typeof encoding === "string") buf.fill(fill, encoding);
-			else buf.fill(fill);
-			else buf.fill(0);
+			if (fill !== void 0) {
+				if (typeof encoding === "string") buf.fill(fill, encoding);
+				else buf.fill(fill);
+			} else buf.fill(0);
 			return buf;
 		};
 		SafeBuffer.allocUnsafe = function(size) {
@@ -4989,8 +5045,10 @@
 			if (--j < i || nb === -2) return 0;
 			nb = utf8CheckByte(buf[j]);
 			if (nb >= 0) {
-				if (nb > 0) if (nb === 2) nb = 0;
-				else self.lastNeed = nb - 3;
+				if (nb > 0) {
+					if (nb === 2) nb = 0;
+					else self.lastNeed = nb - 3;
+				}
 				return nb;
 			}
 			return 0;
@@ -5376,7 +5434,11 @@
 		var BufferList = require_buffer_list();
 		var destroyImpl = require_destroy();
 		var getHighWaterMark = require_state().getHighWaterMark;
-		var _require$codes = require_errors_browser().codes, ERR_INVALID_ARG_TYPE = _require$codes.ERR_INVALID_ARG_TYPE, ERR_STREAM_PUSH_AFTER_EOF = _require$codes.ERR_STREAM_PUSH_AFTER_EOF, ERR_METHOD_NOT_IMPLEMENTED = _require$codes.ERR_METHOD_NOT_IMPLEMENTED, ERR_STREAM_UNSHIFT_AFTER_END_EVENT = _require$codes.ERR_STREAM_UNSHIFT_AFTER_END_EVENT;
+		var _require$codes = require_errors_browser().codes;
+		var ERR_INVALID_ARG_TYPE = _require$codes.ERR_INVALID_ARG_TYPE;
+		var ERR_STREAM_PUSH_AFTER_EOF = _require$codes.ERR_STREAM_PUSH_AFTER_EOF;
+		var ERR_METHOD_NOT_IMPLEMENTED = _require$codes.ERR_METHOD_NOT_IMPLEMENTED;
+		var ERR_STREAM_UNSHIFT_AFTER_END_EVENT = _require$codes.ERR_STREAM_UNSHIFT_AFTER_END_EVENT;
 		var StringDecoder;
 		var createReadableStreamAsyncIterator;
 		var from;
@@ -5488,9 +5550,10 @@
 				if (er) errorOrDestroy(stream, er);
 				else if (state.objectMode || chunk && chunk.length > 0) {
 					if (typeof chunk !== "string" && !state.objectMode && Object.getPrototypeOf(chunk) !== Buffer.prototype) chunk = _uint8ArrayToBuffer(chunk);
-					if (addToFront) if (state.endEmitted) errorOrDestroy(stream, new ERR_STREAM_UNSHIFT_AFTER_END_EVENT());
-					else addChunk(stream, state, chunk, true);
-					else if (state.ended) errorOrDestroy(stream, new ERR_STREAM_PUSH_AFTER_EOF());
+					if (addToFront) {
+						if (state.endEmitted) errorOrDestroy(stream, new ERR_STREAM_UNSHIFT_AFTER_END_EVENT());
+						else addChunk(stream, state, chunk, true);
+					} else if (state.ended) errorOrDestroy(stream, new ERR_STREAM_PUSH_AFTER_EOF());
 					else if (state.destroyed) return false;
 					else {
 						state.reading = false;
@@ -5564,8 +5627,10 @@
 		function howMuchToRead(n, state) {
 			if (n <= 0 || state.length === 0 && state.ended) return 0;
 			if (state.objectMode) return 1;
-			if (n !== n) if (state.flowing && state.length) return state.buffer.head.data.length;
-			else return state.length;
+			if (n !== n) {
+				if (state.flowing && state.length) return state.buffer.head.data.length;
+				else return state.length;
+			}
 			if (n > state.highWaterMark) state.highWaterMark = computeNewHighWaterMark(n);
 			if (n <= state.length) return n;
 			if (!state.ended) {
@@ -5694,9 +5759,7 @@
 				case 1:
 					state.pipes = [state.pipes, dest];
 					break;
-				default:
-					state.pipes.push(dest);
-					break;
+				default: state.pipes.push(dest);
 			}
 			state.pipesCount += 1;
 			debug("pipe count=%d opts=%j", state.pipesCount, pipeOpts);
@@ -6008,7 +6071,11 @@
 	//#region node_modules/stream-browserify/node_modules/readable-stream/lib/_stream_transform.js
 	var require__stream_transform = /* @__PURE__ */ __commonJSMin(((exports, module) => {
 		module.exports = Transform;
-		var _require$codes = require_errors_browser().codes, ERR_METHOD_NOT_IMPLEMENTED = _require$codes.ERR_METHOD_NOT_IMPLEMENTED, ERR_MULTIPLE_CALLBACK = _require$codes.ERR_MULTIPLE_CALLBACK, ERR_TRANSFORM_ALREADY_TRANSFORMING = _require$codes.ERR_TRANSFORM_ALREADY_TRANSFORMING, ERR_TRANSFORM_WITH_LENGTH_0 = _require$codes.ERR_TRANSFORM_WITH_LENGTH_0;
+		var _require$codes = require_errors_browser().codes;
+		var ERR_METHOD_NOT_IMPLEMENTED = _require$codes.ERR_METHOD_NOT_IMPLEMENTED;
+		var ERR_MULTIPLE_CALLBACK = _require$codes.ERR_MULTIPLE_CALLBACK;
+		var ERR_TRANSFORM_ALREADY_TRANSFORMING = _require$codes.ERR_TRANSFORM_ALREADY_TRANSFORMING;
+		var ERR_TRANSFORM_WITH_LENGTH_0 = _require$codes.ERR_TRANSFORM_WITH_LENGTH_0;
 		var Duplex = require__stream_duplex();
 		require_inherits_browser()(Transform, Duplex);
 		function afterTransform(er, data) {
@@ -6113,7 +6180,9 @@
 				callback.apply(void 0, arguments);
 			};
 		}
-		var _require$codes = require_errors_browser().codes, ERR_MISSING_ARGS = _require$codes.ERR_MISSING_ARGS, ERR_STREAM_DESTROYED = _require$codes.ERR_STREAM_DESTROYED;
+		var _require$codes = require_errors_browser().codes;
+		var ERR_MISSING_ARGS = _require$codes.ERR_MISSING_ARGS;
+		var ERR_STREAM_DESTROYED = _require$codes.ERR_STREAM_DESTROYED;
 		function noop(err) {
 			if (err) throw err;
 		}
@@ -6254,7 +6323,7 @@
 			sax.SAXParser = SAXParser;
 			sax.SAXStream = SAXStream;
 			sax.createStream = createStream;
-			sax.MAX_BUFFER_LENGTH = 64 * 1024;
+			sax.MAX_BUFFER_LENGTH = 65536;
 			var buffers = [
 				"comment",
 				"sgmlDecl",
@@ -6855,13 +6924,15 @@
 					var qn = qname(parser.attribName, true);
 					var prefix = qn.prefix;
 					var local = qn.local;
-					if (prefix === "xmlns") if (local === "xml" && parser.attribValue !== XML_NAMESPACE) strictFail(parser, "xml: prefix must be bound to " + XML_NAMESPACE + "\nActual: " + parser.attribValue);
-					else if (local === "xmlns" && parser.attribValue !== XMLNS_NAMESPACE) strictFail(parser, "xmlns: prefix must be bound to " + XMLNS_NAMESPACE + "\nActual: " + parser.attribValue);
-					else {
-						var tag = parser.tag;
-						var parent = parser.tags[parser.tags.length - 1] || parser;
-						if (tag.ns === parent.ns) tag.ns = Object.create(parent.ns);
-						tag.ns[local] = parser.attribValue;
+					if (prefix === "xmlns") {
+						if (local === "xml" && parser.attribValue !== XML_NAMESPACE) strictFail(parser, "xml: prefix must be bound to " + XML_NAMESPACE + "\nActual: " + parser.attribValue);
+						else if (local === "xmlns" && parser.attribValue !== XMLNS_NAMESPACE) strictFail(parser, "xmlns: prefix must be bound to " + XMLNS_NAMESPACE + "\nActual: " + parser.attribValue);
+						else {
+							var tag = parser.tag;
+							var parent = parser.tags[parser.tags.length - 1] || parser;
+							if (tag.ns === parent.ns) tag.ns = Object.create(parent.ns);
+							tag.ns[local] = parser.attribValue;
+						}
 					}
 					parser.attribList.push([parser.attribName, parser.attribValue]);
 				} else {
@@ -6987,14 +7058,16 @@
 				if (parser.ENTITIES[entity]) return parser.ENTITIES[entity];
 				if (parser.ENTITIES[entityLC]) return parser.ENTITIES[entityLC];
 				entity = entityLC;
-				if (entity.charAt(0) === "#") if (entity.charAt(1) === "x") {
-					entity = entity.slice(2);
-					num = parseInt(entity, 16);
-					numStr = num.toString(16);
-				} else {
-					entity = entity.slice(1);
-					num = parseInt(entity, 10);
-					numStr = num.toString(10);
+				if (entity.charAt(0) === "#") {
+					if (entity.charAt(1) === "x") {
+						entity = entity.slice(2);
+						num = parseInt(entity, 16);
+						numStr = num.toString(16);
+					} else {
+						entity = entity.slice(1);
+						num = parseInt(entity, 10);
+						numStr = num.toString(10);
+					}
 				}
 				entity = entity.replace(/^0+/, "");
 				if (isNaN(num) || numStr.toLowerCase() !== entity) {
@@ -7346,13 +7419,15 @@
 							else parser.state = S.ATTRIB;
 							continue;
 						case S.CLOSE_TAG:
-							if (!parser.tagName) if (isWhitespace(c)) continue;
-							else if (notMatch(nameStart, c)) if (parser.script) {
-								parser.script += "</" + c;
-								parser.state = S.SCRIPT;
-							} else strictFail(parser, "Invalid tagname in closing tag.");
-							else parser.tagName = c;
-							else if (c === ">") closeTag(parser);
+							if (!parser.tagName) {
+								if (isWhitespace(c)) continue;
+								else if (notMatch(nameStart, c)) {
+									if (parser.script) {
+										parser.script += "</" + c;
+										parser.state = S.SCRIPT;
+									} else strictFail(parser, "Invalid tagname in closing tag.");
+								} else parser.tagName = c;
+							} else if (c === ">") closeTag(parser);
 							else if (isMatch(nameBody, c)) parser.tagName += c;
 							else if (parser.script) {
 								parser.script += "</" + parser.tagName;
@@ -7385,7 +7460,6 @@
 								case S.ATTRIB_VALUE_ENTITY_U:
 									returnState = S.ATTRIB_VALUE_UNQUOTED;
 									buffer = "attribValue";
-									break;
 							}
 							if (c === ";") {
 								parser[buffer] += parseEntity(parser);
@@ -7551,11 +7625,13 @@
 				if (currentElement[options[type + "Key"]] && !isArray(currentElement[options[type + "Key"]])) currentElement[options[type + "Key"]] = [currentElement[options[type + "Key"]]];
 				if (type + "Fn" in options && typeof value === "string") value = options[type + "Fn"](value, currentElement);
 				if (type === "instruction" && ("instructionFn" in options || "instructionNameFn" in options)) {
-					for (key in value) if (value.hasOwnProperty(key)) if ("instructionFn" in options) value[key] = options.instructionFn(value[key], key, currentElement);
-					else {
-						var temp = value[key];
-						delete value[key];
-						value[options.instructionNameFn(key, temp, currentElement)] = temp;
+					for (key in value) if (value.hasOwnProperty(key)) {
+						if ("instructionFn" in options) value[key] = options.instructionFn(value[key], key, currentElement);
+						else {
+							var temp = value[key];
+							delete value[key];
+							value[options.instructionNameFn(key, temp, currentElement)] = temp;
+						}
 					}
 				}
 				if (isArray(currentElement[options[type + "Key"]])) currentElement[options[type + "Key"]].push(value);
@@ -7743,7 +7819,8 @@
 	var require_js2xml = /* @__PURE__ */ __commonJSMin(((exports, module) => {
 		var helper = require_options_helper();
 		var isArray = require_array_helper().isArray;
-		var currentElement, currentElementName;
+		var currentElement;
+		var currentElementName;
 		function validateOptions(userOptions) {
 			var options = helper.copyOptions(userOptions);
 			helper.ensureFlagExists("ignoreDeclaration", options);
@@ -7865,8 +7942,10 @@
 			xml.push("<" + elementName);
 			if (element[options.attributesKey]) xml.push(writeAttributes(element[options.attributesKey], options, depth));
 			var withClosingTag = element[options.elementsKey] && element[options.elementsKey].length || element[options.attributesKey] && element[options.attributesKey]["xml:space"] === "preserve";
-			if (!withClosingTag) if ("fullTagEmptyElementFn" in options) withClosingTag = options.fullTagEmptyElementFn(element.name, element);
-			else withClosingTag = options.fullTagEmptyElement;
+			if (!withClosingTag) {
+				if ("fullTagEmptyElementFn" in options) withClosingTag = options.fullTagEmptyElementFn(element.name, element);
+				else withClosingTag = options.fullTagEmptyElement;
+			}
 			if (withClosingTag) {
 				xml.push(">");
 				if (element[options.elementsKey] && element[options.elementsKey].length) {
@@ -7929,8 +8008,10 @@
 				}
 				if (element[options.attributesKey]) xml.push(writeAttributes(element[options.attributesKey], options, depth));
 				var withClosingTag = hasContentCompact(element, options, true) || element[options.attributesKey] && element[options.attributesKey]["xml:space"] === "preserve";
-				if (!withClosingTag) if ("fullTagEmptyElementFn" in options) withClosingTag = options.fullTagEmptyElementFn(name, element);
-				else withClosingTag = options.fullTagEmptyElement;
+				if (!withClosingTag) {
+					if ("fullTagEmptyElementFn" in options) withClosingTag = options.fullTagEmptyElementFn(name, element);
+					else withClosingTag = options.fullTagEmptyElement;
+				}
 				if (withClosingTag) xml.push(">");
 				else {
 					xml.push("/>");
@@ -8145,12 +8226,6 @@
 		}
 	};
 	//#endregion
-	//#region src/file/xml-components/xmlable-object.ts
-	/**
-	* @ignore
-	*/
-	var WORKAROUND3 = "";
-	//#endregion
 	//#region src/file/xml-components/initializable-xml-component.ts
 	/**
 	* Initializable XML Component module.
@@ -8326,6 +8401,43 @@
 		return `${Number(amount)}${unit}`;
 	};
 	/**
+	* Twips per unit for each universal measure suffix.
+	*
+	* 1 inch = 72 points = 1440 twips; 1 pica = 12 points.
+	*/
+	var TWIPS_PER_UNIT = {
+		in: 1440,
+		cm: 1440 / 2.54,
+		mm: 1440 / 25.4,
+		pt: 20,
+		pc: 240,
+		pi: 240
+	};
+	/**
+	* Converts a universal measure (or a value already in twips) into twips.
+	*
+	* Numbers are assumed to already be in twips and are returned unchanged.
+	* Strings are converted according to their unit suffix.
+	*
+	* @param val - A number of twips or a universal measure such as "10mm" or "1.5in"
+	* @returns The equivalent number of twips (not rounded)
+	*
+	* @example
+	* ```typescript
+	* universalMeasureToTwips(720); // Returns 720
+	* universalMeasureToTwips("1in"); // Returns 1440
+	* universalMeasureToTwips("2.54cm"); // Returns 1440
+	* ```
+	*/
+	var universalMeasureToTwips = (val) => {
+		if (typeof val === "number") return val;
+		const unit = val.slice(-2);
+		const amount = Number(val.substring(0, val.length - 2));
+		const twipsPerUnit = TWIPS_PER_UNIT[unit];
+		if (twipsPerUnit === void 0 || Number.isNaN(amount)) throw new Error(`Invalid universal measure '${val}'. Expected a number followed by mm, cm, in, pt, pc or pi.`);
+		return amount * twipsPerUnit;
+	};
+	/**
 	* Validates and normalizes a positive universal measure value.
 	*
 	* Reference: ST_PositiveUniversalMeasure in OOXML specification
@@ -8472,8 +8584,7 @@
 	*/
 	var measurementOrPercentValue = (val) => {
 		if (typeof val === "number") return decimalNumber(val);
-		if (val.slice(-1) === "%") return percentageValue(val);
-		return universalMeasureValue(val);
+		return val.slice(-1) === "%" ? percentageValue(val) : universalMeasureValue(val);
 	};
 	/**
 	* Validates an eighth-point measurement value.
@@ -8899,6 +9010,337 @@
 		} }
 	});
 	//#endregion
+	//#region src/file/theme/color-scheme.ts
+	/**
+	* Color scheme module for DrawingML themes.
+	*
+	* The twelve colors of a document's theme: the dark and light colors text and backgrounds use, six accent colors,
+	* and the colors of hyperlinks.
+	*
+	* Reference: http://officeopenxml.com/drwTheme.php
+	*
+	* @module
+	*/
+	var COLOR_OOXML_NAMES = {
+		dark1: "dk1",
+		light1: "lt1",
+		dark2: "dk2",
+		light2: "lt2",
+		accent1: "accent1",
+		accent2: "accent2",
+		accent3: "accent3",
+		accent4: "accent4",
+		accent5: "accent5",
+		accent6: "accent6",
+		hyperlink: "hlink",
+		followedHyperlink: "folHlink"
+	};
+	var OFFICE_COLORS = {
+		dark2: "44546A",
+		light2: "E7E6E6",
+		accent1: "4472C4",
+		accent2: "ED7D31",
+		accent3: "A5A5A5",
+		accent4: "FFC000",
+		accent5: "5B9BD5",
+		accent6: "70AD47",
+		hyperlink: "0563C1",
+		followedHyperlink: "954F72"
+	};
+	var OFFICE_SYSTEM_COLORS = {
+		dark1: {
+			value: "windowText",
+			lastColor: "000000"
+		},
+		light1: {
+			value: "window",
+			lastColor: "FFFFFF"
+		}
+	};
+	var rgbColorValue = (name, color) => {
+		if (color === "auto") throw new Error(`Invalid theme color ${name} 'auto'. Expected 6 digit hex value`);
+		return hexColorValue(color);
+	};
+	/**
+	* The hex color of each of a theme's colors, with Office's in place of those not given. The system's window text and
+	* window colors are black and white.
+	*
+	* @throws If a color isn't a 6-digit hex value
+	*/
+	var themeColorValues = (colors = {}) => Object.fromEntries(Object.keys(COLOR_OOXML_NAMES).map((name) => {
+		const color = colors[name];
+		const office = name === "dark1" || name === "light1" ? OFFICE_SYSTEM_COLORS[name].lastColor : OFFICE_COLORS[name];
+		return [name, color === void 0 ? office : rgbColorValue(name, color)];
+	}));
+	var createRgbColor = (name, color) => new BuilderElement({
+		name: "a:srgbClr",
+		attributes: { value: {
+			key: "val",
+			value: rgbColorValue(name, color)
+		} }
+	});
+	var createColor = (name, colors) => {
+		const color = colors[name];
+		const system = name === "dark1" || name === "light1" ? OFFICE_SYSTEM_COLORS[name] : void 0;
+		return new BuilderElement({
+			name: `a:${COLOR_OOXML_NAMES[name]}`,
+			children: [color === void 0 && system ? new BuilderElement({
+				name: "a:sysClr",
+				attributes: {
+					value: {
+						key: "val",
+						value: system.value
+					},
+					lastColor: {
+						key: "lastClr",
+						value: system.lastColor
+					}
+				}
+			}) : createRgbColor(name, color !== null && color !== void 0 ? color : OFFICE_COLORS[name])]
+		});
+	};
+	/**
+	* Creates a theme's color scheme, with Office's colors in place of those not given.
+	*
+	* ## XSD Schema
+	* ```xml
+	* <xsd:complexType name="CT_ColorScheme">
+	*   <xsd:sequence>
+	*     <xsd:element name="dk1" type="CT_Color" minOccurs="1" maxOccurs="1"/>
+	*     <xsd:element name="lt1" type="CT_Color" minOccurs="1" maxOccurs="1"/>
+	*     <xsd:element name="dk2" type="CT_Color" minOccurs="1" maxOccurs="1"/>
+	*     <xsd:element name="lt2" type="CT_Color" minOccurs="1" maxOccurs="1"/>
+	*     <xsd:element name="accent1" type="CT_Color" minOccurs="1" maxOccurs="1"/>
+	*     <xsd:element name="accent2" type="CT_Color" minOccurs="1" maxOccurs="1"/>
+	*     <xsd:element name="accent3" type="CT_Color" minOccurs="1" maxOccurs="1"/>
+	*     <xsd:element name="accent4" type="CT_Color" minOccurs="1" maxOccurs="1"/>
+	*     <xsd:element name="accent5" type="CT_Color" minOccurs="1" maxOccurs="1"/>
+	*     <xsd:element name="accent6" type="CT_Color" minOccurs="1" maxOccurs="1"/>
+	*     <xsd:element name="hlink" type="CT_Color" minOccurs="1" maxOccurs="1"/>
+	*     <xsd:element name="folHlink" type="CT_Color" minOccurs="1" maxOccurs="1"/>
+	*     <xsd:element name="extLst" type="CT_OfficeArtExtensionList" minOccurs="0" maxOccurs="1"/>
+	*   </xsd:sequence>
+	*   <xsd:attribute name="name" type="xsd:string" use="required"/>
+	* </xsd:complexType>
+	* ```
+	*
+	* @throws If a color isn't a 6-digit hex value
+	*/
+	var createColorScheme = (name, colors = {}) => new BuilderElement({
+		name: "a:clrScheme",
+		attributes: { name: {
+			key: "name",
+			value: name
+		} },
+		children: Object.keys(COLOR_OOXML_NAMES).map((color) => createColor(color, colors))
+	});
+	//#endregion
+	//#region src/file/theme/theme-color.ts
+	/**
+	* Theme color module for WordprocessingML documents.
+	*
+	* Text, underlines, borders and shading can be in a color of the document's theme, lighter or darker as Word's color
+	* menus offer them. Word writes the theme color's name, how much lighter (`themeTint`) or darker (`themeShade`) it
+	* is, and the color it comes to in hex, for applications that don't read the theme. The hex color is worked out in
+	* HSL as the standard describes, and is close to Word's but not always the same.
+	*
+	* Reference: http://officeopenxml.com/WPtextFormatting.php
+	*
+	* @module
+	*/
+	var THEME_COLOR_NAMES = /* @__PURE__ */ new Set([
+		"dark1",
+		"light1",
+		"dark2",
+		"light2",
+		"accent1",
+		"accent2",
+		"accent3",
+		"accent4",
+		"accent5",
+		"accent6",
+		"hyperlink",
+		"followedHyperlink"
+	]);
+	var THEME_COLOR_SUGGESTIONS = /* @__PURE__ */ new Map([
+		["dk1", "dark1"],
+		["lt1", "light1"],
+		["dk2", "dark2"],
+		["lt2", "light2"],
+		["hlink", "hyperlink"],
+		["folHlink", "followedHyperlink"],
+		["text1", "dark1"],
+		["background1", "light1"],
+		["text2", "dark2"],
+		["background2", "light2"]
+	]);
+	var changeValue = (value, option) => {
+		if (!(value >= 0 && value <= 100)) throw new Error(`Invalid ${option} ${value}. Expected a number from 0 to 100`);
+		return Math.round(255 * (1 - value / 100));
+	};
+	/**
+	* Checks a theme color, and works out its tint or shade.
+	*
+	* @throws If the color isn't one of the theme's, is both lighter and darker, or a change is outside 0 to 100
+	*/
+	var themeColorChange = ({ theme, lighter, darker }) => {
+		if (!THEME_COLOR_NAMES.has(theme)) {
+			const suggestion = THEME_COLOR_SUGGESTIONS.get(theme);
+			throw new Error(`Invalid theme color "${theme}". ${suggestion ? `Did you mean "${suggestion}"?` : `Expected one of ${[...THEME_COLOR_NAMES].join(", ")}`}`);
+		}
+		if (lighter !== void 0 && darker !== void 0) throw new Error("Invalid theme color. Expected lighter or darker, not both");
+		const tint = lighter === void 0 ? void 0 : changeValue(lighter, "lighter");
+		const shade = darker === void 0 ? void 0 : changeValue(darker, "darker");
+		return {
+			tint: tint === 255 ? void 0 : tint,
+			shade: shade === 255 ? void 0 : shade
+		};
+	};
+	var toHsl = (hex) => {
+		const [red, green, blue] = [
+			0,
+			2,
+			4
+		].map((index) => parseInt(hex.slice(index, index + 2), 16) / 255);
+		const max = Math.max(red, green, blue);
+		const min = Math.min(red, green, blue);
+		const lightness = (max + min) / 2;
+		const range = max - min;
+		if (range === 0) return {
+			hue: 0,
+			saturation: 0,
+			lightness
+		};
+		return {
+			hue: (max === red ? ((green - blue) / range + 6) % 6 : max === green ? (blue - red) / range + 2 : (red - green) / range + 4) * 60,
+			saturation: range / (1 - Math.abs(2 * lightness - 1)),
+			lightness
+		};
+	};
+	var toHex = ({ hue, saturation, lightness }) => {
+		const chroma = (1 - Math.abs(2 * lightness - 1)) * saturation;
+		const second = chroma * (1 - Math.abs(hue / 60 % 2 - 1));
+		const [red, green, blue] = hue < 60 ? [
+			chroma,
+			second,
+			0
+		] : hue < 120 ? [
+			second,
+			chroma,
+			0
+		] : hue < 180 ? [
+			0,
+			chroma,
+			second
+		] : hue < 240 ? [
+			0,
+			second,
+			chroma
+		] : hue < 300 ? [
+			second,
+			0,
+			chroma
+		] : [
+			chroma,
+			0,
+			second
+		];
+		const lowest = lightness - chroma / 2;
+		return [
+			red,
+			green,
+			blue
+		].map((value) => Math.floor((value + lowest) * 255 + 1e-9).toString(16).padStart(2, "0")).join("").toUpperCase();
+	};
+	/**
+	* The color a theme color comes to: its lightness moved towards white by its tint, or towards black by its shade.
+	*/
+	var applyChange = (hex, { tint, shade }) => {
+		if (tint === void 0 && shade === void 0) return hex;
+		const hsl = toHsl(hex);
+		const lightness = tint === void 0 ? hsl.lightness * shade / 255 : hsl.lightness * tint / 255 + (1 - tint / 255);
+		return toHex(_objectSpread2(_objectSpread2({}, hsl), {}, { lightness }));
+	};
+	var hexByte = (value) => value === void 0 ? void 0 : value.toString(16).padStart(2, "0").toUpperCase();
+	/**
+	* Checks a color option, so that mistakes throw when an element is created rather than when it is written.
+	*
+	* @throws If a hex color isn't 6 hex digits, or a theme color isn't valid
+	*/
+	var checkColor = (color) => typeof color === "string" ? {
+		type: "hex",
+		value: hexColorValue(color)
+	} : {
+		type: "theme",
+		color,
+		change: themeColorChange(color)
+	};
+	var colorValues = (checked, colors) => checked.type === "hex" ? { color: checked.value } : {
+		color: applyChange(colors[checked.color.theme], checked.change),
+		theme: checked.color.theme,
+		tint: hexByte(checked.change.tint),
+		shade: hexByte(checked.change.shade)
+	};
+	var OFFICE_THEME_COLORS = themeColorValues();
+	/**
+	* The attributes of an element with colors, some of which may be the theme's. A theme color is written with the hex
+	* color it comes to in the document's theme, so that is worked out when the element is written. Attributes are written
+	* in the order given.
+	*
+	* @internal
+	*/
+	var ColorAttributeComponent = class extends BaseXmlComponent {
+		/**
+		* @throws If a color isn't valid
+		*/
+		constructor(attributes) {
+			super("_attr");
+			_defineProperty(this, "attributes", void 0);
+			this.attributes = attributes.map((attribute) => "keys" in attribute ? {
+				keys: attribute.keys,
+				color: attribute.color === void 0 ? void 0 : checkColor(attribute.color)
+			} : attribute);
+		}
+		prepForXml(context) {
+			var _context$file$Theme$C, _context$file;
+			const themeColors = (_context$file$Theme$C = (_context$file = context.file) === null || _context$file === void 0 || (_context$file = _context$file.Theme) === null || _context$file === void 0 ? void 0 : _context$file.Colors) !== null && _context$file$Theme$C !== void 0 ? _context$file$Theme$C : OFFICE_THEME_COLORS;
+			const entries = this.attributes.flatMap((attribute) => {
+				if (!("keys" in attribute)) return [[attribute.key, attribute.value]];
+				if (attribute.color === void 0) return [];
+				const { keys } = attribute;
+				const values = colorValues(attribute.color, themeColors);
+				return [
+					[keys.color, values.color],
+					[keys.theme, values.theme],
+					[keys.tint, values.tint],
+					[keys.shade, values.shade]
+				];
+			});
+			return { _attr: Object.fromEntries(entries.filter(([, value]) => value !== void 0)) };
+		}
+	};
+	var ColorElement = class extends XmlComponent {
+		constructor(name, attributes) {
+			super(name);
+			this.root.push(new ColorAttributeComponent(attributes));
+		}
+	};
+	/**
+	* Creates an element whose attributes include colors, some of which may be the theme's.
+	*
+	* @throws If a color isn't valid
+	*/
+	var createColorElement = (name, attributes) => new ColorElement(name, attributes);
+	/**
+	* The attributes most elements write a color with: `w:color`, `w:themeColor`, `w:themeTint` and `w:themeShade`.
+	*/
+	var COLOR_ATTRIBUTES = {
+		color: "w:color",
+		theme: "w:themeColor",
+		tint: "w:themeTint",
+		shade: "w:themeShade"
+	};
+	//#endregion
 	//#region src/file/border/border.ts
 	/**
 	* Border module for WordprocessingML documents.
@@ -8948,27 +9390,24 @@
 	* });
 	* ```
 	*/
-	var createBorderElement = (elementName, { color, size, space, style }) => new BuilderElement({
-		name: elementName,
-		attributes: {
-			style: {
-				key: "w:val",
-				value: style
-			},
-			color: {
-				key: "w:color",
-				value: color === void 0 ? void 0 : hexColorValue(color)
-			},
-			size: {
-				key: "w:sz",
-				value: size === void 0 ? void 0 : eighthPointMeasureValue(size)
-			},
-			space: {
-				key: "w:space",
-				value: space === void 0 ? void 0 : pointMeasureValue(space)
-			}
+	var createBorderElement = (elementName, { color, size, space, style }) => createColorElement(elementName, [
+		{
+			key: "w:val",
+			value: style
+		},
+		{
+			keys: COLOR_ATTRIBUTES,
+			color
+		},
+		{
+			key: "w:sz",
+			value: size === void 0 ? void 0 : eighthPointMeasureValue(size)
+		},
+		{
+			key: "w:space",
+			value: space === void 0 ? void 0 : pointMeasureValue(space)
 		}
-	});
+	]);
 	/**
 	* Table borders are defined with the <w:tblBorders> element. Child elements of this element specify the kinds of `border`:
 	*
@@ -9116,8 +9555,8 @@
 		constructor(options) {
 			super("w:pBdr");
 			if (options.top) this.root.push(createBorderElement("w:top", options.top));
-			if (options.bottom) this.root.push(createBorderElement("w:bottom", options.bottom));
 			if (options.left) this.root.push(createBorderElement("w:left", options.left));
+			if (options.bottom) this.root.push(createBorderElement("w:bottom", options.bottom));
 			if (options.right) this.root.push(createBorderElement("w:right", options.right));
 			if (options.between) this.root.push(createBorderElement("w:between", options.between));
 		}
@@ -9684,23 +10123,25 @@
 	*
 	* Reference: http://officeopenxml.com/WPshading.php
 	*/
-	var createShading = ({ fill, color, type }) => new BuilderElement({
-		name: "w:shd",
-		attributes: {
-			fill: {
-				key: "w:fill",
-				value: fill === void 0 ? void 0 : hexColorValue(fill)
+	var createShading = ({ fill, color, type }) => createColorElement("w:shd", [
+		{
+			keys: {
+				color: "w:fill",
+				theme: "w:themeFill",
+				tint: "w:themeFillTint",
+				shade: "w:themeFillShade"
 			},
-			color: {
-				key: "w:color",
-				value: color === void 0 ? void 0 : hexColorValue(color)
-			},
-			type: {
-				key: "w:val",
-				value: type
-			}
+			color: fill
+		},
+		{
+			keys: COLOR_ATTRIBUTES,
+			color
+		},
+		{
+			key: "w:val",
+			value: type !== null && type !== void 0 ? type : ShadingType.CLEAR
 		}
-	});
+	]);
 	/**
 	* Shading pattern types.
 	*
@@ -9968,6 +10409,7 @@ DOT: "dot" };
 	* ```typescript
 	* new Color("FF0000"); // Red text
 	* new Color("auto"); // Automatic color
+	* new Color({ theme: "accent1", darker: 25 }); // The theme's first accent color, 25% darker
 	* ```
 	*
 	* @internal
@@ -9975,7 +10417,10 @@ DOT: "dot" };
 	var Color = class extends XmlComponent {
 		constructor(color) {
 			super("w:color");
-			this.root.push(new Attributes({ val: hexColorValue(color) }));
+			this.root.push(new ColorAttributeComponent([{
+				keys: _objectSpread2(_objectSpread2({}, COLOR_ATTRIBUTES), {}, { color: "w:val" }),
+				color
+			}]));
 		}
 	};
 	/**
@@ -10017,20 +10462,6 @@ DOT: "dot" };
 	var Highlight = class extends XmlComponent {
 		constructor(color) {
 			super("w:highlight");
-			this.root.push(new Attributes({ val: color }));
-		}
-	};
-	/**
-	* Represents text highlighting for complex scripts.
-	*
-	* Used for highlighting text in complex script languages
-	* (e.g., Arabic, Hebrew, Thai).
-	*
-	* @internal
-	*/
-	var HighlightComplexScript = class extends XmlComponent {
-		constructor(color) {
-			super("w:highlightCs");
 			this.root.push(new Attributes({ val: color }));
 		}
 	};
@@ -10136,6 +10567,9 @@ DOT: "dot" };
 	*   cs: "Arial",
 	*   hAnsi: "Arial",
 	* });
+	*
+	* // Use the theme's font for body text, in every character set
+	* createRunFonts({ theme: "body" });
 	* ```
 	*/
 	var createRunFonts = (nameOrAttrs, hint) => {
@@ -10163,6 +10597,30 @@ DOT: "dot" };
 					hint: {
 						key: "w:hint",
 						value: hint
+					}
+				}
+			});
+		}
+		if ("theme" in nameOrAttrs) {
+			const theme = nameOrAttrs.theme === "headings" ? "major" : "minor";
+			return new BuilderElement({
+				name: "w:rFonts",
+				attributes: {
+					ascii: {
+						key: "w:asciiTheme",
+						value: `${theme}HAnsi`
+					},
+					eastAsia: {
+						key: "w:eastAsiaTheme",
+						value: `${theme}EastAsia`
+					},
+					hAnsi: {
+						key: "w:hAnsiTheme",
+						value: `${theme}HAnsi`
+					},
+					cs: {
+						key: "w:cstheme",
+						value: `${theme}Bidi`
 					}
 				}
 			});
@@ -10358,21 +10816,18 @@ DOT: "dot" };
 	*
 	* // Red wavy underline
 	* createUnderline(UnderlineType.WAVE, "FF0000");
+	*
+	* // Underline in the theme's first accent color
+	* createUnderline(UnderlineType.SINGLE, { theme: "accent1" });
 	* ```
 	*/
-	var createUnderline = (underlineType = UnderlineType.SINGLE, color) => new BuilderElement({
-		name: "w:u",
-		attributes: {
-			val: {
-				key: "w:val",
-				value: underlineType
-			},
-			color: {
-				key: "w:color",
-				value: color === void 0 ? void 0 : hexColorValue(color)
-			}
-		}
-	});
+	var createUnderline = (underlineType = UnderlineType.SINGLE, color) => createColorElement("w:u", [{
+		key: "w:val",
+		value: underlineType
+	}, {
+		keys: COLOR_ATTRIBUTES,
+		color
+	}]);
 	//#endregion
 	//#region src/file/paragraph/run/properties.ts
 	/**
@@ -10522,9 +10977,11 @@ DOT: "dot" };
 			super("w:rPr");
 			if (!options) return;
 			if (options.style) this.push(new StringValueElement("w:rStyle", options.style));
-			if (options.font) if (typeof options.font === "string") this.push(createRunFonts(options.font));
-			else if ("name" in options.font) this.push(createRunFonts(options.font.name, options.font.hint));
-			else this.push(createRunFonts(options.font));
+			if (options.font) {
+				if (typeof options.font === "string") this.push(createRunFonts(options.font));
+				else if ("name" in options.font) this.push(createRunFonts(options.font.name, options.font.hint));
+				else this.push(createRunFonts(options.font));
+			}
 			if (options.bold !== void 0) this.push(new OnOffElement("w:b", options.bold));
 			if (options.boldComplexScript === void 0 && options.bold !== void 0 || options.boldComplexScript) {
 				var _options$boldComplexS;
@@ -10553,8 +11010,6 @@ DOT: "dot" };
 			const szCs = options.sizeComplexScript === void 0 || options.sizeComplexScript === true ? options.size : options.sizeComplexScript;
 			if (szCs) this.push(new HpsMeasureElement("w:szCs", szCs));
 			if (options.highlight) this.push(new Highlight(options.highlight));
-			const highlightCs = options.highlightComplexScript === void 0 || options.highlightComplexScript === true ? options.highlight : options.highlightComplexScript;
-			if (highlightCs) this.push(new HighlightComplexScript(highlightCs));
 			if (options.underline) this.push(createUnderline(options.underline.type, options.underline.color));
 			if (options.effect) this.push(new StringValueElement("w:effect", options.effect));
 			if (options.border) this.push(createBorderElement("w:bdr", options.border));
@@ -10689,14 +11144,23 @@ DOT: "dot" };
 	* new Run({ children: [PageNumber.CURRENT] });
 	* ```
 	*/
-	var Run = class extends XmlComponent {
+	var Run = class Run extends XmlComponent {
 		constructor(options) {
 			super("w:r");
 			_defineProperty(this, "properties", void 0);
+			_defineProperty(this, "following", []);
 			this.properties = new RunProperties(options);
 			this.root.push(this.properties);
 			if (options.break) for (let i = 0; i < options.break; i++) this.root.push(createBreak());
-			if (options.children) for (const child of options.children) {
+			if (options.children) for (const [index, child] of options.children.entries()) {
+				if (child instanceof Run) {
+					const rest = options.children.slice(index + 1);
+					this.following = [child, ...rest.length > 0 ? [new Run(_objectSpread2(_objectSpread2({}, options), {}, {
+						break: void 0,
+						children: rest
+					}))] : []];
+					break;
+				}
 				if (typeof child === "string") {
 					switch (child) {
 						case PageNumber.CURRENT:
@@ -10723,15 +11187,19 @@ DOT: "dot" };
 							this.root.push(createSeparate());
 							this.root.push(createEnd());
 							break;
-						default:
-							this.root.push(new Text(child));
-							break;
+						default: this.root.push(new Text(child));
 					}
 					continue;
 				}
 				this.root.push(child);
 			}
 			else if (options.text !== void 0) this.root.push(new Text(options.text));
+		}
+		get writtenAs() {
+			return this.following.length > 0 ? [this, ...this.following.flatMap((run) => {
+				var _run$writtenAs;
+				return (_run$writtenAs = run.writtenAs) !== null && _run$writtenAs !== void 0 ? _run$writtenAs : run;
+			})] : void 0;
 		}
 	};
 	//#endregion
@@ -12413,6 +12881,23 @@ DOT: "dot" };
 	*/
 	var docPropertiesUniqueNumericIdGen = () => uniqueNumericIdCreator();
 	/**
+	* Returns the next drawing ID from a single counter shared by every drawing.
+	*
+	* Drawing IDs (`wp:docPr` and `wps:cNvPr`) must be unique within a document,
+	* and Word reports unreadable content when two drawings share one. A drawing
+	* is created before it belongs to a document, so all drawings draw from this
+	* one counter rather than a generator per instance.
+	*
+	* @returns A number no earlier call has returned
+	*
+	* @example
+	* ```typescript
+	* const first = docPropertiesUniqueNumericId();
+	* const second = docPropertiesUniqueNumericId(); // first + 1
+	* ```
+	*/
+	var docPropertiesUniqueNumericId = docPropertiesUniqueNumericIdGen();
+	/**
 	* Creates a unique numeric ID generator for bookmarks.
 	*
 	* Bookmarks are used to mark specific locations in a document for navigation
@@ -12427,6 +12912,22 @@ DOT: "dot" };
 	* ```
 	*/
 	var bookmarkUniqueNumericIdGen = () => uniqueNumericIdCreator();
+	/**
+	* Returns the next bookmark ID from a single counter shared by every bookmark.
+	*
+	* Bookmark IDs must be unique within a document, but a bookmark is created
+	* before it belongs to one, so all bookmarks draw from this one counter rather
+	* than a generator per instance.
+	*
+	* @returns A number no earlier call has returned
+	*
+	* @example
+	* ```typescript
+	* const first = bookmarkUniqueNumericId();
+	* const second = bookmarkUniqueNumericId(); // first + 1
+	* ```
+	*/
+	var bookmarkUniqueNumericId = bookmarkUniqueNumericIdGen();
 	/**
 	* Generates a unique lowercase alphanumeric ID using nanoid.
 	*
@@ -13169,6 +13670,47 @@ DOT: "dot" };
 	* @module
 	*/
 	/**
+	* Scheme color values for theme-based colors.
+	*
+	* These values reference colors defined in the document's color scheme/theme.
+	*/
+	var SchemeColor = {
+		/** Background color 1 */
+		BG1: "bg1",
+		/** Text color 1 */
+		TX1: "tx1",
+		/** Background color 2 */
+		BG2: "bg2",
+		/** Text color 2 */
+		TX2: "tx2",
+		/** Accent color 1 */
+		ACCENT1: "accent1",
+		/** Accent color 2 */
+		ACCENT2: "accent2",
+		/** Accent color 3 */
+		ACCENT3: "accent3",
+		/** Accent color 4 */
+		ACCENT4: "accent4",
+		/** Accent color 5 */
+		ACCENT5: "accent5",
+		/** Accent color 6 */
+		ACCENT6: "accent6",
+		/** Hyperlink color */
+		HLINK: "hlink",
+		/** Followed hyperlink color */
+		FOLHLINK: "folHlink",
+		/** Dark color 1 */
+		DK1: "dk1",
+		/** Light color 1 */
+		LT1: "lt1",
+		/** Dark color 2 */
+		DK2: "dk2",
+		/** Light color 2 */
+		LT2: "lt2",
+		/** Placeholder color */
+		PHCLR: "phClr"
+	};
+	/**
 	* Creates a scheme color element.
 	*
 	* Specifies a color using a theme color scheme reference.
@@ -13236,7 +13778,7 @@ DOT: "dot" };
 	* });
 	* ```
 	*/
-	var createSolidFill = (options) => new BuilderElement({
+	var createSolidFill$1 = (options) => new BuilderElement({
 		name: "a:solidFill",
 		children: [options.type === "rgb" ? createSolidRgbColor(options) : createSchemeColor(options)]
 	});
@@ -13252,6 +13794,47 @@ DOT: "dot" };
 	*
 	* @module
 	*/
+	/**
+	* Line cap styles for outline endpoints.
+	*
+	* Defines how the ends of a line are rendered.
+	*/
+	var LineCap = {
+		/** Round cap style */
+		ROUND: "rnd",
+		/** Square cap style */
+		SQUARE: "sq",
+		/** Flat cap style */
+		FLAT: "flat"
+	};
+	/**
+	* Compound line types for outlines.
+	*
+	* Defines the structure of compound lines (single, double, etc.).
+	*/
+	var CompoundLine = {
+		/** Single line */
+		SINGLE: "sng",
+		/** Double line */
+		DOUBLE: "dbl",
+		/** Thick-thin double line */
+		THICK_THIN: "thickThin",
+		/** Thin-thick double line */
+		THIN_THICK: "thinThick",
+		/** Triple line */
+		TRI: "tri"
+	};
+	/**
+	* Pen alignment options for outline positioning.
+	*
+	* Defines how the outline is aligned relative to the shape edge.
+	*/
+	var PenAlignment = {
+		/** Center alignment */
+		CENTER: "ctr",
+		/** Inset alignment */
+		INSET: "in"
+	};
 	/**
 	* Creates an outline element for DrawingML shapes.
 	*
@@ -13296,21 +13879,21 @@ DOT: "dot" };
 			},
 			cap: {
 				key: "cap",
-				value: options.cap
+				value: options.cap === void 0 ? void 0 : LineCap[options.cap]
 			},
 			compoundLine: {
 				key: "cmpd",
-				value: options.compoundLine
+				value: options.compoundLine === void 0 ? void 0 : CompoundLine[options.compoundLine]
 			},
 			align: {
 				key: "algn",
-				value: options.align
+				value: options.align === void 0 ? void 0 : PenAlignment[options.align]
 			}
 		},
-		children: [options.type === "noFill" ? createNoFill() : options.solidFillType === "rgb" ? createSolidFill({
+		children: [options.type === "noFill" ? createNoFill() : options.solidFillType === "rgb" ? createSolidFill$1({
 			type: "rgb",
 			value: options.value
-		}) : createSolidFill({
+		}) : createSolidFill$1({
 			type: "scheme",
 			value: options.value
 		})]
@@ -13504,11 +14087,9 @@ DOT: "dot" };
 			this.form = new Form(transform);
 			this.root.push(this.form);
 			this.root.push(new PresetGeometry());
-			if (outline) {
-				this.root.push(createNoFill());
-				this.root.push(createOutline(outline));
-			}
-			if (solidFill) this.root.push(createSolidFill(solidFill));
+			if (solidFill) this.root.push(createSolidFill$1(solidFill));
+			else if (outline) this.root.push(createNoFill());
+			if (outline) this.root.push(createOutline(outline));
 		}
 	};
 	//#endregion
@@ -13688,6 +14269,25 @@ DOT: "dot" };
 	* @module
 	*/
 	/**
+	* Attributes for the source rectangle element.
+	*
+	* Percentages are stored in thousandths of a percent, as required by the
+	* `ST_Percentage` schema type (for example `10000` represents `10%`).
+	*
+	* @internal
+	*/
+	var SourceRectangleAttributes = class extends XmlAttributeComponent {
+		constructor(..._args) {
+			super(..._args);
+			_defineProperty(this, "xmlKeys", {
+				left: "l",
+				top: "t",
+				right: "r",
+				bottom: "b"
+			});
+		}
+	};
+	/**
 	* Represents a source rectangle for blip fills.
 	*
 	* This element specifies a portion of the blip (image) to use as the fill.
@@ -13707,12 +14307,18 @@ DOT: "dot" };
 	*
 	* @example
 	* ```typescript
-	* const srcRect = new SourceRectangle();
+	* const srcRect = new SourceRectangle({ left: 10, top: 10, right: 10, bottom: 10 });
 	* ```
 	*/
 	var SourceRectangle = class extends XmlComponent {
-		constructor() {
+		constructor(crop) {
 			super("a:srcRect");
+			if (crop) this.root.push(new SourceRectangleAttributes({
+				left: crop.left === void 0 ? void 0 : Math.round(crop.left * 1e3),
+				top: crop.top === void 0 ? void 0 : Math.round(crop.top * 1e3),
+				right: crop.right === void 0 ? void 0 : Math.round(crop.right * 1e3),
+				bottom: crop.bottom === void 0 ? void 0 : Math.round(crop.bottom * 1e3)
+			}));
 		}
 	};
 	//#endregion
@@ -13807,10 +14413,10 @@ DOT: "dot" };
 	* ```
 	*/
 	var BlipFill = class extends XmlComponent {
-		constructor(mediaData) {
+		constructor(mediaData, crop) {
 			super("pic:blipFill");
 			this.root.push(createBlip(mediaData));
-			this.root.push(new SourceRectangle());
+			this.root.push(new SourceRectangle(crop));
 			this.root.push(new Stretch());
 		}
 	};
@@ -14164,30 +14770,80 @@ DOT: "dot" };
 	* ```
 	*/
 	var Pic = class extends XmlComponent {
-		constructor({ mediaData, transform, outline }) {
+		constructor({ mediaData, transform, outline, solidFill, crop }) {
 			super("pic:pic");
 			this.root.push(new PicAttributes({ xmlns: "http://schemas.openxmlformats.org/drawingml/2006/picture" }));
 			this.root.push(new NonVisualPicProperties());
-			this.root.push(new BlipFill(mediaData));
+			this.root.push(new BlipFill(mediaData, crop));
 			this.root.push(new ShapeProperties({
 				element: "pic",
 				transform,
-				outline
+				outline,
+				solidFill
 			}));
 		}
 	};
 	//#endregion
 	//#region src/file/drawing/inline/graphic/graphic-data/wpg/wpg-group.ts
-	var createGroupProperties = (transform) => new BuilderElement({
-		name: "wpg:grpSpPr",
-		children: [new Form(transform)]
-	});
+	var createGroupTransform = (transformation) => {
+		var _transformation$flip, _transformation$flip2, _transformation$offse, _transformation$offse2;
+		return new BuilderElement({
+			name: "a:xfrm",
+			attributes: {
+				flipVertical: {
+					key: "flipV",
+					value: (_transformation$flip = transformation.flip) === null || _transformation$flip === void 0 ? void 0 : _transformation$flip.vertical
+				},
+				flipHorizontal: {
+					key: "flipH",
+					value: (_transformation$flip2 = transformation.flip) === null || _transformation$flip2 === void 0 ? void 0 : _transformation$flip2.horizontal
+				},
+				rotation: {
+					key: "rot",
+					value: transformation.rotation
+				}
+			},
+			children: [
+				new Offset((_transformation$offse = transformation.offset) === null || _transformation$offse === void 0 || (_transformation$offse = _transformation$offse.emus) === null || _transformation$offse === void 0 ? void 0 : _transformation$offse.x, (_transformation$offse2 = transformation.offset) === null || _transformation$offse2 === void 0 || (_transformation$offse2 = _transformation$offse2.emus) === null || _transformation$offse2 === void 0 ? void 0 : _transformation$offse2.y),
+				new Extents(transformation.emus.x, transformation.emus.y),
+				new BuilderElement({
+					name: "a:chOff",
+					attributes: {
+						x: {
+							key: "x",
+							value: 0
+						},
+						y: {
+							key: "y",
+							value: 0
+						}
+					}
+				}),
+				new BuilderElement({
+					name: "a:chExt",
+					attributes: {
+						x: {
+							key: "cx",
+							value: transformation.emus.x
+						},
+						y: {
+							key: "cy",
+							value: transformation.emus.y
+						}
+					}
+				})
+			]
+		});
+	};
 	var createNonVisualGroupProperties = () => new BuilderElement({ name: "wpg:cNvGrpSpPr" });
 	var createWpgGroup = (options) => new BuilderElement({
 		name: "wpg:wgp",
 		children: [
 			createNonVisualGroupProperties(),
-			createGroupProperties(options.transformation),
+			new BuilderElement({
+				name: "wpg:grpSpPr",
+				children: [createGroupTransform(options.transformation)]
+			}),
 			...options.children
 		]
 	});
@@ -14222,9 +14878,12 @@ DOT: "dot" };
 	* ```
 	*/
 	var GraphicData = class extends XmlComponent {
-		constructor({ mediaData, transform, outline, solidFill }) {
+		constructor({ mediaData, transform, outline, solidFill, crop }) {
 			super("a:graphicData");
-			if (mediaData.type === "wps") {
+			if (mediaData.type === "graphic") {
+				this.root.push(new GraphicDataAttributes({ uri: mediaData.uri }));
+				this.root.push(mediaData.content);
+			} else if (mediaData.type === "wps") {
 				this.root.push(new GraphicDataAttributes({ uri: "http://schemas.microsoft.com/office/word/2010/wordprocessingShape" }));
 				const wps = createWpsShape(_objectSpread2(_objectSpread2({}, mediaData.data), {}, {
 					transformation: transform,
@@ -14244,7 +14903,8 @@ DOT: "dot" };
 						else return new Pic({
 							mediaData: child,
 							transform: child.transformation,
-							outline: child.outline
+							outline: child.outline,
+							solidFill: child.solidFill
 						});
 					}),
 					transformation: transform
@@ -14255,7 +14915,9 @@ DOT: "dot" };
 				const pic = new Pic({
 					mediaData,
 					transform,
-					outline
+					outline,
+					solidFill,
+					crop
 				});
 				this.root.push(pic);
 			}
@@ -14300,7 +14962,7 @@ DOT: "dot" };
 	* ```
 	*/
 	var Graphic = class extends XmlComponent {
-		constructor({ mediaData, transform, outline, solidFill }) {
+		constructor({ mediaData, transform, outline, solidFill, crop }) {
 			super("a:graphic");
 			_defineProperty(this, "data", void 0);
 			this.root.push(new GraphicAttributes({ a: "http://schemas.openxmlformats.org/drawingml/2006/main" }));
@@ -14308,7 +14970,8 @@ DOT: "dot" };
 				mediaData,
 				transform,
 				outline,
-				solidFill
+				solidFill,
+				crop
 			});
 			this.root.push(this.data);
 		}
@@ -14323,10 +14986,16 @@ DOT: "dot" };
 	* @publicApi
 	*/
 	var TextWrappingType = {
+		/** Text doesn't wrap around the drawing. It is drawn in front of or behind the text */
 		NONE: 0,
+		/** Text wraps around the drawing's box */
 		SQUARE: 1,
+		/** Text wraps closely around the drawing's outline */
 		TIGHT: 2,
-		TOP_AND_BOTTOM: 3
+		/** Text sits above and below the drawing, not beside it */
+		TOP_AND_BOTTOM: 3,
+		/** Text wraps closely around the drawing's outline, and fills any open space inside it */
+		THROUGH: 4
 	};
 	/**
 	* Enumeration of text wrapping sides for floating drawings.
@@ -14435,15 +15104,96 @@ DOT: "dot" };
 	//#endregion
 	//#region src/file/drawing/text-wrap/wrap-tight.ts
 	/**
-	* Wrap Tight module for DrawingML text wrapping.
+	* Wrap Tight and Wrap Through modules for DrawingML text wrapping.
 	*
-	* This module provides tight text wrapping for floating drawings
-	* where text wraps closely around the image shape.
+	* These provide tight and through text wrapping for floating drawings,
+	* where text wraps closely around the outline of the drawing.
 	*
 	* Reference: http://officeopenxml.com/drwPicFloating-textWrap.php
 	*
 	* @module
 	*/
+	var WRAP_POLYGON_SIZE = 21600;
+	var createPoint = (name, { x, y }) => new BuilderElement({
+		name,
+		attributes: {
+			x: {
+				key: "x",
+				value: x
+			},
+			y: {
+				key: "y",
+				value: y
+			}
+		}
+	});
+	/**
+	* Creates a wrap polygon around the drawing's box.
+	*
+	* Word works out the outline to wrap text around when it lays out the page, so the polygon
+	* is marked as not edited, and Word replaces it with the drawing's real outline.
+	*
+	* ## XSD Schema
+	* ```xml
+	* <xsd:complexType name="CT_WrapPath">
+	*   <xsd:sequence>
+	*     <xsd:element name="start" type="a:CT_Point2D" minOccurs="1" maxOccurs="1"/>
+	*     <xsd:element name="lineTo" type="a:CT_Point2D" minOccurs="2" maxOccurs="unbounded"/>
+	*   </xsd:sequence>
+	*   <xsd:attribute name="edited" type="xsd:boolean" use="optional"/>
+	* </xsd:complexType>
+	* ```
+	*/
+	var createWrapPolygon = () => new BuilderElement({
+		name: "wp:wrapPolygon",
+		attributes: { edited: {
+			key: "edited",
+			value: false
+		} },
+		children: [
+			createPoint("wp:start", {
+				x: 0,
+				y: 0
+			}),
+			createPoint("wp:lineTo", {
+				x: 0,
+				y: WRAP_POLYGON_SIZE
+			}),
+			createPoint("wp:lineTo", {
+				x: WRAP_POLYGON_SIZE,
+				y: WRAP_POLYGON_SIZE
+			}),
+			createPoint("wp:lineTo", {
+				x: WRAP_POLYGON_SIZE,
+				y: 0
+			}),
+			createPoint("wp:lineTo", {
+				x: 0,
+				y: 0
+			})
+		]
+	});
+	var createPolygonWrap = (name, margins = {}, textWrapping) => {
+		var _textWrapping$side;
+		return new BuilderElement({
+			name,
+			attributes: {
+				wrapText: {
+					key: "wrapText",
+					value: (_textWrapping$side = textWrapping === null || textWrapping === void 0 ? void 0 : textWrapping.side) !== null && _textWrapping$side !== void 0 ? _textWrapping$side : TextWrappingSide.BOTH_SIDES
+				},
+				distL: {
+					key: "distL",
+					value: margins.left
+				},
+				distR: {
+					key: "distR",
+					value: margins.right
+				}
+			},
+			children: [createWrapPolygon()]
+		});
+	};
 	/**
 	* Creates tight text wrapping for a floating drawing.
 	*
@@ -14463,23 +15213,35 @@ DOT: "dot" };
 	*   <xsd:attribute name="distR" type="ST_WrapDistance"/>
 	* </xsd:complexType>
 	* ```
+	*
+	* @param margins - The distances from the text on the left and right. The top and bottom aren't written for tight wrapping
+	* @param textWrapping - Which sides the text wraps on. Defaults to both
 	*/
-	var createWrapTight = (margins = {
-		top: 0,
-		bottom: 0
-	}) => new BuilderElement({
-		name: "wp:wrapTight",
-		attributes: {
-			distT: {
-				key: "distT",
-				value: margins.top
-			},
-			distB: {
-				key: "distB",
-				value: margins.bottom
-			}
-		}
-	});
+	var createWrapTight = (margins, textWrapping) => createPolygonWrap("wp:wrapTight", margins, textWrapping);
+	/**
+	* Creates through text wrapping for a floating drawing.
+	*
+	* WrapThrough wraps text around the contours of the drawing like WrapTight, and also
+	* fills any open space inside the drawing, such as the middle of a ring.
+	*
+	* Reference: http://officeopenxml.com/drwPicFloating-textWrap.php
+	*
+	* ## XSD Schema
+	* ```xml
+	* <xsd:complexType name="CT_WrapThrough">
+	*   <xsd:sequence>
+	*     <xsd:element name="wrapPolygon" type="CT_WrapPath"/>
+	*   </xsd:sequence>
+	*   <xsd:attribute name="wrapText" type="ST_WrapText" use="required"/>
+	*   <xsd:attribute name="distL" type="ST_WrapDistance"/>
+	*   <xsd:attribute name="distR" type="ST_WrapDistance"/>
+	* </xsd:complexType>
+	* ```
+	*
+	* @param margins - The distances from the text on the left and right. The top and bottom aren't written for through wrapping
+	* @param textWrapping - Which sides the text wraps on. Defaults to both
+	*/
+	var createWrapThrough = (margins, textWrapping) => createPolygonWrap("wp:wrapThrough", margins, textWrapping);
 	//#endregion
 	//#region src/file/drawing/text-wrap/wrap-top-and-bottom.ts
 	/**
@@ -14528,6 +15290,174 @@ DOT: "dot" };
 		}
 	});
 	//#endregion
+	//#region src/file/relationships/relationship/relationship.ts
+	/**
+	* Target mode types for relationships.
+	*
+	* Indicates whether a relationship target is external to the package.
+	*/
+	var TargetModeType = { 
+	/** Target is external to the package (e.g., hyperlink to a URL) */
+EXTERNAL: "External" };
+	/**
+	* Creates a single relationship between parts in an OPC package.
+	*
+	* A relationship defines a typed connection from a source part to a target part,
+	* identified by a unique ID within the relationships collection.
+	*
+	* @example
+	* ```typescript
+	* // Internal relationship to an image
+	* createRelationship("rId1", "http://schemas.openxmlformats.org/officeDocument/2006/relationships/image", "media/image1.png");
+	*
+	* // External relationship to a hyperlink
+	* createRelationship("rId2", "http://schemas.openxmlformats.org/officeDocument/2006/relationships/hyperlink", "https://example.com", TargetModeType.EXTERNAL);
+	* ```
+	*/
+	var createRelationship = (id, type, target, targetMode) => new BuilderElement({
+		name: "Relationship",
+		attributes: {
+			id: {
+				key: "Id",
+				value: id
+			},
+			type: {
+				key: "Type",
+				value: type
+			},
+			target: {
+				key: "Target",
+				value: target
+			},
+			targetMode: {
+				key: "TargetMode",
+				value: targetMode
+			}
+		}
+	});
+	//#endregion
+	//#region src/file/drawing/doc-properties/non-visual-drawing-properties.ts
+	/**
+	* Non-visual drawing properties (`CT_NonVisualDrawingProps`) of the shapes, pictures and groups inside a drawing:
+	* their id, name and alternative text, a link followed when they are clicked, and whether they are decorative.
+	*
+	* @module
+	*/
+	var DECORATIVE_EXTENSION_URI = "{C183D7F6-B498-43B3-948B-1728B52AA6E4}";
+	/**
+	* Creates the extension list that marks a drawing as decorative, as Word's "Mark as decorative" does.
+	*
+	* ```xml
+	* <a:extLst>
+	*   <a:ext uri="{C183D7F6-B498-43B3-948B-1728B52AA6E4}">
+	*     <adec:decorative xmlns:adec="http://schemas.microsoft.com/office/drawing/2017/decorative" val="1"/>
+	*   </a:ext>
+	* </a:extLst>
+	* ```
+	*
+	* @param declareNamespace - Declares the DrawingML namespace, for elements outside `a:graphic` such as `wp:docPr`
+	*/
+	var createDecorativeExtensionList = (declareNamespace) => new BuilderElement({
+		name: "a:extLst",
+		attributes: { namespace: {
+			key: "xmlns:a",
+			value: declareNamespace ? "http://schemas.openxmlformats.org/drawingml/2006/main" : void 0
+		} },
+		children: [new BuilderElement({
+			name: "a:ext",
+			attributes: { uri: {
+				key: "uri",
+				value: DECORATIVE_EXTENSION_URI
+			} },
+			children: [new BuilderElement({
+				name: "adec:decorative",
+				attributes: {
+					namespace: {
+						key: "xmlns:adec",
+						value: "http://schemas.microsoft.com/office/drawing/2017/decorative"
+					},
+					value: {
+						key: "val",
+						value: 1
+					}
+				}
+			})]
+		})]
+	});
+	/**
+	* A link from a drawing to a web address: the `a:hlinkClick` element, and the relationship that holds the address.
+	*
+	* The relationship is added to the part the drawing is written in (the document, a header or a footer) when it is written.
+	*/
+	var DrawingLink = class {
+		constructor(link) {
+			_defineProperty(this, "link", void 0);
+			_defineProperty(this, "linkId", uniqueId());
+			_defineProperty(this, "addedTo", /* @__PURE__ */ new WeakSet());
+			this.link = link;
+		}
+		createClick(declareNamespace) {
+			return createHyperlinkClick(this.linkId, declareNamespace);
+		}
+		addRelationship(context) {
+			const relationships = context.viewWrapper.Relationships;
+			if (this.addedTo.has(relationships)) return;
+			this.addedTo.add(relationships);
+			relationships.addRelationship(this.linkId, "http://schemas.openxmlformats.org/officeDocument/2006/relationships/hyperlink", this.link, TargetModeType.EXTERNAL);
+		}
+	};
+	/**
+	* The non-visual drawing properties of a shape, picture or group inside a drawing, such as `wps:cNvPr`.
+	*
+	* ## XSD Schema
+	* ```xml
+	* <xsd:complexType name="CT_NonVisualDrawingProps">
+	*   <xsd:sequence>
+	*     <xsd:element name="hlinkClick" type="CT_Hyperlink" minOccurs="0" maxOccurs="1"/>
+	*     <xsd:element name="hlinkHover" type="CT_Hyperlink" minOccurs="0" maxOccurs="1"/>
+	*     <xsd:element name="extLst" type="CT_OfficeArtExtensionList" minOccurs="0" maxOccurs="1"/>
+	*   </xsd:sequence>
+	*   <xsd:attribute name="id" type="ST_DrawingElementId" use="required"/>
+	*   <xsd:attribute name="name" type="xsd:string" use="required"/>
+	*   <xsd:attribute name="descr" type="xsd:string" use="optional" default=""/>
+	*   <xsd:attribute name="hidden" type="xsd:boolean" use="optional" default="false"/>
+	*   <xsd:attribute name="title" type="xsd:string" use="optional" default=""/>
+	* </xsd:complexType>
+	* ```
+	*/
+	var NonVisualDrawingProperties = class extends XmlComponent {
+		constructor(name, { id, name: drawingName, description, title, link, decorative }) {
+			super(name);
+			_defineProperty(this, "link", void 0);
+			this.link = link === void 0 ? void 0 : new DrawingLink(link);
+			this.root.push(new NextAttributeComponent({
+				id: {
+					key: "id",
+					value: id
+				},
+				name: {
+					key: "name",
+					value: drawingName
+				},
+				description: {
+					key: "descr",
+					value: description
+				},
+				title: {
+					key: "title",
+					value: title
+				}
+			}));
+			if (this.link) this.root.push(this.link.createClick(false));
+			if (decorative) this.root.push(createDecorativeExtensionList(false));
+		}
+		prepForXml(context) {
+			var _this$link;
+			(_this$link = this.link) === null || _this$link === void 0 || _this$link.addRelationship(context);
+			return super.prepForXml(context);
+		}
+	};
+	//#endregion
 	//#region src/file/drawing/doc-properties/doc-properties.ts
 	/**
 	* Document Properties module for DrawingML elements.
@@ -14567,13 +15497,14 @@ DOT: "dot" };
 			name: "",
 			description: "",
 			title: ""
-		}) {
+		}, { link, decorative } = {}) {
 			super("wp:docPr");
-			_defineProperty(this, "docPropertiesUniqueNumericId", docPropertiesUniqueNumericIdGen());
+			_defineProperty(this, "link", void 0);
+			_defineProperty(this, "decorative", void 0);
 			const attributes = {
 				id: {
 					key: "id",
-					value: id !== null && id !== void 0 ? id : this.docPropertiesUniqueNumericId()
+					value: id !== null && id !== void 0 ? id : docPropertiesUniqueNumericId()
 				},
 				name: {
 					key: "name",
@@ -14589,15 +15520,23 @@ DOT: "dot" };
 				value: title
 			};
 			this.root.push(new NextAttributeComponent(attributes));
+			this.link = link === void 0 ? void 0 : new DrawingLink(link);
+			this.decorative = decorative;
 		}
 		prepForXml(context) {
-			for (let i = context.stack.length - 1; i >= 0; i--) {
+			if (this.link) {
+				this.link.addRelationship(context);
+				this.root.push(this.link.createClick(true));
+			} else for (let i = context.stack.length - 1; i >= 0; i--) {
 				const element = context.stack[i];
 				if (!(element instanceof ConcreteHyperlink)) continue;
 				this.root.push(createHyperlinkClick(element.linkId, true));
 				break;
 			}
-			return super.prepForXml(context);
+			if (this.decorative) this.root.push(createDecorativeExtensionList(true));
+			const result = super.prepForXml(context);
+			this.root.splice(1);
+			return result;
 		}
 	};
 	//#endregion
@@ -14793,10 +15732,12 @@ DOT: "dot" };
 	*   </xsd:sequence>
 	* </xsd:complexType>
 	* ```
+	*
+	* @param lockAspectRatio - Whether Word keeps the drawing's aspect ratio when it is resized
 	*/
-	var createGraphicFrameProperties = () => new BuilderElement({
+	var createGraphicFrameProperties = (lockAspectRatio = true) => new BuilderElement({
 		name: "wp:cNvGraphicFramePr",
-		children: [new GraphicFrameLocks()]
+		children: lockAspectRatio ? [new GraphicFrameLocks()] : []
 	});
 	//#endregion
 	//#region src/file/drawing/anchor/anchor-attributes.ts
@@ -14872,6 +15813,7 @@ DOT: "dot" };
 	*/
 	var Anchor = class extends XmlComponent {
 		constructor({ mediaData, transform, drawingOptions }) {
+			var _drawingOptions$effec;
 			super("wp:anchor");
 			const floating = _objectSpread2({
 				allowOverlap: true,
@@ -14900,7 +15842,7 @@ DOT: "dot" };
 				x: transform.emus.x,
 				y: transform.emus.y
 			}));
-			this.root.push(createEffectExtent({
+			this.root.push(createEffectExtent((_drawingOptions$effec = drawingOptions.effectExtent) !== null && _drawingOptions$effec !== void 0 ? _drawingOptions$effec : {
 				top: 0,
 				right: 0,
 				bottom: 0,
@@ -14911,7 +15853,10 @@ DOT: "dot" };
 					this.root.push(createWrapSquare(drawingOptions.floating.wrap, drawingOptions.floating.margins));
 					break;
 				case TextWrappingType.TIGHT:
-					this.root.push(createWrapTight(drawingOptions.floating.margins));
+					this.root.push(createWrapTight(drawingOptions.floating.margins, drawingOptions.floating.wrap));
+					break;
+				case TextWrappingType.THROUGH:
+					this.root.push(createWrapThrough(drawingOptions.floating.margins, drawingOptions.floating.wrap));
 					break;
 				case TextWrappingType.TOP_AND_BOTTOM:
 					this.root.push(createWrapTopAndBottom(drawingOptions.floating.margins));
@@ -14920,19 +15865,23 @@ DOT: "dot" };
 				default: this.root.push(createWrapNone());
 			}
 			else this.root.push(createWrapNone());
-			this.root.push(new DocProperties(drawingOptions.docProperties));
-			this.root.push(createGraphicFrameProperties());
+			this.root.push(new DocProperties(drawingOptions.docProperties, {
+				link: drawingOptions.link,
+				decorative: drawingOptions.decorative
+			}));
+			this.root.push(createGraphicFrameProperties(mediaData.type !== "graphic" || mediaData.lockAspectRatio !== false));
 			this.root.push(new Graphic({
 				mediaData,
 				transform,
 				outline: drawingOptions.outline,
-				solidFill: drawingOptions.solidFill
+				solidFill: drawingOptions.solidFill,
+				crop: drawingOptions.crop
 			}));
 		}
 	};
 	//#endregion
 	//#region src/file/drawing/inline/inline.ts
-	var createInline = ({ mediaData, transform, docProperties, outline, solidFill }) => {
+	var createInline = ({ mediaData, transform, docProperties, outline, solidFill, crop, effectExtent, link, decorative }) => {
 		var _outline$width, _outline$width2, _outline$width3, _outline$width4;
 		return new BuilderElement({
 			name: "wp:inline",
@@ -14959,7 +15908,7 @@ DOT: "dot" };
 					x: transform.emus.x,
 					y: transform.emus.y
 				}),
-				createEffectExtent(outline ? {
+				createEffectExtent(effectExtent !== null && effectExtent !== void 0 ? effectExtent : outline ? {
 					top: ((_outline$width = outline.width) !== null && _outline$width !== void 0 ? _outline$width : 9525) * 2,
 					right: ((_outline$width2 = outline.width) !== null && _outline$width2 !== void 0 ? _outline$width2 : 9525) * 2,
 					bottom: ((_outline$width3 = outline.width) !== null && _outline$width3 !== void 0 ? _outline$width3 : 9525) * 2,
@@ -14970,13 +15919,17 @@ DOT: "dot" };
 					bottom: 0,
 					left: 0
 				}),
-				new DocProperties(docProperties),
-				createGraphicFrameProperties(),
+				new DocProperties(docProperties, {
+					link,
+					decorative
+				}),
+				createGraphicFrameProperties(mediaData.type !== "graphic" || mediaData.lockAspectRatio !== false),
 				new Graphic({
 					mediaData,
 					transform,
 					outline,
-					solidFill
+					solidFill,
+					crop
 				})
 			]
 		});
@@ -15009,7 +15962,11 @@ DOT: "dot" };
 				transform: imageData.transformation,
 				docProperties: drawingOptions.docProperties,
 				outline: drawingOptions.outline,
-				solidFill: drawingOptions.solidFill
+				solidFill: drawingOptions.solidFill,
+				crop: drawingOptions.crop,
+				effectExtent: drawingOptions.effectExtent,
+				link: drawingOptions.link,
+				decorative: drawingOptions.decorative
 			}));
 			else this.root.push(new Anchor({
 				mediaData: imageData,
@@ -15042,12 +15999,30 @@ DOT: "dot" };
 			rotation: options.transformation.rotation ? options.transformation.rotation * 6e4 : void 0
 		}
 	});
+	var createDeletion = ({ id, author, date }, run) => new BuilderElement({
+		name: "w:del",
+		attributes: {
+			id: {
+				key: "w:id",
+				value: id
+			},
+			author: {
+				key: "w:author",
+				value: author
+			},
+			date: {
+				key: "w:date",
+				value: date
+			}
+		},
+		children: [run]
+	});
 	/**
 	* Represents an image in a WordprocessingML document.
 	*
 	* ImageRun embeds an image within a run, supporting various formats
 	* including JPG, PNG, GIF, BMP, and SVG. Optionally wraps the run in
-	* `<w:ins>` or `<w:del>` for track-change insertion/deletion markup.
+	* `<w:ins>` or `<w:del>`, or both, for track-change insertion/deletion markup.
 	*
 	* Reference: http://officeopenxml.com/drwPicInline.php
 	*
@@ -15067,34 +16042,36 @@ DOT: "dot" };
 	*/
 	var ImageRun = class extends XmlComponent {
 		constructor(options) {
+			var _options$insertion;
 			var _super = (..._args) => (super(..._args), _defineProperty(this, "imageData", void 0), this);
 			const key = `${hashedId(options.data)}.${options.type}`;
 			const imageData = options.type === "svg" ? _objectSpread2(_objectSpread2({ type: options.type }, createImageData(options, key)), {}, { fallback: _objectSpread2({ type: options.fallback.type }, createImageData(_objectSpread2(_objectSpread2({}, options.fallback), {}, { transformation: options.transformation }), `${hashedId(options.fallback.data)}.${options.fallback.type}`)) }) : _objectSpread2({ type: options.type }, createImageData(options, key));
 			const drawing = new Drawing(imageData, {
 				floating: options.floating,
 				docProperties: options.altText,
-				outline: options.outline
+				outline: options.outline,
+				solidFill: options.solidFill,
+				crop: options.crop,
+				link: options.link,
+				decorative: options.decorative
 			});
-			const run = new Run({ children: [drawing] });
-			if (options.insertion) {
-				_super("w:ins");
+			const properties = new RunProperties(options.run);
+			const revision = (_options$insertion = options.insertion) !== null && _options$insertion !== void 0 ? _options$insertion : options.deletion;
+			if (revision) {
+				_super(options.insertion ? "w:ins" : "w:del");
 				this.root.push(new ChangeAttributes({
-					id: options.insertion.id,
-					author: options.insertion.author,
-					date: options.insertion.date
+					id: revision.id,
+					author: revision.author,
+					date: revision.date
 				}));
-				this.addChildElement(run);
-			} else if (options.deletion) {
-				_super("w:del");
-				this.root.push(new ChangeAttributes({
-					id: options.deletion.id,
-					author: options.deletion.author,
-					date: options.deletion.date
-				}));
-				this.addChildElement(run);
+				const run = new BuilderElement({
+					name: "w:r",
+					children: [properties, drawing]
+				});
+				this.addChildElement(options.insertion && options.deletion ? createDeletion(options.deletion, run) : run);
 			} else {
 				_super("w:r");
-				this.root.push(new RunProperties({}));
+				this.root.push(properties);
 				this.root.push(drawing);
 			}
 			this.imageData = imageData;
@@ -15133,7 +16110,11 @@ DOT: "dot" };
 		};
 	};
 	/**
+	* A rectangular text box.
+	*
 	* @publicApi
+	* @deprecated Use `ShapeRun` from `docx/shapes`, with `type: "rectangle"` and `children` for a text box. It has plain
+	* options for fills, lines, effects and text layout, and can be any of the preset shapes.
 	*/
 	var WpsShapeRun = class extends Run {
 		constructor(options) {
@@ -15156,7 +16137,11 @@ DOT: "dot" };
 	//#endregion
 	//#region src/file/paragraph/run/wpg-group-run.ts
 	/**
+	* A group of text boxes and pictures.
+	*
 	* @publicApi
+	* @deprecated Use `ShapeGroupRun` from `docx/shapes`, whose children can be shapes, pictures, groups and connectors,
+	* positioned in pixels.
 	*/
 	var WpgGroupRun = class extends Run {
 		constructor(options) {
@@ -15374,52 +16359,6 @@ DOT: "dot" };
 		}
 	};
 	//#endregion
-	//#region src/file/relationships/relationship/relationship.ts
-	/**
-	* Target mode types for relationships.
-	*
-	* Indicates whether a relationship target is external to the package.
-	*/
-	var TargetModeType = { 
-	/** Target is external to the package (e.g., hyperlink to a URL) */
-EXTERNAL: "External" };
-	/**
-	* Creates a single relationship between parts in an OPC package.
-	*
-	* A relationship defines a typed connection from a source part to a target part,
-	* identified by a unique ID within the relationships collection.
-	*
-	* @example
-	* ```typescript
-	* // Internal relationship to an image
-	* createRelationship("rId1", "http://schemas.openxmlformats.org/officeDocument/2006/relationships/image", "media/image1.png");
-	*
-	* // External relationship to a hyperlink
-	* createRelationship("rId2", "http://schemas.openxmlformats.org/officeDocument/2006/relationships/hyperlink", "https://example.com", TargetModeType.EXTERNAL);
-	* ```
-	*/
-	var createRelationship = (id, type, target, targetMode) => new BuilderElement({
-		name: "Relationship",
-		attributes: {
-			id: {
-				key: "Id",
-				value: id
-			},
-			type: {
-				key: "Type",
-				value: type
-			},
-			target: {
-				key: "Target",
-				value: target
-			},
-			targetMode: {
-				key: "TargetMode",
-				value: targetMode
-			}
-		}
-	});
-	//#endregion
 	//#region src/file/relationships/relationships.ts
 	/**
 	* Relationships module for Open Packaging Conventions.
@@ -15535,7 +16474,8 @@ EXTERNAL: "External" };
 				"xmlns:wpg": "xmlns:wpg",
 				"xmlns:wpi": "xmlns:wpi",
 				"xmlns:wne": "xmlns:wne",
-				"xmlns:wps": "xmlns:wps"
+				"xmlns:wps": "xmlns:wps",
+				"mc:Ignorable": "mc:Ignorable"
 			});
 		}
 	};
@@ -15741,6 +16681,8 @@ EXTERNAL: "External" };
 			_defineProperty(this, "relationships", void 0);
 			_defineProperty(this, "threadData", void 0);
 			_defineProperty(this, "commentIdsData", void 0);
+			_defineProperty(this, "isEmpty", void 0);
+			this.isEmpty = children.length === 0;
 			this.root.push(new RootCommentsAttributes({
 				"xmlns:cx": "http://schemas.microsoft.com/office/drawing/2014/chartex",
 				"xmlns:cx1": "http://schemas.microsoft.com/office/drawing/2015/9/8/chartex",
@@ -15772,7 +16714,8 @@ EXTERNAL: "External" };
 				"xmlns:wpg": "http://schemas.microsoft.com/office/word/2010/wordprocessingGroup",
 				"xmlns:wpi": "http://schemas.microsoft.com/office/word/2010/wordprocessingInk",
 				"xmlns:wne": "http://schemas.microsoft.com/office/word/2006/wordml",
-				"xmlns:wps": "http://schemas.microsoft.com/office/word/2010/wordprocessingShape"
+				"xmlns:wps": "http://schemas.microsoft.com/office/word/2010/wordprocessingShape",
+				"mc:Ignorable": "w14 w15 wp14"
 			}));
 			const hasThreading = children.some((child) => child.parentId !== void 0);
 			const hasDurableIds = children.some((child) => child.durableId !== void 0);
@@ -15804,6 +16747,10 @@ EXTERNAL: "External" };
 		/** Comment id data for commentsIds.xml, or undefined when no comments carry a durableId. */
 		get CommentIdsData() {
 			return this.commentIdsData;
+		}
+		/** Whether there are no comments, in which case the document has no comments.xml part. */
+		get IsEmpty() {
+			return this.isEmpty;
 		}
 	};
 	//#endregion
@@ -16643,7 +17590,7 @@ MAX: 9026 };
 			},
 			pos: {
 				key: "w:pos",
-				value: position
+				value: signedTwipsMeasureValue(position)
 			},
 			leader: {
 				key: "w:leader",
@@ -17105,11 +18052,10 @@ MAX: 9026 };
 	*/
 	var Bookmark = class {
 		constructor(options) {
-			_defineProperty(this, "bookmarkUniqueNumericId", bookmarkUniqueNumericIdGen());
 			_defineProperty(this, "start", void 0);
 			_defineProperty(this, "children", void 0);
 			_defineProperty(this, "end", void 0);
-			const linkId = this.bookmarkUniqueNumericId();
+			const linkId = bookmarkUniqueNumericId();
 			this.start = new BookmarkStart(options.id, linkId);
 			this.children = options.children;
 			this.end = new BookmarkEnd(linkId);
@@ -17422,7 +18368,7 @@ MAX: 9026 };
 			value: id
 		} }, fontKey ? { fontKey: {
 			key: "w:fontKey",
-			value: `{${fontKey}}`
+			value: `{${fontKey.toUpperCase()}}`
 		} } : {}),
 		children: [...subsetted ? [new OnOffElement("w:subsetted", subsetted)] : []]
 	});
@@ -18000,16 +18946,20 @@ MAX: 9026 };
 	* ```
 	*/
 	var ParagraphProperties = class extends IgnoreIfEmptyXmlComponent {
-		constructor(options) {
+		/**
+		* Creates paragraph properties.
+		*
+		* @param options - The paragraph formatting to emit
+		* @param config - Controls how the element is assembled; see {@link IParagraphPropertiesConfig}
+		*/
+		constructor(options, { implicitListParagraphStyle = true } = {}) {
 			super("w:pPr", options === null || options === void 0 ? void 0 : options.includeIfEmpty);
 			_defineProperty(this, "numberingReferences", []);
 			if (!options) return this;
 			if (options.heading) this.push(createParagraphStyle(options.heading));
-			if (options.bullet) this.push(createParagraphStyle("ListParagraph"));
-			if (options.numbering) {
-				if (!options.style && !options.heading) {
-					if (!options.numbering.custom) this.push(createParagraphStyle("ListParagraph"));
-				}
+			if (implicitListParagraphStyle) {
+				if (options.bullet) this.push(createParagraphStyle("ListParagraph"));
+				if (options.numbering && !options.numbering.custom && !options.style && !options.heading) this.push(createParagraphStyle("ListParagraph"));
 			}
 			if (options.style) this.push(createParagraphStyle(options.style));
 			if (options.keepNext !== void 0) this.push(new OnOffElement("w:keepNext", options.keepNext));
@@ -18259,9 +19209,32 @@ MAX: 9026 };
 	var MathText = class extends XmlComponent {
 		constructor(text) {
 			super("m:t");
+			if (/^[\s\u200B]|[\s\u200B]$/.test(text)) this.root.push(new TextAttributes({ space: SpaceType.PRESERVE }));
 			this.root.push(text);
 		}
 	};
+	//#endregion
+	//#region \0@oxc-project+runtime@0.150.0/helpers/esm/objectWithoutPropertiesLoose.js
+	function _objectWithoutPropertiesLoose(r, e) {
+		if (null == r) return {};
+		var t = {};
+		for (var n in r) if ({}.hasOwnProperty.call(r, n)) {
+			if (e.includes(n)) continue;
+			t[n] = r[n];
+		}
+		return t;
+	}
+	//#endregion
+	//#region \0@oxc-project+runtime@0.150.0/helpers/esm/objectWithoutProperties.js
+	function _objectWithoutProperties(e, t) {
+		if (null == e) return {};
+		var o, r, i = _objectWithoutPropertiesLoose(e, t);
+		if (Object.getOwnPropertySymbols) {
+			var s = Object.getOwnPropertySymbols(e);
+			for (r = 0; r < s.length; r++) o = s[r], t.includes(o) || {}.propertyIsEnumerable.call(e, o) && (i[o] = e[o]);
+		}
+		return i;
+	}
 	//#endregion
 	//#region src/file/paragraph/math/math-run.ts
 	/**
@@ -18273,6 +19246,33 @@ MAX: 9026 };
 	*
 	* @module
 	*/
+	var _excluded$3 = [
+		"text",
+		"normalText",
+		"script",
+		"literal"
+	];
+	var STYLES = {
+		plain: "p",
+		bold: "b",
+		italic: "i",
+		boldItalic: "bi"
+	};
+	var SCRIPTS = {
+		roman: "roman",
+		script: "script",
+		fraktur: "fraktur",
+		doubleStruck: "double-struck",
+		sansSerif: "sans-serif",
+		monospace: "monospace"
+	};
+	var createValueElement = (name, value) => new BuilderElement({
+		name,
+		attributes: { value: {
+			key: "m:val",
+			value
+		} }
+	});
 	/**
 	* Represents a run of text within a math equation.
 	*
@@ -18300,11 +19300,30 @@ MAX: 9026 };
 	* @example
 	* ```typescript
 	* new MathRun("x + y");
+	* new MathRun({ text: "if ", normalText: true });
+	* new MathRun({ text: "R", script: "doubleStruck" });
+	* new MathRun({ text: "d", style: "plain" });
 	* ```
 	*/
 	var MathRun = class extends XmlComponent {
-		constructor(text) {
+		constructor(options) {
+			var _rest$style;
 			super("m:r");
+			const _ref = typeof options === "string" ? { text: options } : options, { text, normalText, script, literal } = _ref;
+			const style = (_rest$style = _objectWithoutProperties(_ref, _excluded$3).style) !== null && _rest$style !== void 0 ? _rest$style : script === void 0 || script === "roman" ? void 0 : "plain";
+			if (normalText && (style !== void 0 || script !== void 0)) throw new Error("MathRun: normalText can't be given with style or script, which are for math. Give one or the other");
+			if (style !== void 0 && !Object.keys(STYLES).includes(style)) throw new Error(`MathRun: style is "${style}", which isn't one of ${Object.keys(STYLES).join(", ")}`);
+			if (script !== void 0 && !Object.keys(SCRIPTS).includes(script)) throw new Error(`MathRun: script is "${script}", which isn't one of ${Object.keys(SCRIPTS).join(", ")}`);
+			const properties = [
+				...literal ? [createValueElement("m:lit", 1)] : [],
+				...normalText ? [createValueElement("m:nor", 1)] : [],
+				...script === void 0 ? [] : [createValueElement("m:scr", SCRIPTS[script])],
+				...style === void 0 ? [] : [createValueElement("m:sty", STYLES[style])]
+			];
+			if (properties.length > 0) this.root.push(new BuilderElement({
+				name: "m:rPr",
+				children: properties
+			}));
 			this.root.push(new MathText(text));
 		}
 	};
@@ -18359,6 +19378,12 @@ MAX: 9026 };
 	*
 	* @module
 	*/
+	var TYPES = {
+		stacked: "bar",
+		skewed: "skw",
+		linear: "lin",
+		noBar: "noBar"
+	};
 	/**
 	* Represents a fraction in a math equation.
 	*
@@ -18385,11 +19410,29 @@ MAX: 9026 };
 	*   numerator: [new MathRun("a + b")],
 	*   denominator: [new MathRun("c")],
 	* });
+	*
+	* // n over k, as a binomial coefficient, in brackets
+	* new MathRoundBrackets({
+	*   children: [new MathFraction({ numerator: [new MathRun("n")], denominator: [new MathRun("k")], type: "noBar" })],
+	* });
 	* ```
 	*/
 	var MathFraction = class extends XmlComponent {
 		constructor(options) {
 			super("m:f");
+			if (options.type !== void 0) {
+				if (!Object.keys(TYPES).includes(options.type)) throw new Error(`MathFraction: type is "${options.type}", which isn't one of ${Object.keys(TYPES).join(", ")}`);
+				this.root.push(new BuilderElement({
+					name: "m:fPr",
+					children: [new BuilderElement({
+						name: "m:type",
+						attributes: { value: {
+							key: "m:val",
+							value: TYPES[options.type]
+						} }
+					})]
+				}));
+			}
 			this.root.push(new MathNumerator(options.numerator));
 			this.root.push(new MathDenominator(options.denominator));
 		}
@@ -18600,8 +19643,8 @@ MAX: 9026 };
 		children: [
 			...!!accent ? [createMathAccentCharacter({ accent })] : [],
 			createMathLimitLocation({ value: limitLocationVal }),
-			...!hasSuperScript ? [createMathSuperScriptHide()] : [],
-			...!hasSubScript ? [createMathSubScriptHide()] : []
+			...!hasSubScript ? [createMathSubScriptHide()] : [],
+			...!hasSuperScript ? [createMathSuperScriptHide()] : []
 		]
 	});
 	//#endregion
@@ -18638,6 +19681,22 @@ MAX: 9026 };
 		name: "m:sub",
 		children
 	});
+	//#endregion
+	//#region src/file/paragraph/math/n-ary/limit-location-value.ts
+	var LOCATIONS = {
+		aboveBelow: "undOvr",
+		side: "subSup"
+	};
+	/**
+	* The value of `m:limLoc` for where limits go, or the default when none is given.
+	*
+	* @throws If the position isn't one of those allowed, for code that isn't type checked
+	*/
+	var limitLocationValue = (owner, limits, defaultValue) => {
+		if (limits === void 0) return defaultValue;
+		if (!Object.keys(LOCATIONS).includes(limits)) throw new Error(`${owner}: limits is "${limits}", which isn't one of ${Object.keys(LOCATIONS).join(", ")}`);
+		return LOCATIONS[limits];
+	};
 	//#endregion
 	//#region src/file/paragraph/math/n-ary/math-super-script.ts
 	/**
@@ -18716,14 +19775,16 @@ MAX: 9026 };
 	*/
 	var MathSum = class extends XmlComponent {
 		constructor(options) {
+			var _options$subScript, _options$superScript;
 			super("m:nary");
 			this.root.push(createMathNAryProperties({
 				accent: "∑",
 				hasSuperScript: !!options.superScript,
-				hasSubScript: !!options.subScript
+				hasSubScript: !!options.subScript,
+				limitLocationVal: limitLocationValue("MathSum", options.limits, "undOvr")
 			}));
-			if (!!options.subScript) this.root.push(createMathSubScriptElement({ children: options.subScript }));
-			if (!!options.superScript) this.root.push(createMathSuperScriptElement({ children: options.superScript }));
+			this.root.push(createMathSubScriptElement({ children: (_options$subScript = options.subScript) !== null && _options$subScript !== void 0 ? _options$subScript : [] }));
+			this.root.push(createMathSuperScriptElement({ children: (_options$superScript = options.superScript) !== null && _options$superScript !== void 0 ? _options$superScript : [] }));
 			this.root.push(createMathBase({ children: options.children }));
 		}
 	};
@@ -18771,15 +19832,16 @@ MAX: 9026 };
 	*/
 	var MathIntegral = class extends XmlComponent {
 		constructor(options) {
+			var _options$subScript, _options$superScript;
 			super("m:nary");
 			this.root.push(createMathNAryProperties({
 				accent: "",
 				hasSuperScript: !!options.superScript,
 				hasSubScript: !!options.subScript,
-				limitLocationVal: "subSup"
+				limitLocationVal: limitLocationValue("MathIntegral", options.limits, "subSup")
 			}));
-			if (!!options.subScript) this.root.push(createMathSubScriptElement({ children: options.subScript }));
-			if (!!options.superScript) this.root.push(createMathSuperScriptElement({ children: options.superScript }));
+			this.root.push(createMathSubScriptElement({ children: (_options$subScript = options.subScript) !== null && _options$subScript !== void 0 ? _options$subScript : [] }));
+			this.root.push(createMathSuperScriptElement({ children: (_options$superScript = options.superScript) !== null && _options$superScript !== void 0 ? _options$superScript : [] }));
 			this.root.push(createMathBase({ children: options.children }));
 		}
 	};
@@ -19228,19 +20290,13 @@ MAX: 9026 };
 				name: "m:sPre",
 				children: [
 					createMathPreSubSuperScriptProperties(),
-					createMathBase({ children }),
 					createMathSubScriptElement({ children: subScript }),
-					createMathSuperScriptElement({ children: superScript })
+					createMathSuperScriptElement({ children: superScript }),
+					createMathBase({ children })
 				]
 			});
 		}
 	};
-	//#endregion
-	//#region src/file/paragraph/math/math-component.ts
-	/**
-	* @ignore
-	*/
-	var WORKAROUND4 = "";
 	//#endregion
 	//#region src/file/paragraph/math/radical/math-degree.ts
 	/**
@@ -19777,497 +20833,10 @@ MAX: 9026 };
 		constructor(options) {
 			super("m:d");
 			this.root.push(createMathBracketProperties({ characters: {
-				beginningCharacter: "〈",
-				endingCharacter: "〉"
+				beginningCharacter: "⟨",
+				endingCharacter: "⟩"
 			} }));
 			this.root.push(createMathBase({ children: options.children }));
-		}
-	};
-	//#endregion
-	//#region src/file/table/grid.ts
-	/**
-	* Table grid module for WordprocessingML documents.
-	*
-	* The table grid defines the column structure of a table.
-	*
-	* Reference: http://officeopenxml.com/WPtableGrid.php
-	*
-	* ## XSD Schema
-	* ```xml
-	* <xsd:complexType name="CT_TblGridCol">
-	*   <xsd:attribute name="w" type="s:ST_TwipsMeasure"/>
-	* </xsd:complexType>
-	* <xsd:complexType name="CT_TblGridBase">
-	*   <xsd:sequence>
-	*     <xsd:element name="gridCol" type="CT_TblGridCol" minOccurs="0" maxOccurs="unbounded"/>
-	*   </xsd:sequence>
-	* </xsd:complexType>
-	* <xsd:complexType name="CT_TblGridChange">
-	*   <xsd:complexContent>
-	*     <xsd:extension base="CT_Markup">
-	*       <xsd:sequence>
-	*         <xsd:element name="tblGrid" type="CT_TblGridBase"/>
-	*       </xsd:sequence>
-	*     </xsd:extension>
-	*   </xsd:complexContent>
-	* </xsd:complexType>
-	* ```
-	*
-	* @module
-	*/
-	/**
-	* Creates a single column in the table grid.
-	*
-	* The gridCol element specifies the width of a single column.
-	*/
-	var createGridCol = (width) => new BuilderElement({
-		name: "w:gridCol",
-		attributes: width !== void 0 ? { width: {
-			key: "w:w",
-			value: twipsMeasureValue(width)
-		} } : void 0
-	});
-	/**
-	* Creates the table grid for a WordprocessingML document.
-	*
-	* The tblGrid element defines the number and width of columns in the table.
-	*
-	* Reference: http://officeopenxml.com/WPtableGrid.php
-	*/
-	var TableGrid = class extends XmlComponent {
-		constructor(widths, revision) {
-			super("w:tblGrid");
-			for (const width of widths) this.root.push(createGridCol(width));
-			if (revision) this.root.push(new TableGridChange(revision));
-		}
-	};
-	var TableGridChangeAttributes = class extends XmlAttributeComponent {
-		constructor(..._args) {
-			super(..._args);
-			_defineProperty(this, "xmlKeys", { id: "w:id" });
-		}
-	};
-	var TableGridChange = class extends XmlComponent {
-		constructor(options) {
-			super("w:tblGridChange");
-			this.root.push(new TableGridChangeAttributes({ id: options.id }));
-			this.root.push(new TableGrid(options.columnWidths));
-		}
-	};
-	//#endregion
-	//#region src/file/track-revision/track-revision-components/inserted-text-run.ts
-	/**
-	* Inserted text run module for track changes.
-	*
-	* Reference: http://officeopenxml.com/WPtrackChanges.php
-	*
-	* @module
-	*/
-	/**
-	* Represents an inserted text run in a tracked changes document.
-	*
-	* An insertion marks text that has been added to the document as part of
-	* revision tracking. It wraps a standard text run with metadata about who
-	* made the insertion and when.
-	*
-	* Reference: http://officeopenxml.com/WPtrackChanges.php
-	*
-	* @publicApi
-	*
-	* ## XSD Schema
-	* ```xml
-	* <xsd:element name="ins" type="CT_RunTrackChange" minOccurs="0"/>
-	*
-	* <xsd:complexType name="CT_RunTrackChange">
-	*   <xsd:complexContent>
-	*     <xsd:extension base="CT_TrackChange">
-	*       <xsd:choice minOccurs="0" maxOccurs="unbounded">
-	*         <xsd:group ref="EG_ContentRunContent"/>
-	*         <xsd:group ref="m:EG_OMathMathElements"/>
-	*       </xsd:choice>
-	*     </xsd:extension>
-	*   </xsd:complexContent>
-	* </xsd:complexType>
-	* ```
-	*
-	* @example
-	* ```typescript
-	* // Create an inserted text run
-	* new InsertedTextRun({
-	*   id: 1,
-	*   author: "John Doe",
-	*   date: "2024-01-15T10:30:00Z",
-	*   text: "This text was added",
-	*   bold: true
-	* });
-	* ```
-	*/
-	var InsertedTextRun = class extends XmlComponent {
-		constructor(options) {
-			super("w:ins");
-			this.root.push(new ChangeAttributes({
-				id: options.id,
-				author: options.author,
-				date: options.date
-			}));
-			this.addChildElement(new TextRun(options));
-		}
-	};
-	//#endregion
-	//#region src/file/track-revision/track-revision-components/deleted-page-number.ts
-	/**
-	* Deleted instruction text elements for field codes in track changes.
-	*
-	* Provides deleted versions of page number and page count field instructions.
-	*
-	* Reference: http://officeopenxml.com/WPtrackChanges.php
-	*
-	* @module
-	*/
-	/**
-	* Represents a deleted PAGE field instruction.
-	*
-	* This element contains the field instruction code for the current page number
-	* within a deletion. Uses w:delInstrText instead of w:instrText to mark it as
-	* part of a tracked deletion.
-	*
-	* Reference: http://officeopenxml.com/WPtrackChanges.php
-	*
-	* ## XSD Schema
-	* ```xml
-	* <xsd:element name="delInstrText" type="CT_Text"/>
-	*
-	* <xsd:complexType name="CT_Text">
-	*   <xsd:simpleContent>
-	*     <xsd:extension base="s:ST_String">
-	*       <xsd:attribute ref="xml:space" use="optional"/>
-	*     </xsd:extension>
-	*   </xsd:simpleContent>
-	* </xsd:complexType>
-	* ```
-	*
-	* @example
-	* ```typescript
-	* // Used internally within DeletedTextRun for page number fields
-	* new DeletedPage(); // Creates <w:delInstrText>PAGE</w:delInstrText>
-	* ```
-	*/
-	var DeletedPage = class extends XmlComponent {
-		constructor() {
-			super("w:delInstrText");
-			this.root.push(new TextAttributes({ space: SpaceType.PRESERVE }));
-			this.root.push("PAGE");
-		}
-	};
-	/**
-	* Represents a deleted NUMPAGES field instruction.
-	*
-	* This element contains the field instruction code for the total number of pages
-	* in the document within a deletion. Uses w:delInstrText instead of w:instrText
-	* to mark it as part of a tracked deletion.
-	*
-	* Reference: http://officeopenxml.com/WPtrackChanges.php
-	*
-	* ## XSD Schema
-	* ```xml
-	* <xsd:element name="delInstrText" type="CT_Text"/>
-	*
-	* <xsd:complexType name="CT_Text">
-	*   <xsd:simpleContent>
-	*     <xsd:extension base="s:ST_String">
-	*       <xsd:attribute ref="xml:space" use="optional"/>
-	*     </xsd:extension>
-	*   </xsd:simpleContent>
-	* </xsd:complexType>
-	* ```
-	*
-	* @example
-	* ```typescript
-	* // Used internally within DeletedTextRun for total pages field
-	* new DeletedNumberOfPages(); // Creates <w:delInstrText>NUMPAGES</w:delInstrText>
-	* ```
-	*/
-	var DeletedNumberOfPages = class extends XmlComponent {
-		constructor() {
-			super("w:delInstrText");
-			this.root.push(new TextAttributes({ space: SpaceType.PRESERVE }));
-			this.root.push("NUMPAGES");
-		}
-	};
-	/**
-	* Represents a deleted SECTIONPAGES field instruction.
-	*
-	* This element contains the field instruction code for the total number of pages
-	* in the current section within a deletion. Uses w:delInstrText instead of
-	* w:instrText to mark it as part of a tracked deletion.
-	*
-	* Reference: http://officeopenxml.com/WPtrackChanges.php
-	*
-	* ## XSD Schema
-	* ```xml
-	* <xsd:element name="delInstrText" type="CT_Text"/>
-	*
-	* <xsd:complexType name="CT_Text">
-	*   <xsd:simpleContent>
-	*     <xsd:extension base="s:ST_String">
-	*       <xsd:attribute ref="xml:space" use="optional"/>
-	*     </xsd:extension>
-	*   </xsd:simpleContent>
-	* </xsd:complexType>
-	* ```
-	*
-	* @example
-	* ```typescript
-	* // Used internally within DeletedTextRun for section pages field
-	* new DeletedNumberOfPagesSection(); // Creates <w:delInstrText>SECTIONPAGES</w:delInstrText>
-	* ```
-	*/
-	var DeletedNumberOfPagesSection = class extends XmlComponent {
-		constructor() {
-			super("w:delInstrText");
-			this.root.push(new TextAttributes({ space: SpaceType.PRESERVE }));
-			this.root.push("SECTIONPAGES");
-		}
-	};
-	//#endregion
-	//#region src/file/track-revision/track-revision-components/deleted-text.ts
-	/**
-	* Deleted text element module for track changes.
-	*
-	* Reference: http://officeopenxml.com/WPtrackChanges.php
-	*
-	* @module
-	*/
-	/**
-	* Represents deleted text content within a tracked deletion.
-	*
-	* This element contains the actual text that was deleted. Unlike regular text
-	* (w:t), deleted text uses the w:delText element to distinguish it as part of
-	* a deletion. The xml:space="preserve" attribute ensures whitespace is maintained.
-	*
-	* Reference: http://officeopenxml.com/WPtrackChanges.php
-	*
-	* ## XSD Schema
-	* ```xml
-	* <xsd:element name="delText" type="CT_Text"/>
-	*
-	* <xsd:complexType name="CT_Text">
-	*   <xsd:simpleContent>
-	*     <xsd:extension base="s:ST_String">
-	*       <xsd:attribute ref="xml:space" use="optional"/>
-	*     </xsd:extension>
-	*   </xsd:simpleContent>
-	* </xsd:complexType>
-	* ```
-	*
-	* @example
-	* ```typescript
-	* // Used internally within DeletedTextRun
-	* new DeletedText("This text was removed");
-	* ```
-	*/
-	var DeletedText = class extends XmlComponent {
-		constructor(text) {
-			super("w:delText");
-			this.root.push(new TextAttributes({ space: SpaceType.PRESERVE }));
-			this.root.push(text);
-		}
-	};
-	//#endregion
-	//#region src/file/track-revision/track-revision-components/deleted-text-run.ts
-	/**
-	* Deleted text run module for track changes.
-	*
-	* Reference: http://officeopenxml.com/WPtrackChanges.php
-	*
-	* @module
-	*/
-	/**
-	* Represents a deleted text run in a tracked changes document.
-	*
-	* A deletion marks text that has been removed from the document as part of
-	* revision tracking. It wraps a text run with metadata about who made the
-	* deletion and when. Deleted text is typically shown with strikethrough
-	* formatting in applications that support track changes.
-	*
-	* Reference: http://officeopenxml.com/WPtrackChanges.php
-	*
-	* @publicApi
-	*
-	* ## XSD Schema
-	* ```xml
-	* <xsd:element name="del" type="CT_RunTrackChange" minOccurs="0"/>
-	*
-	* <xsd:complexType name="CT_RunTrackChange">
-	*   <xsd:complexContent>
-	*     <xsd:extension base="CT_TrackChange">
-	*       <xsd:choice minOccurs="0" maxOccurs="unbounded">
-	*         <xsd:group ref="EG_ContentRunContent"/>
-	*         <xsd:group ref="m:EG_OMathMathElements"/>
-	*       </xsd:choice>
-	*     </xsd:extension>
-	*   </xsd:complexContent>
-	* </xsd:complexType>
-	* ```
-	*
-	* @example
-	* ```typescript
-	* // Create a deleted text run
-	* new DeletedTextRun({
-	*   id: 2,
-	*   author: "Jane Smith",
-	*   date: "2024-01-15T11:00:00Z",
-	*   text: "This text was removed",
-	*   italics: true
-	* });
-	*
-	* // Deleted run with page number field
-	* new DeletedTextRun({
-	*   id: 3,
-	*   author: "John Doe",
-	*   date: "2024-01-15T12:00:00Z",
-	*   children: [PageNumber.CURRENT]
-	* });
-	* ```
-	*/
-	var DeletedTextRun = class extends XmlComponent {
-		constructor(options) {
-			super("w:del");
-			_defineProperty(this, "deletedTextRunWrapper", void 0);
-			this.root.push(new ChangeAttributes({
-				id: options.id,
-				author: options.author,
-				date: options.date
-			}));
-			this.deletedTextRunWrapper = new DeletedTextRunWrapper(options);
-			this.addChildElement(this.deletedTextRunWrapper);
-		}
-	};
-	/**
-	* Internal wrapper for the run element within a deletion.
-	*
-	* Wraps the actual run content (text, fields, etc.) within a w:r element
-	* that appears inside the w:del element. Handles special cases like page
-	* numbers and other field codes using deleted-specific element types.
-	*
-	* @internal
-	*/
-	var DeletedTextRunWrapper = class extends XmlComponent {
-		constructor(options) {
-			super("w:r");
-			this.root.push(new RunProperties(options));
-			if (options.children) for (const child of options.children) {
-				if (typeof child === "string") {
-					switch (child) {
-						case PageNumber.CURRENT:
-							this.root.push(createBegin());
-							this.root.push(new DeletedPage());
-							this.root.push(createSeparate());
-							this.root.push(createEnd());
-							break;
-						case PageNumber.TOTAL_PAGES:
-							this.root.push(createBegin());
-							this.root.push(new DeletedNumberOfPages());
-							this.root.push(createSeparate());
-							this.root.push(createEnd());
-							break;
-						case PageNumber.TOTAL_PAGES_IN_SECTION:
-							this.root.push(createBegin());
-							this.root.push(new DeletedNumberOfPagesSection());
-							this.root.push(createSeparate());
-							this.root.push(createEnd());
-							break;
-						default:
-							this.root.push(new DeletedText(child));
-							break;
-					}
-					continue;
-				}
-				this.root.push(child);
-			}
-			else if (options.text) this.root.push(new DeletedText(options.text));
-			if (options.break) for (let i = 0; i < options.break; i++) this.root.splice(1, 0, createBreak());
-		}
-	};
-	//#endregion
-	//#region src/file/track-revision/track-revision-components/inserted-table-row.ts
-	var InsertedTableRow = class extends XmlComponent {
-		constructor(options) {
-			super("w:ins");
-			this.root.push(new ChangeAttributes({
-				id: options.id,
-				author: options.author,
-				date: options.date
-			}));
-		}
-	};
-	//#endregion
-	//#region src/file/track-revision/track-revision-components/deleted-table-row.ts
-	var DeletedTableRow = class extends XmlComponent {
-		constructor(options) {
-			super("w:del");
-			this.root.push(new ChangeAttributes({
-				id: options.id,
-				author: options.author,
-				date: options.date
-			}));
-		}
-	};
-	//#endregion
-	//#region src/file/track-revision/track-revision-components/inserted-table-cell.ts
-	var InsertedTableCell = class extends XmlComponent {
-		constructor(options) {
-			super("w:cellIns");
-			this.root.push(new ChangeAttributes({
-				id: options.id,
-				author: options.author,
-				date: options.date
-			}));
-		}
-	};
-	//#endregion
-	//#region src/file/track-revision/track-revision-components/deleted-table-cell.ts
-	var DeletedTableCell = class extends XmlComponent {
-		constructor(options) {
-			super("w:cellDel");
-			this.root.push(new ChangeAttributes({
-				id: options.id,
-				author: options.author,
-				date: options.date
-			}));
-		}
-	};
-	//#endregion
-	//#region src/file/track-revision/track-revision-components/cell-merge.ts
-	/**
-	* Vertical merge revision types.
-	*/
-	var VerticalMergeRevisionType = {
-		/**
-		* Cell that is merged with upper one.
-		*/
-		CONTINUE: "cont",
-		/**
-		* Cell that is starting the vertical merge.
-		*/
-		RESTART: "rest"
-	};
-	var CellMergeAttributes = class extends XmlAttributeComponent {
-		constructor(..._args) {
-			super(..._args);
-			_defineProperty(this, "xmlKeys", {
-				id: "w:id",
-				author: "w:author",
-				date: "w:date",
-				verticalMerge: "w:vMerge",
-				verticalMergeOriginal: "w:vMergeOrig"
-			});
-		}
-	};
-	var CellMerge = class extends XmlComponent {
-		constructor(options) {
-			super("w:cellMerge");
-			this.root.push(new CellMergeAttributes(options));
 		}
 	};
 	//#endregion
@@ -20338,1983 +20907,6 @@ MAX: 9026 };
 			value
 		} }
 	});
-	//#endregion
-	//#region src/file/table/table-properties/table-cell-margin.ts
-	/**
-	* Table cell margin module for WordprocessingML documents.
-	*
-	* This module provides cell margin settings for tables and individual cells.
-	* Margins define the padding between cell content and cell borders.
-	*
-	* Reference: http://officeopenxml.com/WPtableCellProperties-Margins.php
-	*
-	* ## XSD Schema
-	* ```xml
-	* <xsd:complexType name="CT_TblCellMar">
-	*   <xsd:sequence>
-	*     <xsd:element name="top" type="CT_TblWidth" minOccurs="0" maxOccurs="1"/>
-	*     <xsd:element name="start" type="CT_TblWidth" minOccurs="0" maxOccurs="1"/>
-	*     <xsd:element name="left" type="CT_TblWidth" minOccurs="0"/>
-	*     <xsd:element name="bottom" type="CT_TblWidth" minOccurs="0" maxOccurs="1"/>
-	*     <xsd:element name="end" type="CT_TblWidth" minOccurs="0" maxOccurs="1"/>
-	*     <xsd:element name="right" type="CT_TblWidth" minOccurs="0"/>
-	*   </xsd:sequence>
-	* </xsd:complexType>
-	* ```
-	*
-	* @module
-	*/
-	/**
-	* Builds an array of margin child elements based on the provided options.
-	*
-	* @internal
-	*/
-	var buildMarginChildren = ({ marginUnitType = WidthType.DXA, top, left, bottom, right }) => [
-		{
-			name: "w:top",
-			size: top
-		},
-		{
-			name: "w:left",
-			size: left
-		},
-		{
-			name: "w:bottom",
-			size: bottom
-		},
-		{
-			name: "w:right",
-			size: right
-		}
-	].filter((entry) => entry.size !== void 0).map(({ name, size }) => createTableWidthElement(name, {
-		type: marginUnitType,
-		size
-	}));
-	/**
-	* Creates a table-level cell margin element (tblCellMar).
-	*
-	* The tblCellMar element specifies the default cell margins for all cells
-	* in the table. Individual cells can override these defaults using
-	* cell-level margins (tcMar).
-	*
-	* Reference: http://officeopenxml.com/WPtableCellProperties-Margins.php
-	*
-	* @param options - The margin options
-	* @returns An XmlComponent representing the tblCellMar element, or undefined if no margins specified
-	*
-	* @example
-	* ```typescript
-	* // Table with 100 twip margins on all sides
-	* new Table({
-	*   rows: [...],
-	*   margins: {
-	*     top: 100,
-	*     bottom: 100,
-	*     left: 100,
-	*     right: 100,
-	*   },
-	* });
-	* ```
-	*/
-	var createTableCellMargin = (options) => {
-		const children = buildMarginChildren(options);
-		if (children.length === 0) return;
-		return new BuilderElement({
-			name: "w:tblCellMar",
-			children
-		});
-	};
-	/**
-	* Creates a cell-level margin element (tcMar).
-	*
-	* The tcMar element specifies the margins for a specific table cell,
-	* overriding any table-level default margins (tblCellMar).
-	*
-	* Reference: http://officeopenxml.com/WPtableCellProperties-Margins.php
-	*
-	* @param options - The margin options
-	* @returns An XmlComponent representing the tcMar element, or undefined if no margins specified
-	*
-	* @example
-	* ```typescript
-	* // Cell with custom margins
-	* new TableCell({
-	*   children: [...],
-	*   margins: {
-	*     top: 50,
-	*     bottom: 50,
-	*     left: 100,
-	*     right: 100,
-	*   },
-	* });
-	* ```
-	*/
-	var createCellMargin = (options) => {
-		const children = buildMarginChildren(options);
-		if (children.length === 0) return;
-		return new BuilderElement({
-			name: "w:tcMar",
-			children
-		});
-	};
-	//#endregion
-	//#region src/file/table/table-width.ts
-	/**
-	* Table width module for WordprocessingML documents.
-	*
-	* This module provides width specifications for tables and cells.
-	*
-	* Reference: http://officeopenxml.com/WPtableWidth.php
-	*
-	* @module
-	*/
-	/**
-	* Width type values for tables and cells.
-	*
-	* ## XSD Schema
-	* ```xml
-	* <xsd:simpleType name="ST_TblWidth">
-	*   <xsd:restriction base="xsd:string">
-	*     <xsd:enumeration value="nil"/>
-	*     <xsd:enumeration value="pct"/>
-	*     <xsd:enumeration value="dxa"/>
-	*     <xsd:enumeration value="auto"/>
-	*   </xsd:restriction>
-	* </xsd:simpleType>
-	* ```
-	*
-	* @publicApi
-	*/
-	var WidthType = {
-		/** Auto. */
-		AUTO: "auto",
-		/** Value is in twentieths of a point */
-		DXA: "dxa",
-		/** No (empty) value. */
-		NIL: "nil",
-		/** Value is in percentage. */
-		PERCENTAGE: "pct"
-	};
-	/**
-	* Creates a table width element in a WordprocessingML document.
-	*
-	* Used for specifying widths of tables, cells, margins, and indentation.
-	*
-	* Reference: http://officeopenxml.com/WPtableWidth.php
-	*
-	* @example
-	* ```typescript
-	* createTableWidthElement("w:tblW", { size: 5000, type: WidthType.DXA });
-	* createTableWidthElement("w:tcW", { size: 50, type: WidthType.PERCENTAGE });
-	* ```
-	*/
-	var createTableWidthElement = (name, { type = WidthType.AUTO, size }) => {
-		let tableWidthValue = size;
-		if (type === WidthType.PERCENTAGE && typeof size === "number") tableWidthValue = `${size}%`;
-		return new BuilderElement({
-			name,
-			attributes: {
-				type: {
-					key: "w:type",
-					value: type
-				},
-				size: {
-					key: "w:w",
-					value: measurementOrPercentValue(tableWidthValue)
-				}
-			}
-		});
-	};
-	//#endregion
-	//#region src/file/table/table-cell/table-cell-components.ts
-	/**
-	* Table cell components module for WordprocessingML documents.
-	*
-	* This module provides XML components for table cell properties including borders,
-	* grid span (column span), vertical merge, and text direction.
-	*
-	* Reference: http://officeopenxml.com/WPtableCell.php
-	*
-	* @module
-	*/
-	/**
-	* Represents table cell borders (tcBorders) in a WordprocessingML document.
-	*
-	* The tcBorders element specifies the borders for a single table cell. Each border
-	* can be configured independently with different styles, colors, and widths.
-	*
-	* Reference: http://officeopenxml.com/WPtableCell.php
-	*
-	* ## XSD Schema
-	* ```xml
-	* <xsd:complexType name="CT_TcBorders">
-	*   <xsd:sequence>
-	*     <xsd:element name="top" type="CT_Border" minOccurs="0"/>
-	*     <xsd:element name="start" type="CT_Border" minOccurs="0"/>
-	*     <xsd:element name="left" type="CT_Border" minOccurs="0"/>
-	*     <xsd:element name="bottom" type="CT_Border" minOccurs="0"/>
-	*     <xsd:element name="end" type="CT_Border" minOccurs="0"/>
-	*     <xsd:element name="right" type="CT_Border" minOccurs="0"/>
-	*     <xsd:element name="insideH" type="CT_Border" minOccurs="0"/>
-	*     <xsd:element name="insideV" type="CT_Border" minOccurs="0"/>
-	*     <xsd:element name="tl2br" type="CT_Border" minOccurs="0"/>
-	*     <xsd:element name="tr2bl" type="CT_Border" minOccurs="0"/>
-	*   </xsd:sequence>
-	* </xsd:complexType>
-	* ```
-	*
-	* @example
-	* ```typescript
-	* new TableCellBorders({
-	*   top: { style: BorderStyle.SINGLE, size: 6, color: "FF0000" },
-	*   bottom: { style: BorderStyle.SINGLE, size: 6, color: "0000FF" },
-	* });
-	* ```
-	*/
-	var TableCellBorders = class extends IgnoreIfEmptyXmlComponent {
-		constructor(options) {
-			super("w:tcBorders");
-			if (options.top) this.root.push(createBorderElement("w:top", options.top));
-			if (options.start) this.root.push(createBorderElement("w:start", options.start));
-			if (options.left) this.root.push(createBorderElement("w:left", options.left));
-			if (options.bottom) this.root.push(createBorderElement("w:bottom", options.bottom));
-			if (options.end) this.root.push(createBorderElement("w:end", options.end));
-			if (options.right) this.root.push(createBorderElement("w:right", options.right));
-		}
-	};
-	/**
-	* Attributes for the GridSpan element.
-	*/
-	var GridSpanAttributes = class extends XmlAttributeComponent {
-		constructor(..._args) {
-			super(..._args);
-			_defineProperty(this, "xmlKeys", { val: "w:val" });
-		}
-	};
-	/**
-	* Represents a grid span (gridSpan) element in a WordprocessingML document.
-	*
-	* The gridSpan element specifies the number of logical columns this cell spans
-	* in the table grid. This is used to merge cells horizontally (column span).
-	*
-	* Reference: http://officeopenxml.com/WPtableCell.php
-	*
-	* ## XSD Schema
-	* ```xml
-	* <xsd:complexType name="CT_DecimalNumber">
-	*   <xsd:attribute name="val" type="ST_DecimalNumber" use="required"/>
-	* </xsd:complexType>
-	* ```
-	*
-	* @example
-	* ```typescript
-	* // Cell spanning 3 columns
-	* new GridSpan(3);
-	* ```
-	*/
-	var GridSpan = class extends XmlComponent {
-		constructor(value) {
-			super("w:gridSpan");
-			this.root.push(new GridSpanAttributes({ val: decimalNumber(value) }));
-		}
-	};
-	/**
-	* Vertical merge types for table cells.
-	*
-	* Defines the merge behavior for vertically merged cells (row span).
-	*/
-	var VerticalMergeType = {
-		/**
-		* Cell that is merged with upper one.
-		* This cell continues a vertical merge started by a cell above it.
-		*/
-		CONTINUE: "continue",
-		/**
-		* Cell that is starting the vertical merge.
-		* This cell begins a new vertical merge region.
-		*/
-		RESTART: "restart"
-	};
-	/**
-	* Attributes for the VerticalMerge element.
-	*/
-	var VerticalMergeAttributes = class extends XmlAttributeComponent {
-		constructor(..._args2) {
-			super(..._args2);
-			_defineProperty(this, "xmlKeys", { val: "w:val" });
-		}
-	};
-	/**
-	* Represents a vertical merge (vMerge) element in a WordprocessingML document.
-	*
-	* The vMerge element specifies that this cell is part of a vertically merged region.
-	* Cells can either restart a new merge region or continue an existing one from above.
-	* This is used to create row spans in tables.
-	*
-	* Reference: http://officeopenxml.com/WPtableCell.php
-	*
-	* ## XSD Schema
-	* ```xml
-	* <xsd:complexType name="CT_VMerge">
-	*   <xsd:attribute name="val" type="ST_Merge"/>
-	* </xsd:complexType>
-	* ```
-	*
-	* @example
-	* ```typescript
-	* // First cell in a vertical merge
-	* new VerticalMerge(VerticalMergeType.RESTART);
-	*
-	* // Subsequent cells that continue the merge
-	* new VerticalMerge(VerticalMergeType.CONTINUE);
-	* ```
-	*/
-	var VerticalMerge = class extends XmlComponent {
-		constructor(value) {
-			super("w:vMerge");
-			this.root.push(new VerticalMergeAttributes({ val: value }));
-		}
-	};
-	/**
-	* Text direction values for table cells.
-	*
-	* Specifies the direction in which text flows within a table cell.
-	*/
-	var TextDirection = {
-		/** Text flows from bottom to top, left to right */
-		BOTTOM_TO_TOP_LEFT_TO_RIGHT: "btLr",
-		/** Text flows from left to right, top to bottom (default) */
-		LEFT_TO_RIGHT_TOP_TO_BOTTOM: "lrTb",
-		/** Text flows from top to bottom, right to left */
-		TOP_TO_BOTTOM_RIGHT_TO_LEFT: "tbRl"
-	};
-	/**
-	* Attributes for the TDirection element.
-	*/
-	var TDirectionAttributes = class extends XmlAttributeComponent {
-		constructor(..._args3) {
-			super(..._args3);
-			_defineProperty(this, "xmlKeys", { val: "w:val" });
-		}
-	};
-	/**
-	* Represents a text direction (textDirection) element in a WordprocessingML document.
-	*
-	* The textDirection element specifies the flow of text within a table cell. This is
-	* useful for creating rotated text or supporting different writing systems.
-	*
-	* Reference: http://officeopenxml.com/WPtableCell.php
-	*
-	* ## XSD Schema
-	* ```xml
-	* <xsd:complexType name="CT_TextDirection">
-	*   <xsd:attribute name="val" type="ST_TextDirection" use="required"/>
-	* </xsd:complexType>
-	* ```
-	*
-	* @example
-	* ```typescript
-	* // Vertical text flowing from top to bottom
-	* new TDirection(TextDirection.TOP_TO_BOTTOM_RIGHT_TO_LEFT);
-	* ```
-	*/
-	var TDirection = class extends XmlComponent {
-		constructor(value) {
-			super("w:textDirection");
-			this.root.push(new TDirectionAttributes({ val: value }));
-		}
-	};
-	//#endregion
-	//#region src/file/table/table-cell/table-cell-properties.ts
-	/**
-	* Table cell properties module for WordprocessingML documents.
-	*
-	* This module provides cell-level properties including width, borders,
-	* shading, margins, and merge settings.
-	*
-	* Reference: http://officeopenxml.com/WPtableCellProperties.php
-	*
-	* @module
-	*/
-	/**
-	* Represents table cell properties (tcPr) in a WordprocessingML document.
-	*
-	* The tcPr element specifies properties for a table cell including width,
-	* borders, shading, margins, text direction, vertical alignment, and merge settings.
-	* These properties control the appearance and behavior of individual table cells.
-	*
-	* Reference: http://officeopenxml.com/WPtableCellProperties.php
-	*
-	* ## XSD Schema
-	* ```xml
-	* <xsd:complexType name="CT_TcPr">
-	*   <xsd:complexContent>
-	*     <xsd:extension base="CT_TcPrInner">
-	*       <xsd:sequence>
-	*         <xsd:element name="tcPrChange" type="CT_TcPrChange" minOccurs="0"/>
-	*       </xsd:sequence>
-	*     </xsd:extension>
-	*   </xsd:complexContent>
-	* </xsd:complexType>
-	*
-	* <xsd:complexType name="CT_TcPrInner">
-	*   <xsd:complexContent>
-	*     <xsd:extension base="CT_TcPrBase">
-	*       <xsd:sequence>
-	*         <xsd:group ref="EG_CellMarkupElements" minOccurs="0" maxOccurs="1"/>
-	*       </xsd:sequence>
-	*     </xsd:extension>
-	*   </xsd:complexContent>
-	* </xsd:complexType>
-	*
-	* <xsd:complexType name="CT_TcPrBase">
-	*   <xsd:sequence>
-	*     <xsd:element name="cnfStyle" type="CT_Cnf" minOccurs="0" maxOccurs="1"/>
-	*     <xsd:element name="tcW" type="CT_TblWidth" minOccurs="0" maxOccurs="1"/>
-	*     <xsd:element name="gridSpan" type="CT_DecimalNumber" minOccurs="0"/>
-	*     <xsd:element name="hMerge" type="CT_HMerge" minOccurs="0"/>
-	*     <xsd:element name="vMerge" type="CT_VMerge" minOccurs="0"/>
-	*     <xsd:element name="tcBorders" type="CT_TcBorders" minOccurs="0" maxOccurs="1"/>
-	*     <xsd:element name="shd" type="CT_Shd" minOccurs="0"/>
-	*     <xsd:element name="noWrap" type="CT_OnOff" minOccurs="0"/>
-	*     <xsd:element name="tcMar" type="CT_TcMar" minOccurs="0" maxOccurs="1"/>
-	*     <xsd:element name="textDirection" type="CT_TextDirection" minOccurs="0" maxOccurs="1"/>
-	*     <xsd:element name="tcFitText" type="CT_OnOff" minOccurs="0" maxOccurs="1"/>
-	*     <xsd:element name="vAlign" type="CT_VerticalJc" minOccurs="0"/>
-	*     <xsd:element name="hideMark" type="CT_OnOff" minOccurs="0"/>
-	*     <xsd:element name="headers" type="CT_Headers" minOccurs="0"/>
-	*   </xsd:sequence>
-	* </xsd:complexType>
-	*
-	* <xsd:group name="EG_CellMarkupElements">
-	*   <xsd:choice>
-	*     <xsd:element name="cellIns" type="CT_TrackChange" minOccurs="0"/>
-	*     <xsd:element name="cellDel" type="CT_TrackChange" minOccurs="0"/>
-	*     <xsd:element name="cellMerge" type="CT_CellMergeTrackChange" minOccurs="0"/>
-	*   </xsd:choice>
-	* </xsd:group>
-	*
-	* <xsd:complexType name="CT_TcPrChange">
-	*   <xsd:complexContent>
-	*     <xsd:extension base="CT_TrackChange">
-	*       <xsd:sequence>
-	*         <xsd:element name="tcPr" type="CT_TcPrInner" minOccurs="1"/>
-	*       </xsd:sequence>
-	*     </xsd:extension>
-	*   </xsd:complexContent>
-	* </xsd:complexType>
-	* ```
-	*
-	* @example
-	* ```typescript
-	* new TableCellProperties({
-	*   width: { size: 3000, type: WidthType.DXA },
-	*   shading: { fill: "EEEEEE" },
-	*   verticalAlign: VerticalAlign.CENTER,
-	*   columnSpan: 2,
-	* });
-	* ```
-	*/
-	var TableCellProperties = class extends IgnoreIfEmptyXmlComponent {
-		constructor(options) {
-			super("w:tcPr", options.includeIfEmpty);
-			if (options.width) this.root.push(createTableWidthElement("w:tcW", options.width));
-			if (options.columnSpan) this.root.push(new GridSpan(options.columnSpan));
-			if (options.verticalMerge) this.root.push(new VerticalMerge(options.verticalMerge));
-			else if (options.rowSpan && options.rowSpan > 1) this.root.push(new VerticalMerge(VerticalMergeType.RESTART));
-			if (options.borders) this.root.push(new TableCellBorders(options.borders));
-			if (options.shading) this.root.push(createShading(options.shading));
-			if (options.margins) {
-				const cellMargin = createCellMargin(options.margins);
-				if (cellMargin) this.root.push(cellMargin);
-			}
-			if (options.textDirection) this.root.push(new TDirection(options.textDirection));
-			if (options.verticalAlign) this.root.push(createVerticalAlign(options.verticalAlign));
-			if (options.insertion) this.root.push(new InsertedTableCell(options.insertion));
-			if (options.deletion) this.root.push(new DeletedTableCell(options.deletion));
-			if (options.revision) this.root.push(new TableCellPropertiesChange(options.revision));
-			if (options.cellMerge) this.root.push(new CellMerge(options.cellMerge));
-		}
-	};
-	var TableCellPropertiesChange = class extends XmlComponent {
-		constructor(options) {
-			super("w:tcPrChange");
-			this.root.push(new ChangeAttributes({
-				id: options.id,
-				author: options.author,
-				date: options.date
-			}));
-			this.root.push(new TableCellProperties(_objectSpread2(_objectSpread2({}, options), {}, { includeIfEmpty: true })));
-		}
-	};
-	//#endregion
-	//#region src/file/table/table-cell/table-cell.ts
-	/**
-	* Table cell module for WordprocessingML documents.
-	*
-	* Reference: http://officeopenxml.com/WPtableCell.php
-	*
-	* @module
-	*/
-	/**
-	* Represents a table cell in a WordprocessingML document.
-	*
-	* A table cell is the basic unit of content within a table. Each cell can contain
-	* paragraphs, nested tables, or other block-level content. Cells must always end
-	* with a paragraph element.
-	*
-	* Reference: http://officeopenxml.com/WPtableCell.php
-	*
-	* @publicApi
-	*
-	* ## XSD Schema
-	* ```xml
-	* <xsd:complexType name="CT_Tc">
-	*   <xsd:sequence>
-	*     <xsd:element name="tcPr" type="CT_TcPr" minOccurs="0" maxOccurs="1"/>
-	*     <xsd:group ref="EG_BlockLevelElts" minOccurs="1" maxOccurs="unbounded"/>
-	*   </xsd:sequence>
-	*   <xsd:attribute name="id" type="s:ST_String" use="optional"/>
-	* </xsd:complexType>
-	* ```
-	*
-	* @example
-	* ```typescript
-	* new TableCell({
-	*   children: [new Paragraph("Cell content")],
-	*   width: { size: 3000, type: WidthType.DXA },
-	* });
-	* ```
-	*/
-	var TableCell = class extends XmlComponent {
-		constructor(options) {
-			super("w:tc");
-			_defineProperty(this, "options", void 0);
-			this.options = options;
-			this.root.push(new TableCellProperties(options));
-			for (const child of options.children) this.root.push(child);
-		}
-		prepForXml(context) {
-			if (!(this.root[this.root.length - 1] instanceof Paragraph)) this.root.push(new Paragraph({}));
-			return super.prepForXml(context);
-		}
-	};
-	//#endregion
-	//#region src/file/table/table-properties/table-borders.ts
-	/**
-	* Table borders module for WordprocessingML documents.
-	*
-	* This module provides border options for tables.
-	*
-	* Reference: http://officeopenxml.com/WPtableBorders.php
-	*
-	* @module
-	*/
-	var NONE_BORDER = {
-		style: BorderStyle.NONE,
-		size: 0,
-		color: "auto"
-	};
-	var DEFAULT_BORDER = {
-		style: BorderStyle.SINGLE,
-		size: 4,
-		color: "auto"
-	};
-	/**
-	* Represents table borders in a WordprocessingML document.
-	*
-	* The tblBorders element specifies the borders for all cells in the table.
-	*
-	* Reference: http://officeopenxml.com/WPtableBorders.php
-	*
-	* @publicApi
-	*
-	* @example
-	* ```typescript
-	* new TableBorders({
-	*   top: { style: BorderStyle.SINGLE, size: 6, color: "000000" },
-	*   bottom: { style: BorderStyle.SINGLE, size: 6, color: "000000" },
-	* });
-	*
-	* // To remove all borders
-	* new TableBorders(TableBorders.NONE);
-	* ```
-	*/
-	var TableBorders = class extends XmlComponent {
-		constructor(options) {
-			var _options$top, _options$left, _options$bottom, _options$right, _options$insideHorizo, _options$insideVertic;
-			super("w:tblBorders");
-			this.root.push(createBorderElement("w:top", (_options$top = options.top) !== null && _options$top !== void 0 ? _options$top : DEFAULT_BORDER));
-			this.root.push(createBorderElement("w:left", (_options$left = options.left) !== null && _options$left !== void 0 ? _options$left : DEFAULT_BORDER));
-			this.root.push(createBorderElement("w:bottom", (_options$bottom = options.bottom) !== null && _options$bottom !== void 0 ? _options$bottom : DEFAULT_BORDER));
-			this.root.push(createBorderElement("w:right", (_options$right = options.right) !== null && _options$right !== void 0 ? _options$right : DEFAULT_BORDER));
-			this.root.push(createBorderElement("w:insideH", (_options$insideHorizo = options.insideHorizontal) !== null && _options$insideHorizo !== void 0 ? _options$insideHorizo : DEFAULT_BORDER));
-			this.root.push(createBorderElement("w:insideV", (_options$insideVertic = options.insideVertical) !== null && _options$insideVertic !== void 0 ? _options$insideVertic : DEFAULT_BORDER));
-		}
-	};
-	_defineProperty(TableBorders, "NONE", {
-		top: NONE_BORDER,
-		bottom: NONE_BORDER,
-		left: NONE_BORDER,
-		right: NONE_BORDER,
-		insideHorizontal: NONE_BORDER,
-		insideVertical: NONE_BORDER
-	});
-	//#endregion
-	//#region src/file/table/table-properties/table-float-properties.ts
-	/**
-	* Table float properties module for WordprocessingML documents.
-	*
-	* This module provides floating table positioning options, allowing tables
-	* to float with text wrapping around them.
-	*
-	* Reference: http://officeopenxml.com/WPtableFloating.php
-	*
-	* @module
-	*/
-	/**
-	* Anchor types for floating table positioning.
-	*
-	* Specifies the base object from which positioning is determined.
-	*/
-	var TableAnchorType = {
-		MARGIN: "margin",
-		PAGE: "page",
-		TEXT: "text"
-	};
-	/**
-	* Relative horizontal position values for floating tables.
-	*/
-	var RelativeHorizontalPosition = {
-		CENTER: "center",
-		INSIDE: "inside",
-		LEFT: "left",
-		OUTSIDE: "outside",
-		RIGHT: "right"
-	};
-	/**
-	* Relative vertical position values for floating tables.
-	*/
-	var RelativeVerticalPosition = {
-		CENTER: "center",
-		INSIDE: "inside",
-		BOTTOM: "bottom",
-		OUTSIDE: "outside",
-		INLINE: "inline",
-		TOP: "top"
-	};
-	/**
-	* Table overlap behavior types.
-	*
-	* ## XSD Schema
-	* ```xml
-	* <xsd:simpleType name="ST_TblOverlap">
-	*   <xsd:restriction base="xsd:string">
-	*     <xsd:enumeration value="never"/>
-	*     <xsd:enumeration value="overlap"/>
-	*   </xsd:restriction>
-	* </xsd:simpleType>
-	* ```
-	*/
-	var OverlapType = {
-		NEVER: "never",
-		OVERLAP: "overlap"
-	};
-	/**
-	* Creates a table overlap element.
-	*
-	* @internal
-	*/
-	var createOverlapElement = (overlap) => new BuilderElement({
-		name: "w:tblOverlap",
-		attributes: { val: {
-			key: "w:val",
-			value: overlap
-		} }
-	});
-	/**
-	* Creates floating table properties in a WordprocessingML document.
-	*
-	* This element specifies the positioning of a floating table,
-	* including anchor points, offsets, and text wrapping behavior.
-	*
-	* Reference: http://officeopenxml.com/WPtableFloating.php
-	*
-	* ## XSD Schema
-	* ```xml
-	* <xsd:complexType name="CT_TblPPr">
-	*   <xsd:attribute name="leftFromText" type="s:ST_TwipsMeasure"/>
-	*   <xsd:attribute name="rightFromText" type="s:ST_TwipsMeasure"/>
-	*   <xsd:attribute name="topFromText" type="s:ST_TwipsMeasure"/>
-	*   <xsd:attribute name="bottomFromText" type="s:ST_TwipsMeasure"/>
-	*   <xsd:attribute name="vertAnchor" type="ST_VAnchor"/>
-	*   <xsd:attribute name="horzAnchor" type="ST_HAnchor"/>
-	*   <xsd:attribute name="tblpXSpec" type="s:ST_XAlign"/>
-	*   <xsd:attribute name="tblpX" type="ST_SignedTwipsMeasure"/>
-	*   <xsd:attribute name="tblpYSpec" type="s:ST_YAlign"/>
-	*   <xsd:attribute name="tblpY" type="ST_SignedTwipsMeasure"/>
-	* </xsd:complexType>
-	* ```
-	*
-	* @example
-	* ```typescript
-	* createTableFloatProperties({
-	*   horizontalAnchor: TableAnchorType.MARGIN,
-	*   relativeHorizontalPosition: RelativeHorizontalPosition.CENTER,
-	*   topFromText: 200,
-	*   bottomFromText: 200,
-	* });
-	* ```
-	*/
-	var createTableFloatProperties = ({ horizontalAnchor, verticalAnchor, absoluteHorizontalPosition, relativeHorizontalPosition, absoluteVerticalPosition, relativeVerticalPosition, bottomFromText, topFromText, leftFromText, rightFromText, overlap }) => new BuilderElement({
-		name: "w:tblpPr",
-		attributes: {
-			leftFromText: {
-				key: "w:leftFromText",
-				value: leftFromText === void 0 ? void 0 : twipsMeasureValue(leftFromText)
-			},
-			rightFromText: {
-				key: "w:rightFromText",
-				value: rightFromText === void 0 ? void 0 : twipsMeasureValue(rightFromText)
-			},
-			topFromText: {
-				key: "w:topFromText",
-				value: topFromText === void 0 ? void 0 : twipsMeasureValue(topFromText)
-			},
-			bottomFromText: {
-				key: "w:bottomFromText",
-				value: bottomFromText === void 0 ? void 0 : twipsMeasureValue(bottomFromText)
-			},
-			absoluteHorizontalPosition: {
-				key: "w:tblpX",
-				value: absoluteHorizontalPosition === void 0 ? void 0 : signedTwipsMeasureValue(absoluteHorizontalPosition)
-			},
-			absoluteVerticalPosition: {
-				key: "w:tblpY",
-				value: absoluteVerticalPosition === void 0 ? void 0 : signedTwipsMeasureValue(absoluteVerticalPosition)
-			},
-			horizontalAnchor: {
-				key: "w:horzAnchor",
-				value: horizontalAnchor
-			},
-			relativeHorizontalPosition: {
-				key: "w:tblpXSpec",
-				value: relativeHorizontalPosition
-			},
-			relativeVerticalPosition: {
-				key: "w:tblpYSpec",
-				value: relativeVerticalPosition
-			},
-			verticalAnchor: {
-				key: "w:vertAnchor",
-				value: verticalAnchor
-			}
-		},
-		children: overlap ? [createOverlapElement(overlap)] : void 0
-	});
-	//#endregion
-	//#region src/file/table/table-properties/table-layout.ts
-	/**
-	* Table layout module for WordprocessingML documents.
-	*
-	* This module provides table layout algorithm settings.
-	*
-	* @module
-	*/
-	/**
-	* Table layout algorithm types.
-	*
-	* Specifies how the table width is calculated.
-	*
-	* ## XSD Schema
-	* ```xml
-	* <xsd:simpleType name="ST_TblLayoutType">
-	*   <xsd:restriction base="xsd:string">
-	*     <xsd:enumeration value="fixed"/>
-	*     <xsd:enumeration value="autofit"/>
-	*   </xsd:restriction>
-	* </xsd:simpleType>
-	* ```
-	*
-	* @publicApi
-	*/
-	var TableLayoutType = {
-		/** Auto-fit layout - column widths are adjusted based on content */
-		AUTOFIT: "autofit",
-		/** Fixed layout - column widths are fixed as specified */
-		FIXED: "fixed"
-	};
-	/**
-	* Creates table layout settings in a WordprocessingML document.
-	*
-	* The tblLayout element specifies the algorithm used to lay out the table.
-	*
-	* ## XSD Schema
-	* ```xml
-	* <xsd:complexType name="CT_TblLayoutType">
-	*   <xsd:attribute name="type" type="ST_TblLayoutType"/>
-	* </xsd:complexType>
-	* ```
-	*
-	* @example
-	* ```typescript
-	* createTableLayout(TableLayoutType.FIXED);
-	* ```
-	*/
-	var createTableLayout = (type) => new BuilderElement({
-		name: "w:tblLayout",
-		attributes: { type: {
-			key: "w:type",
-			value: type
-		} }
-	});
-	//#endregion
-	//#region src/file/table/table-cell-spacing.ts
-	/**
-	* Table cell spacing module for WordprocessingML documents.
-	*
-	* This module provides cell spacing settings for tables, controlling
-	* the space between cells in a table.
-	*
-	* Reference: http://officeopenxml.com/WPtableCellSpacing.php
-	*
-	* @module
-	*/
-	/**
-	* Cell spacing measurement types.
-	*
-	* ## XSD Schema
-	* ```xml
-	* <xsd:simpleType name="ST_TblCellSpacing">
-	*   <xsd:restriction base="xsd:string">
-	*     <xsd:enumeration value="nil"/>
-	*     <xsd:enumeration value="dxa"/>
-	*   </xsd:restriction>
-	* </xsd:simpleType>
-	* ```
-	*/
-	var CellSpacingType = {
-		/** Value is in twentieths of a point */
-		DXA: "dxa",
-		/** No (empty) value. */
-		NIL: "nil"
-	};
-	/**
-	* Creates table cell spacing in a WordprocessingML document.
-	*
-	* The tblCellSpacing element specifies the spacing between cells in a table.
-	*
-	* Reference: http://officeopenxml.com/WPtableCellSpacing.php
-	*
-	* ## XSD Schema
-	* ```xml
-	* <xsd:complexType name="CT_TblCellSpacing">
-	*   <xsd:attribute name="w" type="ST_MeasurementOrPercent"/>
-	*   <xsd:attribute name="type" type="ST_TblCellSpacing"/>
-	* </xsd:complexType>
-	* ```
-	*
-	* @example
-	* ```typescript
-	* createTableCellSpacing({ value: 100, type: CellSpacingType.DXA });
-	* ```
-	*/
-	var createTableCellSpacing = ({ type = CellSpacingType.DXA, value }) => new BuilderElement({
-		name: "w:tblCellSpacing",
-		attributes: {
-			type: {
-				key: "w:type",
-				value: type
-			},
-			value: {
-				key: "w:w",
-				value: measurementOrPercentValue(value)
-			}
-		}
-	});
-	//#endregion
-	//#region src/file/table/table-properties/table-look.ts
-	/**
-	* Table look module for WordprocessingML documents.
-	*
-	* Table look specifies conditional formatting settings that determine which
-	* special formatting is applied to a table. These settings control whether
-	* special formatting is applied to the first row, last row, first column,
-	* last column, and whether to display horizontal or vertical banding.
-	*
-	* Reference: http://officeopenxml.com/WPtblLook.php
-	*
-	* ## XSD Schema
-	* ```xml
-	* <xsd:complexType name="CT_TblLook">
-	*   <xsd:attribute name="firstRow" type="s:ST_OnOff"/>
-	*   <xsd:attribute name="lastRow" type="s:ST_OnOff"/>
-	*   <xsd:attribute name="firstColumn" type="s:ST_OnOff"/>
-	*   <xsd:attribute name="lastColumn" type="s:ST_OnOff"/>
-	*   <xsd:attribute name="noHBand" type="s:ST_OnOff"/>
-	*   <xsd:attribute name="noVBand" type="s:ST_OnOff"/>
-	* </xsd:complexType>
-	* ```
-	*
-	* @module
-	*/
-	/**
-	* Creates a table look element for conditional formatting settings.
-	*
-	* The tblLook element specifies which conditional formatting settings
-	* are active for a table. These settings work in conjunction with table
-	* styles to apply special formatting to specific regions of the table.
-	*
-	* Reference: http://officeopenxml.com/WPtblLook.php
-	*
-	* @example
-	* ```typescript
-	* // Table with header row formatting and alternating row colors
-	* new Table({
-	*   rows: [...],
-	*   tableLook: {
-	*     firstRow: true,
-	*     noHBand: false,
-	*     noVBand: true,
-	*   },
-	* });
-	* ```
-	*/
-	var createTableLook = ({ firstRow, lastRow, firstColumn, lastColumn, noHBand, noVBand }) => new BuilderElement({
-		name: "w:tblLook",
-		attributes: {
-			firstRow: {
-				key: "w:firstRow",
-				value: firstRow
-			},
-			lastRow: {
-				key: "w:lastRow",
-				value: lastRow
-			},
-			firstColumn: {
-				key: "w:firstColumn",
-				value: firstColumn
-			},
-			lastColumn: {
-				key: "w:lastColumn",
-				value: lastColumn
-			},
-			noHBand: {
-				key: "w:noHBand",
-				value: noHBand
-			},
-			noVBand: {
-				key: "w:noVBand",
-				value: noVBand
-			}
-		}
-	});
-	//#endregion
-	//#region src/file/table/table-properties/table-properties.ts
-	/**
-	* Table properties module for WordprocessingML documents.
-	*
-	* This module provides table-level properties including width, borders,
-	* layout, alignment, and margins.
-	*
-	* Reference: http://officeopenxml.com/WPtableProperties.php
-	*
-	* ## XSD Schema
-	* ```xml
-	* <xsd:complexType name="CT_TblPrBase">
-	*   <xsd:sequence>
-	*     <xsd:element name="tblStyle" type="CT_String" minOccurs="0"/>
-	*     <xsd:element name="tblpPr" type="CT_TblPPr" minOccurs="0" maxOccurs="1"/>
-	*     <xsd:element name="tblOverlap" type="CT_TblOverlap" minOccurs="0" maxOccurs="1"/>
-	*     <xsd:element name="bidiVisual" type="CT_OnOff" minOccurs="0" maxOccurs="1"/>
-	*     <xsd:element name="tblStyleRowBandSize" type="CT_DecimalNumber" minOccurs="0" maxOccurs="1"/>
-	*     <xsd:element name="tblStyleColBandSize" type="CT_DecimalNumber" minOccurs="0" maxOccurs="1"/>
-	*     <xsd:element name="tblW" type="CT_TblWidth" minOccurs="0" maxOccurs="1"/>
-	*     <xsd:element name="jc" type="CT_JcTable" minOccurs="0" maxOccurs="1"/>
-	*     <xsd:element name="tblCellSpacing" type="CT_TblWidth" minOccurs="0" maxOccurs="1"/>
-	*     <xsd:element name="tblInd" type="CT_TblWidth" minOccurs="0" maxOccurs="1"/>
-	*     <xsd:element name="tblBorders" type="CT_TblBorders" minOccurs="0" maxOccurs="1"/>
-	*     <xsd:element name="shd" type="CT_Shd" minOccurs="0" maxOccurs="1"/>
-	*     <xsd:element name="tblLayout" type="CT_TblLayoutType" minOccurs="0" maxOccurs="1"/>
-	*     <xsd:element name="tblCellMar" type="CT_TblCellMar" minOccurs="0" maxOccurs="1"/>
-	*     <xsd:element name="tblLook" type="CT_TblLook" minOccurs="0" maxOccurs="1"/>
-	*     <xsd:element name="tblCaption" type="CT_String" minOccurs="0" maxOccurs="1"/>
-	*     <xsd:element name="tblDescription" type="CT_String" minOccurs="0" maxOccurs="1"/>
-	*   </xsd:sequence>
-	* </xsd:complexType>
-	*
-	* <xsd:complexType name="CT_TblPrChange">
-	*   <xsd:complexContent>
-	*     <xsd:extension base="CT_TrackChange">
-	*       <xsd:sequence>
-	*         <xsd:element name="tblPr" type="CT_TblPrBase"/>
-	*       </xsd:sequence>
-	*     </xsd:extension>
-	*   </xsd:complexContent>
-	* </xsd:complexType>
-	* ```
-	*
-	* @module
-	*/
-	/**
-	* Represents table properties (tblPr) in a WordprocessingML document.
-	*
-	* The tblPr element specifies the properties for a table including width,
-	* alignment, borders, margins, and layout.
-	*
-	* Reference: http://officeopenxml.com/WPtableProperties.php
-	*/
-	var TableProperties = class extends IgnoreIfEmptyXmlComponent {
-		constructor(options) {
-			super("w:tblPr", options.includeIfEmpty);
-			if (options.style) this.root.push(new StringValueElement("w:tblStyle", options.style));
-			if (options.float) this.root.push(createTableFloatProperties(options.float));
-			if (options.visuallyRightToLeft !== void 0) this.root.push(new OnOffElement("w:bidiVisual", options.visuallyRightToLeft));
-			if (options.width) this.root.push(createTableWidthElement("w:tblW", options.width));
-			if (options.alignment) this.root.push(createAlignment(options.alignment));
-			if (options.indent) this.root.push(createTableWidthElement("w:tblInd", options.indent));
-			if (options.borders) this.root.push(new TableBorders(options.borders));
-			if (options.shading) this.root.push(createShading(options.shading));
-			if (options.layout) this.root.push(createTableLayout(options.layout));
-			if (options.cellMargin) {
-				const cellMargin = createTableCellMargin(options.cellMargin);
-				if (cellMargin) this.root.push(cellMargin);
-			}
-			if (options.tableLook) this.root.push(createTableLook(options.tableLook));
-			if (options.cellSpacing) this.root.push(createTableCellSpacing(options.cellSpacing));
-			if (options.revision) this.root.push(new TablePropertiesChange(options.revision));
-		}
-	};
-	var TablePropertiesChange = class extends XmlComponent {
-		constructor(options) {
-			super("w:tblPrChange");
-			this.root.push(new ChangeAttributes({
-				id: options.id,
-				author: options.author,
-				date: options.date
-			}));
-			this.root.push(new TableProperties(_objectSpread2(_objectSpread2({}, options), {}, { includeIfEmpty: true })));
-		}
-	};
-	//#endregion
-	//#region src/file/table/table.ts
-	/**
-	* Table module for WordprocessingML documents.
-	*
-	* Reference: http://officeopenxml.com/WPtableGrid.php
-	*
-	* @module
-	*/
-	/**
-	* Represents a table in a WordprocessingML document.
-	*
-	* A table is a set of paragraphs (and other block-level content) arranged in rows and columns.
-	* Tables are used to organize content into a grid structure.
-	*
-	* Reference: http://officeopenxml.com/WPtable.php
-	*
-	* @publicApi
-	*
-	* ## XSD Schema
-	* ```xml
-	* <xsd:complexType name="CT_Tbl">
-	*   <xsd:sequence>
-	*     <xsd:group ref="EG_RangeMarkupElements" minOccurs="0" maxOccurs="unbounded"/>
-	*     <xsd:element name="tblPr" type="CT_TblPr"/>
-	*     <xsd:element name="tblGrid" type="CT_TblGrid"/>
-	*     <xsd:group ref="EG_ContentRowContent" minOccurs="0" maxOccurs="unbounded"/>
-	*   </xsd:sequence>
-	* </xsd:complexType>
-	* ```
-	*
-	* @example
-	* ```typescript
-	* new Table({
-	*   rows: [
-	*     new TableRow({
-	*       children: [
-	*         new TableCell({ children: [new Paragraph("Cell 1")] }),
-	*         new TableCell({ children: [new Paragraph("Cell 2")] }),
-	*       ],
-	*     }),
-	*   ],
-	* });
-	* ```
-	*/
-	var Table = class extends FileChild {
-		constructor({ rows, width, columnWidths = Array(Math.max(...rows.map((row) => row.CellCount))).fill(100), columnWidthsRevision, margins, indent, float, layout, style, borders, alignment, visuallyRightToLeft, tableLook, cellSpacing, revision }) {
-			super("w:tbl");
-			this.root.push(new TableProperties({
-				borders: borders !== null && borders !== void 0 ? borders : {},
-				width: width !== null && width !== void 0 ? width : { size: 100 },
-				indent,
-				float,
-				layout,
-				style,
-				alignment,
-				cellMargin: margins,
-				visuallyRightToLeft,
-				tableLook,
-				cellSpacing,
-				revision
-			}));
-			this.root.push(new TableGrid(columnWidths, columnWidthsRevision));
-			for (const row of rows) this.root.push(row);
-			rows.forEach((row, rowIndex) => {
-				if (rowIndex === rows.length - 1) return;
-				let columnIndex = 0;
-				row.cells.forEach((cell) => {
-					if (cell.options.rowSpan && cell.options.rowSpan > 1) {
-						const continueCell = new TableCell({
-							rowSpan: cell.options.rowSpan - 1,
-							columnSpan: cell.options.columnSpan,
-							borders: cell.options.borders,
-							children: [],
-							verticalMerge: VerticalMergeType.CONTINUE
-						});
-						rows[rowIndex + 1].addCellToColumnIndex(continueCell, columnIndex);
-					}
-					columnIndex += cell.options.columnSpan || 1;
-				});
-			});
-		}
-	};
-	//#endregion
-	//#region src/file/table/table-row/table-row-height.ts
-	/**
-	* Table row height module for WordprocessingML documents.
-	*
-	* This module provides row height configuration including rules for how height should be applied.
-	*
-	* Reference: http://officeopenxml.com/WPtableRow.php
-	*
-	* @module
-	*/
-	/**
-	* Height rules for table rows.
-	*
-	* Specifies how the height value should be interpreted.
-	*
-	* ## XSD Schema
-	* ```xml
-	* <xsd:simpleType name="ST_HeightRule">
-	*   <xsd:restriction base="xsd:string">
-	*     <xsd:enumeration value="auto"/>
-	*     <xsd:enumeration value="exact"/>
-	*     <xsd:enumeration value="atLeast"/>
-	*   </xsd:restriction>
-	* </xsd:simpleType>
-	* ```
-	*
-	* @publicApi
-	*/
-	var HeightRule = {
-		/** Height is determined based on the content, so value is ignored. */
-		AUTO: "auto",
-		/** At least the value specified */
-		ATLEAST: "atLeast",
-		/** Exactly the value specified */
-		EXACT: "exact"
-	};
-	/**
-	* Creates table row height (trHeight) in a WordprocessingML document.
-	*
-	* The trHeight element specifies the height of a table row, along with a rule
-	* determining how the height should be applied.
-	*
-	* Reference: http://officeopenxml.com/WPtableRow.php
-	*
-	* ## XSD Schema
-	* ```xml
-	* <xsd:complexType name="CT_Height">
-	*   <xsd:attribute name="val" type="s:ST_TwipsMeasure"/>
-	*   <xsd:attribute name="hRule" type="ST_HeightRule"/>
-	* </xsd:complexType>
-	* ```
-	*
-	* @example
-	* ```typescript
-	* createTableRowHeight(1000, HeightRule.EXACT);
-	* ```
-	*/
-	var createTableRowHeight = (value, rule) => new BuilderElement({
-		name: "w:trHeight",
-		attributes: {
-			value: {
-				key: "w:val",
-				value: twipsMeasureValue(value)
-			},
-			rule: {
-				key: "w:hRule",
-				value: rule
-			}
-		}
-	});
-	//#endregion
-	//#region src/file/table/table-row/table-row-properties.ts
-	/**
-	* Table row properties module for WordprocessingML documents.
-	*
-	* This module provides row-level properties including height and header row settings.
-	*
-	* Reference: http://officeopenxml.com/WPtableRowProperties.php
-	*
-	* ## XSD Schema
-	* ```xml
-	* <xsd:complexType name="CT_TrPrBase">
-	*   <xsd:choice maxOccurs="unbounded">
-	*     <xsd:element name="cnfStyle" type="CT_Cnf" minOccurs="0" maxOccurs="1"/>
-	*     <xsd:element name="divId" type="CT_DecimalNumber" minOccurs="0"/>
-	*     <xsd:element name="gridBefore" type="CT_DecimalNumber" minOccurs="0"/>
-	*     <xsd:element name="gridAfter" type="CT_DecimalNumber" minOccurs="0"/>
-	*     <xsd:element name="wBefore" type="CT_TblWidth" minOccurs="0" maxOccurs="1"/>
-	*     <xsd:element name="wAfter" type="CT_TblWidth" minOccurs="0" maxOccurs="1"/>
-	*     <xsd:element name="cantSplit" type="CT_OnOff" minOccurs="0"/>
-	*     <xsd:element name="trHeight" type="CT_Height" minOccurs="0"/>
-	*     <xsd:element name="tblHeader" type="CT_OnOff" minOccurs="0"/>
-	*     <xsd:element name="tblCellSpacing" type="CT_TblWidth" minOccurs="0" maxOccurs="1"/>
-	*     <xsd:element name="jc" type="CT_JcTable" minOccurs="0" maxOccurs="1"/>
-	*     <xsd:element name="hidden" type="CT_OnOff" minOccurs="0"/>
-	*   </xsd:choice>
-	* </xsd:complexType>
-	* <xsd:complexType name="CT_TrPr">
-	*   <xsd:complexContent>
-	*     <xsd:extension base="CT_TrPrBase">
-	*       <xsd:sequence>
-	*         <xsd:element name="ins" type="CT_TrackChange" minOccurs="0"/>
-	*         <xsd:element name="del" type="CT_TrackChange" minOccurs="0"/>
-	*         <xsd:element name="trPrChange" type="CT_TrPrChange" minOccurs="0"/>
-	*       </xsd:sequence>
-	*     </xsd:extension>
-	*   </xsd:complexContent>
-	* </xsd:complexType>
-	* <xsd:complexType name="CT_TrPrChange">
-	*   <xsd:complexContent>
-	*     <xsd:extension base="CT_TrackChange">
-	*       <xsd:sequence>
-	*         <xsd:element name="trPr" type="CT_TrPrBase" minOccurs="1"/>
-	*       </xsd:sequence>
-	*     </xsd:extension>
-	*   </xsd:complexContent>
-	* </xsd:complexType>
-	* ```
-	*
-	* @module
-	*/
-	/**
-	* Represents table row properties (trPr) in a WordprocessingML document.
-	*
-	* The trPr element specifies properties for a table row including height,
-	* whether it can split across pages, and whether it's a header row.
-	*
-	* Reference: http://officeopenxml.com/WPtableRowProperties.php
-	*
-	* @example
-	* ```typescript
-	* new TableRowProperties({
-	*   cantSplit: true,
-	*   tableHeader: true,
-	*   height: {
-	*     value: 1000,
-	*     rule: HeightRule.EXACT,
-	*   },
-	* });
-	* ```
-	*/
-	var TableRowProperties = class extends IgnoreIfEmptyXmlComponent {
-		constructor(options) {
-			super("w:trPr", options.includeIfEmpty);
-			if (options.cantSplit !== void 0) this.root.push(new OnOffElement("w:cantSplit", options.cantSplit));
-			if (options.tableHeader !== void 0) this.root.push(new OnOffElement("w:tblHeader", options.tableHeader));
-			if (options.height) this.root.push(createTableRowHeight(options.height.value, options.height.rule));
-			if (options.cellSpacing) this.root.push(createTableCellSpacing(options.cellSpacing));
-			if (options.insertion) this.root.push(new InsertedTableRow(options.insertion));
-			if (options.deletion) this.root.push(new DeletedTableRow(options.deletion));
-			if (options.revision) this.root.push(new TableRowPropertiesChange(options.revision));
-		}
-	};
-	var TableRowPropertiesChange = class extends XmlComponent {
-		constructor(options) {
-			super("w:trPrChange");
-			this.root.push(new ChangeAttributes({
-				id: options.id,
-				author: options.author,
-				date: options.date
-			}));
-			this.root.push(new TableRowProperties(_objectSpread2(_objectSpread2({}, options), {}, { includeIfEmpty: true })));
-		}
-	};
-	//#endregion
-	//#region src/file/table/table-row/table-row.ts
-	/**
-	* Table row module for WordprocessingML documents.
-	*
-	* Reference: http://officeopenxml.com/WPtableRow.php
-	*
-	* @module
-	*/
-	/**
-	* Represents a table row in a WordprocessingML document.
-	*
-	* A table row is a single row of cells within a table. Each row contains
-	* one or more table cells that hold the actual content.
-	*
-	* Reference: http://officeopenxml.com/WPtableRow.php
-	*
-	* @publicApi
-	*
-	* ## XSD Schema
-	* ```xml
-	* <xsd:complexType name="CT_Row">
-	*   <xsd:sequence>
-	*     <xsd:element name="tblPrEx" type="CT_TblPrEx" minOccurs="0" maxOccurs="1"/>
-	*     <xsd:element name="trPr" type="CT_TrPr" minOccurs="0" maxOccurs="1"/>
-	*     <xsd:group ref="EG_ContentCellContent" minOccurs="0" maxOccurs="unbounded"/>
-	*   </xsd:sequence>
-	*   <xsd:attribute name="rsidRPr" type="ST_LongHexNumber"/>
-	*   <xsd:attribute name="rsidR" type="ST_LongHexNumber"/>
-	*   <xsd:attribute name="rsidDel" type="ST_LongHexNumber"/>
-	*   <xsd:attribute name="rsidTr" type="ST_LongHexNumber"/>
-	* </xsd:complexType>
-	* ```
-	*
-	* @example
-	* ```typescript
-	* new TableRow({
-	*   children: [
-	*     new TableCell({ children: [new Paragraph("Cell 1")] }),
-	*     new TableCell({ children: [new Paragraph("Cell 2")] }),
-	*   ],
-	* });
-	* ```
-	*/
-	var TableRow = class extends XmlComponent {
-		constructor(options) {
-			super("w:tr");
-			_defineProperty(this, "options", void 0);
-			this.options = options;
-			this.root.push(new TableRowProperties(options));
-			for (const child of options.children) this.root.push(child);
-		}
-		get CellCount() {
-			return this.options.children.length;
-		}
-		get cells() {
-			return this.root.filter((xmlComponent) => xmlComponent instanceof TableCell);
-		}
-		addCellToIndex(cell, index) {
-			this.root.splice(index + 1, 0, cell);
-		}
-		addCellToColumnIndex(cell, columnIndex) {
-			const rootIndex = this.columnIndexToRootIndex(columnIndex, true);
-			this.addCellToIndex(cell, rootIndex - 1);
-		}
-		rootIndexToColumnIndex(rootIndex) {
-			if (rootIndex < 1 || rootIndex >= this.root.length) throw new Error(`cell 'rootIndex' should between 1 to ${this.root.length - 1}`);
-			let colIdx = 0;
-			for (let rootIdx = 1; rootIdx < rootIndex; rootIdx++) {
-				const cell = this.root[rootIdx];
-				colIdx += cell.options.columnSpan || 1;
-			}
-			return colIdx;
-		}
-		columnIndexToRootIndex(columnIndex, allowEndNewCell = false) {
-			if (columnIndex < 0) throw new Error(`cell 'columnIndex' should not less than zero`);
-			let colIdx = 0;
-			let rootIdx = 1;
-			while (colIdx <= columnIndex) {
-				if (rootIdx >= this.root.length) if (allowEndNewCell) return this.root.length;
-				else throw new Error(`cell 'columnIndex' should not great than ${colIdx - 1}`);
-				const cell = this.root[rootIdx];
-				rootIdx += 1;
-				colIdx += cell && cell.options.columnSpan || 1;
-			}
-			return rootIdx - 1;
-		}
-	};
-	//#endregion
-	//#region src/file/app-properties/app-properties-attributes.ts
-	/**
-	* App Properties Attributes module for WordprocessingML documents.
-	*
-	* Provides namespace attributes for extended document properties.
-	*
-	* Reference: ISO-IEC29500-4_2016 shared-documentPropertiesExtended.xsd
-	*
-	* @module
-	*/
-	/**
-	* XML namespace attributes for the app properties element.
-	*
-	* @property xmlns - Main namespace for extended properties
-	* @property vt - Namespace for variant types
-	*/
-	var AppPropertiesAttributes = class extends XmlAttributeComponent {
-		constructor(..._args) {
-			super(..._args);
-			_defineProperty(this, "xmlKeys", {
-				xmlns: "xmlns",
-				vt: "xmlns:vt"
-			});
-		}
-	};
-	//#endregion
-	//#region src/file/app-properties/app-properties.ts
-	/**
-	* App Properties module for WordprocessingML documents.
-	*
-	* Provides support for extended document properties specific to Office applications.
-	*
-	* Reference: ISO-IEC29500-4_2016 shared-documentPropertiesExtended.xsd
-	*
-	* @module
-	*/
-	/**
-	* Represents the extended application properties of a WordprocessingML document.
-	*
-	* Extended properties contain application-specific metadata such as total editing time,
-	* word count, character count, and other Office-specific information.
-	*
-	* Reference: ISO-IEC29500-4_2016 shared-documentPropertiesExtended.xsd
-	*
-	* ## XSD Schema
-	* ```xml
-	* <xsd:complexType name="CT_Properties">
-	*   <xsd:sequence>
-	*     <xsd:element name="Template" type="xsd:string" minOccurs="0"/>
-	*     <xsd:element name="Manager" type="xsd:string" minOccurs="0"/>
-	*     <xsd:element name="Company" type="xsd:string" minOccurs="0"/>
-	*     <xsd:element name="Pages" type="xsd:int" minOccurs="0"/>
-	*     <xsd:element name="Words" type="xsd:int" minOccurs="0"/>
-	*     <xsd:element name="Characters" type="xsd:int" minOccurs="0"/>
-	*     <xsd:element name="PresentationFormat" type="xsd:string" minOccurs="0"/>
-	*     <xsd:element name="Lines" type="xsd:int" minOccurs="0"/>
-	*     <xsd:element name="Paragraphs" type="xsd:int" minOccurs="0"/>
-	*     <xsd:element name="CharactersWithSpaces" type="xsd:int" minOccurs="0"/>
-	*     <xsd:element name="Application" type="xsd:string" minOccurs="0"/>
-	*     <xsd:element name="DocSecurity" type="xsd:int" minOccurs="0"/>
-	*   </xsd:sequence>
-	* </xsd:complexType>
-	* ```
-	*
-	* @example
-	* ```typescript
-	* const appProps = new AppProperties();
-	* ```
-	*/
-	var AppProperties = class extends XmlComponent {
-		constructor() {
-			super("Properties");
-			this.root.push(new AppPropertiesAttributes({
-				xmlns: "http://schemas.openxmlformats.org/officeDocument/2006/extended-properties",
-				vt: "http://schemas.openxmlformats.org/officeDocument/2006/docPropsVTypes"
-			}));
-		}
-	};
-	//#endregion
-	//#region src/file/content-types/content-types-attributes.ts
-	/**
-	* Attributes for the Types (Content Types) element.
-	*
-	* Defines the XML namespace for the content types part.
-	*
-	* @example
-	* ```typescript
-	* new ContentTypeAttributes({
-	*   xmlns: "http://schemas.openxmlformats.org/package/2006/content-types"
-	* });
-	* ```
-	*/
-	var ContentTypeAttributes = class extends XmlAttributeComponent {
-		constructor(..._args) {
-			super(..._args);
-			_defineProperty(this, "xmlKeys", { xmlns: "xmlns" });
-		}
-	};
-	//#endregion
-	//#region src/file/content-types/default/default.ts
-	/**
-	* Creates a default content type mapping by file extension.
-	*
-	* Default elements map file extensions (e.g., "png", "xml") to MIME content types.
-	* This tells the package reader what type of content to expect for files with
-	* a given extension.
-	*
-	* @example
-	* ```typescript
-	* // Map .png files to image/png content type
-	* createDefault("image/png", "png");
-	*
-	* // Map .xml files to application/xml content type
-	* createDefault("application/xml", "xml");
-	* ```
-	*/
-	var createDefault = (contentType, extension) => new BuilderElement({
-		name: "Default",
-		attributes: {
-			contentType: {
-				key: "ContentType",
-				value: contentType
-			},
-			extension: {
-				key: "Extension",
-				value: extension
-			}
-		}
-	});
-	//#endregion
-	//#region src/file/content-types/override/override.ts
-	/**
-	* Creates a content type override for a specific part.
-	*
-	* Override elements map specific part paths to MIME content types,
-	* taking precedence over default extension mappings. This is used for
-	* important parts like document.xml, styles.xml, etc.
-	*
-	* @example
-	* ```typescript
-	* // Override content type for the main document part
-	* createOverride(
-	*   "application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml",
-	*   "/word/document.xml"
-	* );
-	*
-	* // Override for a header part
-	* createOverride(
-	*   "application/vnd.openxmlformats-officedocument.wordprocessingml.header+xml",
-	*   "/word/header1.xml"
-	* );
-	* ```
-	*/
-	var createOverride = (contentType, partName) => new BuilderElement({
-		name: "Override",
-		attributes: {
-			contentType: {
-				key: "ContentType",
-				value: contentType
-			},
-			partName: {
-				key: "PartName",
-				value: partName
-			}
-		}
-	});
-	//#endregion
-	//#region src/file/content-types/content-types.ts
-	/**
-	* Content Types module for Open Packaging Conventions.
-	*
-	* This module provides the [Content_Types].xml part which defines
-	* the content types for all parts in the DOCX package.
-	*
-	* Reference: http://officeopenxml.com/anatomyofOOXML.php
-	*
-	* @module
-	*/
-	/**
-	* Represents the Content Types part of an OPC package.
-	*
-	* ContentTypes maps file extensions and specific paths to their
-	* MIME content types, enabling applications to process each part correctly.
-	*
-	* Reference: http://officeopenxml.com/anatomyofOOXML.php
-	*
-	* @example
-	* ```typescript
-	* const contentTypes = new ContentTypes();
-	* contentTypes.addHeader(1); // Add header1.xml
-	* contentTypes.addFooter(1); // Add footer1.xml
-	* ```
-	*/
-	var ContentTypes = class extends XmlComponent {
-		constructor() {
-			super("Types");
-			this.root.push(new ContentTypeAttributes({ xmlns: "http://schemas.openxmlformats.org/package/2006/content-types" }));
-			this.root.push(createDefault("image/png", "png"));
-			this.root.push(createDefault("image/jpeg", "jpeg"));
-			this.root.push(createDefault("image/jpeg", "jpg"));
-			this.root.push(createDefault("image/bmp", "bmp"));
-			this.root.push(createDefault("image/gif", "gif"));
-			this.root.push(createDefault("image/svg+xml", "svg"));
-			this.root.push(createDefault("application/vnd.openxmlformats-package.relationships+xml", "rels"));
-			this.root.push(createDefault("application/xml", "xml"));
-			this.root.push(createDefault("application/vnd.openxmlformats-officedocument.obfuscatedFont", "odttf"));
-			this.root.push(createOverride("application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml", "/word/document.xml"));
-			this.root.push(createOverride("application/vnd.openxmlformats-officedocument.wordprocessingml.styles+xml", "/word/styles.xml"));
-			this.root.push(createOverride("application/vnd.openxmlformats-package.core-properties+xml", "/docProps/core.xml"));
-			this.root.push(createOverride("application/vnd.openxmlformats-officedocument.custom-properties+xml", "/docProps/custom.xml"));
-			this.root.push(createOverride("application/vnd.openxmlformats-officedocument.extended-properties+xml", "/docProps/app.xml"));
-			this.root.push(createOverride("application/vnd.openxmlformats-officedocument.wordprocessingml.numbering+xml", "/word/numbering.xml"));
-			this.root.push(createOverride("application/vnd.openxmlformats-officedocument.wordprocessingml.footnotes+xml", "/word/footnotes.xml"));
-			this.root.push(createOverride("application/vnd.openxmlformats-officedocument.wordprocessingml.endnotes+xml", "/word/endnotes.xml"));
-			this.root.push(createOverride("application/vnd.openxmlformats-officedocument.wordprocessingml.settings+xml", "/word/settings.xml"));
-			this.root.push(createOverride("application/vnd.openxmlformats-officedocument.wordprocessingml.comments+xml", "/word/comments.xml"));
-			this.root.push(createOverride("application/vnd.openxmlformats-officedocument.wordprocessingml.fontTable+xml", "/word/fontTable.xml"));
-		}
-		/**
-		* Registers the commentsExtended part in the content types.
-		*/
-		addCommentsExtended() {
-			this.root.push(createOverride("application/vnd.openxmlformats-officedocument.wordprocessingml.commentsExtended+xml", "/word/commentsExtended.xml"));
-		}
-		/**
-		* Registers the commentsIds part in the content types.
-		*/
-		addCommentsIds() {
-			this.root.push(createOverride("application/vnd.openxmlformats-officedocument.wordprocessingml.commentsIds+xml", "/word/commentsIds.xml"));
-		}
-		/**
-		* Registers a footer part in the content types.
-		*
-		* @param index - Footer index number (e.g., 1 for footer1.xml)
-		*/
-		addFooter(index) {
-			this.root.push(createOverride("application/vnd.openxmlformats-officedocument.wordprocessingml.footer+xml", `/word/footer${index}.xml`));
-		}
-		/**
-		* Registers a header part in the content types.
-		*
-		* @param index - Header index number (e.g., 1 for header1.xml)
-		*/
-		addHeader(index) {
-			this.root.push(createOverride("application/vnd.openxmlformats-officedocument.wordprocessingml.header+xml", `/word/header${index}.xml`));
-		}
-	};
-	//#endregion
-	//#region src/file/document/document-attributes.ts
-	/**
-	* Document attributes module for WordprocessingML documents.
-	*
-	* This module defines the XML namespace declarations used in OOXML documents.
-	* These namespaces are required for proper document parsing and generation.
-	*
-	* Reference: http://officeopenxml.com/anatomyofOOXML.php
-	*
-	* @module
-	*/
-	/**
-	* XML namespace URIs used in WordprocessingML documents.
-	*
-	* These namespaces define the various XML schemas that can be referenced
-	* in a document, including WordprocessingML, DrawingML, VML, and others.
-	*/
-	var DocumentAttributeNamespaces = {
-		wpc: "http://schemas.microsoft.com/office/word/2010/wordprocessingCanvas",
-		mc: "http://schemas.openxmlformats.org/markup-compatibility/2006",
-		o: "urn:schemas-microsoft-com:office:office",
-		r: "http://schemas.openxmlformats.org/officeDocument/2006/relationships",
-		m: "http://schemas.openxmlformats.org/officeDocument/2006/math",
-		v: "urn:schemas-microsoft-com:vml",
-		wp14: "http://schemas.microsoft.com/office/word/2010/wordprocessingDrawing",
-		wp: "http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing",
-		w10: "urn:schemas-microsoft-com:office:word",
-		w: "http://schemas.openxmlformats.org/wordprocessingml/2006/main",
-		w14: "http://schemas.microsoft.com/office/word/2010/wordml",
-		w15: "http://schemas.microsoft.com/office/word/2012/wordml",
-		wpg: "http://schemas.microsoft.com/office/word/2010/wordprocessingGroup",
-		wpi: "http://schemas.microsoft.com/office/word/2010/wordprocessingInk",
-		wne: "http://schemas.microsoft.com/office/word/2006/wordml",
-		wps: "http://schemas.microsoft.com/office/word/2010/wordprocessingShape",
-		cp: "http://schemas.openxmlformats.org/package/2006/metadata/core-properties",
-		dc: "http://purl.org/dc/elements/1.1/",
-		dcterms: "http://purl.org/dc/terms/",
-		dcmitype: "http://purl.org/dc/dcmitype/",
-		xsi: "http://www.w3.org/2001/XMLSchema-instance",
-		cx: "http://schemas.microsoft.com/office/drawing/2014/chartex",
-		cx1: "http://schemas.microsoft.com/office/drawing/2015/9/8/chartex",
-		cx2: "http://schemas.microsoft.com/office/drawing/2015/10/21/chartex",
-		cx3: "http://schemas.microsoft.com/office/drawing/2016/5/9/chartex",
-		cx4: "http://schemas.microsoft.com/office/drawing/2016/5/10/chartex",
-		cx5: "http://schemas.microsoft.com/office/drawing/2016/5/11/chartex",
-		cx6: "http://schemas.microsoft.com/office/drawing/2016/5/12/chartex",
-		cx7: "http://schemas.microsoft.com/office/drawing/2016/5/13/chartex",
-		cx8: "http://schemas.microsoft.com/office/drawing/2016/5/14/chartex",
-		aink: "http://schemas.microsoft.com/office/drawing/2016/ink",
-		am3d: "http://schemas.microsoft.com/office/drawing/2017/model3d",
-		w16cex: "http://schemas.microsoft.com/office/word/2018/wordml/cex",
-		w16cid: "http://schemas.microsoft.com/office/word/2016/wordml/cid",
-		w16: "http://schemas.microsoft.com/office/word/2018/wordml",
-		w16sdtdh: "http://schemas.microsoft.com/office/word/2020/wordml/sdtdatahash",
-		w16se: "http://schemas.microsoft.com/office/word/2015/wordml/symex"
-	};
-	/**
-	* Represents XML namespace attributes for a WordprocessingML document.
-	*
-	* This class generates the xmlns declarations required at the root element
-	* of document.xml and other document parts.
-	*
-	* @example
-	* ```typescript
-	* new DocumentAttributes(['w', 'r', 'wp'], 'w14 w15');
-	* // Generates: xmlns:w="..." xmlns:r="..." xmlns:wp="..." mc:Ignorable="w14 w15"
-	* ```
-	*
-	* @internal
-	*/
-	var DocumentAttributes = class extends XmlAttributeComponent {
-		constructor(ns, Ignorable) {
-			super(_objectSpread2({ Ignorable }, Object.fromEntries(ns.map((n) => [n, DocumentAttributeNamespaces[n]]))));
-			_defineProperty(this, "xmlKeys", _objectSpread2({ Ignorable: "mc:Ignorable" }, Object.fromEntries(Object.keys(DocumentAttributeNamespaces).map((key) => [key, `xmlns:${key}`]))));
-		}
-	};
-	//#endregion
-	//#region src/file/core-properties/properties.ts
-	/**
-	* Represents the core properties of a WordprocessingML document.
-	*
-	* Core properties contain document metadata based on Dublin Core elements,
-	* including title, subject, creator, keywords, description, and modification tracking.
-	*
-	* Reference: ISO-IEC29500-4_2016 shared-documentPropertiesCore.xsd
-	*
-	* ## XSD Schema
-	* ```xml
-	* <xs:complexType name="CT_CoreProperties">
-	*   <xs:all>
-	*     <xs:element name="category" minOccurs="0" maxOccurs="1" type="xs:string"/>
-	*     <xs:element name="contentStatus" minOccurs="0" maxOccurs="1" type="xs:string"/>
-	*     <xs:element ref="dcterms:created" minOccurs="0" maxOccurs="1"/>
-	*     <xs:element ref="dc:creator" minOccurs="0" maxOccurs="1"/>
-	*     <xs:element ref="dc:description" minOccurs="0" maxOccurs="1"/>
-	*     <xs:element ref="dc:identifier" minOccurs="0" maxOccurs="1"/>
-	*     <xs:element name="keywords" minOccurs="0" maxOccurs="1" type="CT_Keywords"/>
-	*     <xs:element ref="dc:language" minOccurs="0" maxOccurs="1"/>
-	*     <xs:element name="lastModifiedBy" minOccurs="0" maxOccurs="1" type="xs:string"/>
-	*     <xs:element name="lastPrinted" minOccurs="0" maxOccurs="1" type="xs:dateTime"/>
-	*     <xs:element ref="dcterms:modified" minOccurs="0" maxOccurs="1"/>
-	*     <xs:element name="revision" minOccurs="0" maxOccurs="1" type="xs:string"/>
-	*     <xs:element ref="dc:subject" minOccurs="0" maxOccurs="1"/>
-	*     <xs:element ref="dc:title" minOccurs="0" maxOccurs="1"/>
-	*     <xs:element name="version" minOccurs="0" maxOccurs="1" type="xs:string"/>
-	*   </xs:all>
-	* </xs:complexType>
-	* ```
-	*
-	* @example
-	* ```typescript
-	* const coreProps = new CoreProperties({
-	*   title: "My Document",
-	*   subject: "Sample Document",
-	*   creator: "John Doe",
-	*   keywords: "docx, example",
-	*   description: "A sample document",
-	*   lastModifiedBy: "Jane Doe",
-	*   revision: 1
-	* });
-	* ```
-	*/
-	var CoreProperties = class extends XmlComponent {
-		constructor(options) {
-			super("cp:coreProperties");
-			this.root.push(new DocumentAttributes([
-				"cp",
-				"dc",
-				"dcterms",
-				"dcmitype",
-				"xsi"
-			]));
-			if (options.title) this.root.push(new StringContainer("dc:title", options.title));
-			if (options.subject) this.root.push(new StringContainer("dc:subject", options.subject));
-			if (options.creator) this.root.push(new StringContainer("dc:creator", options.creator));
-			if (options.keywords) this.root.push(new StringContainer("cp:keywords", options.keywords));
-			if (options.description) this.root.push(new StringContainer("dc:description", options.description));
-			if (options.lastModifiedBy) this.root.push(new StringContainer("cp:lastModifiedBy", options.lastModifiedBy));
-			if (options.revision) this.root.push(new StringContainer("cp:revision", String(options.revision)));
-			this.root.push(new TimestampElement("dcterms:created"));
-			this.root.push(new TimestampElement("dcterms:modified"));
-		}
-	};
-	/**
-	* Attributes for timestamp elements in core properties.
-	* Specifies the W3C DateTime Format type for timestamps.
-	*/
-	var TimestampElementProperties = class extends XmlAttributeComponent {
-		constructor(..._args) {
-			super(..._args);
-			_defineProperty(this, "xmlKeys", { type: "xsi:type" });
-		}
-	};
-	/**
-	* Represents a timestamp element (created or modified date).
-	* Uses W3C DateTime Format (dcterms:W3CDTF) for dates.
-	*/
-	var TimestampElement = class extends XmlComponent {
-		constructor(name) {
-			super(name);
-			this.root.push(new TimestampElementProperties({ type: "dcterms:W3CDTF" }));
-			this.root.push(dateTimeValue(/* @__PURE__ */ new Date()));
-		}
-	};
-	//#endregion
-	//#region src/file/custom-properties/custom-properties-attributes.ts
-	/**
-	* Custom Properties Attributes module for WordprocessingML documents.
-	*
-	* Provides namespace attributes for custom document properties.
-	*
-	* Reference: ISO-IEC29500-4_2016 shared-documentPropertiesCustom.xsd
-	*
-	* @module
-	*/
-	/**
-	* XML namespace attributes for the custom properties element.
-	*
-	* @property xmlns - Main namespace for custom properties
-	* @property vt - Namespace for variant types
-	*/
-	var CustomPropertiesAttributes = class extends XmlAttributeComponent {
-		constructor(..._args) {
-			super(..._args);
-			_defineProperty(this, "xmlKeys", {
-				xmlns: "xmlns",
-				vt: "xmlns:vt"
-			});
-		}
-	};
-	//#endregion
-	//#region src/file/custom-properties/custom-property-attributes.ts
-	/**
-	* Custom Property Attributes module for WordprocessingML documents.
-	*
-	* Provides attributes for individual custom document properties.
-	*
-	* Reference: ISO-IEC29500-4_2016 shared-documentPropertiesCustom.xsd
-	*
-	* @module
-	*/
-	/**
-	* XML attributes for a custom property element.
-	*
-	* @property formatId - Format identifier (GUID)
-	* @property pid - Property identifier (unique ID)
-	* @property name - Property name
-	*/
-	var CustomPropertyAttributes = class extends XmlAttributeComponent {
-		constructor(..._args) {
-			super(..._args);
-			_defineProperty(this, "xmlKeys", {
-				formatId: "fmtid",
-				pid: "pid",
-				name: "name"
-			});
-		}
-	};
-	//#endregion
-	//#region src/file/custom-properties/custom-property.ts
-	/**
-	* Custom Property module for WordprocessingML documents.
-	*
-	* Provides support for individual custom document properties.
-	*
-	* Reference: ISO-IEC29500-4_2016 shared-documentPropertiesCustom.xsd
-	*
-	* @module
-	*/
-	/**
-	* Represents a single custom document property.
-	*
-	* Custom properties allow storing arbitrary key-value pairs in the document metadata.
-	* Each property has a unique name and a string value.
-	*
-	* Reference: ISO-IEC29500-4_2016 shared-documentPropertiesCustom.xsd
-	*
-	* ## XSD Schema
-	* ```xml
-	* <xsd:complexType name="CT_Property">
-	*   <xsd:sequence>
-	*     <xsd:element name="lpwstr" type="xsd:string" minOccurs="0"/>
-	*   </xsd:sequence>
-	*   <xsd:attribute name="fmtid" type="ST_Guid" use="required"/>
-	*   <xsd:attribute name="pid" type="xsd:int" use="required"/>
-	*   <xsd:attribute name="name" type="xsd:string"/>
-	* </xsd:complexType>
-	* ```
-	*
-	* @example
-	* ```typescript
-	* const customProp = new CustomProperty(2, {
-	*   name: "Department",
-	*   value: "Engineering"
-	* });
-	* ```
-	*/
-	var CustomProperty = class extends XmlComponent {
-		constructor(id, properties) {
-			super("property");
-			this.root.push(new CustomPropertyAttributes({
-				formatId: "{D5CDD505-2E9C-101B-9397-08002B2CF9AE}",
-				pid: id.toString(),
-				name: properties.name
-			}));
-			this.root.push(new CustomPropertyValue(properties.value));
-		}
-	};
-	/**
-	* Represents the value of a custom property.
-	* Uses the variant type "long pointer to wide string" for string values.
-	*/
-	var CustomPropertyValue = class extends XmlComponent {
-		constructor(value) {
-			super("vt:lpwstr");
-			this.root.push(value);
-		}
-	};
-	//#endregion
-	//#region src/file/custom-properties/custom-properties.ts
-	/**
-	* Custom Properties module for WordprocessingML documents.
-	*
-	* Provides support for managing custom document properties collection.
-	*
-	* Reference: ISO-IEC29500-4_2016 shared-documentPropertiesCustom.xsd
-	*
-	* @module
-	*/
-	/**
-	* Represents the collection of custom document properties.
-	*
-	* Custom properties allow storing arbitrary metadata as name-value pairs.
-	* Each property is assigned a unique ID starting from 2 (per Office specification).
-	*
-	* Reference: ISO-IEC29500-4_2016 shared-documentPropertiesCustom.xsd
-	*
-	* ## XSD Schema
-	* ```xml
-	* <xsd:complexType name="CT_CustomProperties">
-	*   <xsd:sequence>
-	*     <xsd:element name="property" type="CT_Property" minOccurs="0" maxOccurs="unbounded"/>
-	*   </xsd:sequence>
-	* </xsd:complexType>
-	* ```
-	*
-	* @example
-	* ```typescript
-	* const customProps = new CustomProperties([
-	*   { name: "Department", value: "Engineering" },
-	*   { name: "Project", value: "Alpha" }
-	* ]);
-	* ```
-	*/
-	var CustomProperties = class extends XmlComponent {
-		constructor(properties) {
-			super("Properties");
-			_defineProperty(this, "nextId", void 0);
-			_defineProperty(this, "properties", []);
-			this.root.push(new CustomPropertiesAttributes({
-				xmlns: "http://schemas.openxmlformats.org/officeDocument/2006/custom-properties",
-				vt: "http://schemas.openxmlformats.org/officeDocument/2006/docPropsVTypes"
-			}));
-			this.nextId = 2;
-			for (const property of properties) this.addCustomProperty(property);
-		}
-		prepForXml(context) {
-			this.properties.forEach((x) => this.root.push(x));
-			return super.prepForXml(context);
-		}
-		addCustomProperty(property) {
-			this.properties.push(new CustomProperty(this.nextId++, property));
-		}
-	};
 	//#endregion
 	//#region src/file/document/body/section-properties/properties/columns.ts
 	/**
@@ -23171,9 +21763,28 @@ MAX: 9026 };
 	* });
 	* ```
 	*/
-	var SectionProperties = class extends XmlComponent {
+	var SectionProperties = class SectionProperties extends XmlComponent {
 		constructor({ page: { size: { width = sectionPageSizeDefaults.WIDTH, height = sectionPageSizeDefaults.HEIGHT, orientation = sectionPageSizeDefaults.ORIENTATION, code } = {}, margin: { top = sectionMarginDefaults.TOP, right = sectionMarginDefaults.RIGHT, bottom = sectionMarginDefaults.BOTTOM, left = sectionMarginDefaults.LEFT, header = sectionMarginDefaults.HEADER, footer = sectionMarginDefaults.FOOTER, gutter = sectionMarginDefaults.GUTTER } = {}, pageNumbers = {}, borders, textDirection } = {}, grid: { linePitch = 360, charSpace, type: gridType } = {}, headerWrapperGroup = {}, footerWrapperGroup = {}, lineNumbers, titlePage, verticalAlign, column, type, revision } = {}) {
 			super("w:sectPr");
+			_defineProperty(
+				this,
+				/**
+				* Width, in twips, available to block-level content in this section.
+				*
+				* This is the page width (accounting for orientation) minus the left and right
+				* margins and the gutter. When the section is laid out in several columns, it is
+				* the width of a single column. Percentage table widths are resolved against it.
+				*/
+				"availableTextWidth",
+				void 0
+			);
+			this.availableTextWidth = SectionProperties.calculateAvailableTextWidth({
+				pageWidth: orientation === PageOrientation.LANDSCAPE ? height : width,
+				left,
+				right,
+				gutter,
+				column
+			});
 			this.addHeaderFooterGroup(HeaderFooterType.HEADER, headerWrapperGroup);
 			this.addHeaderFooterGroup(HeaderFooterType.FOOTER, footerWrapperGroup);
 			if (type) this.root.push(createSectionType(type));
@@ -23191,12 +21802,36 @@ MAX: 9026 };
 			if (verticalAlign) this.root.push(createVerticalAlign(verticalAlign));
 			if (titlePage !== void 0) this.root.push(new OnOffElement("w:titlePg", titlePage));
 			if (textDirection) this.root.push(new PageTextDirection(textDirection));
-			if (revision) this.root.push(new SectionPropertiesChange(revision));
 			this.root.push(createDocumentGrid({
 				linePitch,
 				charSpace,
 				type: gridType
 			}));
+			if (revision) this.root.push(new SectionPropertiesChange(revision));
+		}
+		/**
+		* Width, in twips, available to block-level content (paragraphs and tables) in this section.
+		*
+		* Page width minus the left and right margins and the gutter, divided among the
+		* section's columns when there is more than one. Tables use this to resolve
+		* percentage widths into the absolute twip grid that Google Docs, Apple Pages and
+		* other consumers lay tables out from.
+		*
+		* @example
+		* ```typescript
+		* // A4 portrait with 1 inch margins
+		* new SectionProperties().AvailableTextWidth; // 11906 - 1440 - 1440 = 9026
+		* ```
+		*/
+		get AvailableTextWidth() {
+			return this.availableTextWidth;
+		}
+		static calculateAvailableTextWidth({ pageWidth, left, right, gutter, column }) {
+			var _column$count, _column$space;
+			const textWidth = universalMeasureToTwips(pageWidth) - universalMeasureToTwips(left) - universalMeasureToTwips(right) - universalMeasureToTwips(gutter);
+			const columnCount = (_column$count = column === null || column === void 0 ? void 0 : column.count) !== null && _column$count !== void 0 ? _column$count : 1;
+			if (columnCount <= 1) return textWidth;
+			return (textWidth - universalMeasureToTwips((_column$space = column === null || column === void 0 ? void 0 : column.space) !== null && _column$space !== void 0 ? _column$space : 720) * (columnCount - 1)) / columnCount;
 		}
 		addHeaderFooterGroup(type, group) {
 			if (group.default) this.root.push(createHeaderFooterReference(type, {
@@ -23222,6 +21857,2887 @@ MAX: 9026 };
 				date: options.date
 			}));
 			this.root.push(new SectionProperties(options));
+		}
+	};
+	//#endregion
+	//#region src/file/document/body/body.ts
+	/**
+	* Document body module for WordprocessingML documents.
+	*
+	* Reference: http://officeopenxml.com/WPdocument.php
+	*
+	* @module
+	*/
+	/**
+	* Represents the document body in a WordprocessingML document.
+	*
+	* The body element is the container for all block-level content in the document.
+	* This includes paragraphs, tables, and section properties that define page layout.
+	*
+	* The body supports multiple sections, where each section (except the last one) must
+	* have its section properties stored in a paragraph's properties at the end of that
+	* section. The last section's properties are stored as a direct child of the body element.
+	*
+	* Reference: http://officeopenxml.com/WPdocument.php
+	*
+	* ## XSD Schema
+	* ```xml
+	* <xsd:complexType name="CT_Body">
+	*   <xsd:sequence>
+	*     <xsd:group ref="EG_BlockLevelElts" minOccurs="0" maxOccurs="unbounded"/>
+	*     <xsd:element name="sectPr" minOccurs="0" maxOccurs="1" type="CT_SectPr"/>
+	*   </xsd:sequence>
+	* </xsd:complexType>
+	* ```
+	*
+	* @example
+	* ```typescript
+	* // Body is typically created internally by the Document class
+	* const doc = new Document({});
+	* const body = doc.Body;
+	*
+	* // Add content to the body via Document.add()
+	* doc.add(new Paragraph("Content in first section"));
+	*
+	* // Add a new section
+	* body.addSection({
+	*   page: {
+	*     size: { width: 12240, height: 15840 },
+	*   },
+	* });
+	*
+	* // Content after addSection belongs to the new section
+	* doc.add(new Paragraph("Content in second section"));
+	* ```
+	*/
+	var Body = class extends XmlComponent {
+		constructor() {
+			super("w:body");
+			_defineProperty(this, "sections", []);
+			_defineProperty(
+				this,
+				/**
+				* Section properties that were moved into a paragraph at the end of their section
+				* by {@link addSection}, keyed by that paragraph. Used to find the section that
+				* governs a given child of the body.
+				*/
+				"sectionParagraphs",
+				/* @__PURE__ */ new Map()
+			);
+		}
+		/**
+		* Finds the section properties that govern a top-level child of the body.
+		*
+		* A section's properties are stored after its content (either in the closing
+		* paragraph of the section or, for the last section, at the end of the body), so
+		* the governing section is the first one found at or after the child. When no
+		* child is given (or it is not a direct child of the body), the first section is
+		* returned.
+		*
+		* @param child - A direct child of the body (paragraph, table, etc.)
+		* @returns The governing section properties, or undefined if the body has no sections
+		*/
+		getSectionPropertiesFor(child) {
+			const start = child ? this.root.indexOf(child) + 1 : 0;
+			for (let i = start; i < this.root.length; i++) {
+				const component = this.root[i];
+				if (component instanceof SectionProperties) return component;
+				const section = this.sectionParagraphs.get(component);
+				if (section) return section;
+			}
+			return this.sections[this.sections.length - 1];
+		}
+		/**
+		* Adds new section properties to the document body.
+		*
+		* Creates a new section by moving the previous section's properties into a paragraph
+		* at the end of that section, and then adding the new section as the current section.
+		*
+		* According to the OOXML specification:
+		* - Section properties for all sections except the last must be stored in a paragraph's
+		*   properties (pPr/sectPr) at the end of each section
+		* - The last section's properties are stored as a direct child of the body element (w:body/w:sectPr)
+		*
+		* @param options - Section properties configuration (page size, margins, headers, footers, etc.)
+		*/
+		addSection(options) {
+			const currentSection = this.sections.pop();
+			const sectionParagraph = this.createSectionParagraph(currentSection);
+			this.root.push(sectionParagraph);
+			if (currentSection) this.sectionParagraphs.set(sectionParagraph, currentSection);
+			this.sections.push(new SectionProperties(options));
+		}
+		/**
+		* Prepares the body element for XML serialization.
+		*
+		* Ensures that the last section's properties are placed as a direct child of the body
+		* element, as required by the OOXML specification.
+		*
+		* @param context - The XML serialization context
+		* @returns The prepared XML object or undefined
+		*/
+		prepForXml(context) {
+			if (this.sections.length === 1) {
+				this.root.splice(0, 1);
+				this.root.push(this.sections.pop());
+			}
+			return super.prepForXml(context);
+		}
+		/**
+		* Adds a block-level component to the body.
+		*
+		* This method is used internally by the Document class to add paragraphs,
+		* tables, and other block-level elements to the document body.
+		*
+		* @param component - The XML component to add (paragraph, table, etc.)
+		*/
+		push(component) {
+			this.root.push(component);
+		}
+		createSectionParagraph(section) {
+			const paragraph = new Paragraph({});
+			const properties = new ParagraphProperties({});
+			properties.push(section);
+			paragraph.addChildElement(properties);
+			return paragraph;
+		}
+	};
+	//#endregion
+	//#region src/file/table/table-width.ts
+	/**
+	* Table width module for WordprocessingML documents.
+	*
+	* This module provides width specifications for tables and cells.
+	*
+	* Reference: http://officeopenxml.com/WPtableWidth.php
+	*
+	* @module
+	*/
+	/**
+	* Width type values for tables and cells.
+	*
+	* ## XSD Schema
+	* ```xml
+	* <xsd:simpleType name="ST_TblWidth">
+	*   <xsd:restriction base="xsd:string">
+	*     <xsd:enumeration value="nil"/>
+	*     <xsd:enumeration value="pct"/>
+	*     <xsd:enumeration value="dxa"/>
+	*     <xsd:enumeration value="auto"/>
+	*   </xsd:restriction>
+	* </xsd:simpleType>
+	* ```
+	*
+	* @publicApi
+	*/
+	var WidthType = {
+		/** Auto. */
+		AUTO: "auto",
+		/** Value is in twentieths of a point */
+		DXA: "dxa",
+		/** No (empty) value. */
+		NIL: "nil",
+		/** Value is in percentage. */
+		PERCENTAGE: "pct"
+	};
+	/**
+	* Creates a table width element in a WordprocessingML document.
+	*
+	* Used for specifying widths of tables, cells, margins, and indentation.
+	*
+	* Reference: http://officeopenxml.com/WPtableWidth.php
+	*
+	* @example
+	* ```typescript
+	* createTableWidthElement("w:tblW", { size: 5000, type: WidthType.DXA });
+	* createTableWidthElement("w:tcW", { size: 50, type: WidthType.PERCENTAGE });
+	* ```
+	*/
+	var createTableWidthElement = (name, { type = WidthType.AUTO, size }) => {
+		let tableWidthValue = size;
+		if (type === WidthType.PERCENTAGE && typeof size === "number") tableWidthValue = Math.round(size * 50);
+		return new BuilderElement({
+			name,
+			attributes: {
+				type: {
+					key: "w:type",
+					value: type
+				},
+				size: {
+					key: "w:w",
+					value: measurementOrPercentValue(tableWidthValue)
+				}
+			}
+		});
+	};
+	//#endregion
+	//#region src/file/table/column-widths.ts
+	/**
+	* Column width resolution for tables.
+	*
+	* Word lays a table out from its preferred widths (`w:tblW` / `w:tcW`) and only treats
+	* the table grid (`w:tblGrid`) as a hint. Google Docs, Apple Pages, QuickLook and other
+	* consumers do the opposite: they take the grid's absolute twip values as the physical
+	* column widths and ignore percentage preferences. A grid of placeholder values therefore
+	* collapses every column in those consumers, which is the long-standing "tables are
+	* broken in Google Docs / Pages" report (#1457, #349, #216, #3015).
+	*
+	* This module derives a grid in twips from the table's and cells' preferred widths,
+	* resolved against the width actually available to the table, so the table renders the
+	* same everywhere. It is used when the caller does not supply explicit `columnWidths`.
+	*
+	* Reference: http://officeopenxml.com/WPtableGrid.php
+	*
+	* @module
+	*/
+	/**
+	* Text width, in twips, of a section with the default page size and margins
+	* (A4 portrait with 1 inch margins). Used when a table is formatted without access to
+	* its section, e.g. by a bare `Formatter` or inside the patcher.
+	*/
+	var DEFAULT_AVAILABLE_WIDTH = sectionPageSizeDefaults.WIDTH - sectionMarginDefaults.LEFT - sectionMarginDefaults.RIGHT - sectionMarginDefaults.GUTTER;
+	var columnSpanOf = (cell) => cell.options.columnSpan || 1;
+	/**
+	* Resolves a preferred width (`ITableWidthProperties`) into twips.
+	*
+	* Percentages are taken relative to `referenceWidth`: the available text width for a
+	* table, or the table width for a cell. Auto and nil widths express no preference.
+	*
+	* @param width - The preferred width, if any
+	* @param referenceWidth - Width in twips that percentages are relative to
+	* @returns The width in twips, or undefined when there is no usable preference
+	*/
+	var resolvePreferredWidth = (width, referenceWidth) => {
+		if (!width) return;
+		const { type = WidthType.AUTO, size } = width;
+		if (type !== WidthType.PERCENTAGE && type !== WidthType.DXA) return;
+		const twips = typeof size === "number" ? type === WidthType.PERCENTAGE ? size / 100 * referenceWidth : size : size.endsWith("%") ? Number(size.slice(0, -1)) / 100 * referenceWidth : universalMeasureToTwips(size);
+		return twips > 0 ? twips : void 0;
+	};
+	/**
+	* Resolves the width of a table in twips.
+	*
+	* A table without a usable preferred width (auto, nil or non-positive) takes up the
+	* whole available width, which is also what Word does when a table is inserted.
+	*
+	* @param width - The table's preferred width, if any
+	* @param availableWidth - Width in twips available to the table
+	* @returns The table width in twips
+	*/
+	var resolveTableWidth = (width, availableWidth) => {
+		var _resolvePreferredWidt;
+		return (_resolvePreferredWidt = resolvePreferredWidth(width, availableWidth)) !== null && _resolvePreferredWidt !== void 0 ? _resolvePreferredWidt : availableWidth;
+	};
+	/**
+	* Counts the grid columns of a table: the largest number of columns (taking
+	* `columnSpan` into account) spanned by any of its rows.
+	*/
+	var countGridColumns = (rows) => Math.max(0, ...rows.map((row) => row.cells.reduce((count, cell) => count + columnSpanOf(cell), 0)));
+	/**
+	* Derives the widths of a table's grid columns, in twips.
+	*
+	* The algorithm mirrors what Word writes into `w:tblGrid` after laying a table out:
+	*
+	* 1. The table width is resolved against the available width.
+	* 2. Each column takes the preferred width of the first cell (top to bottom) that
+	*    occupies exactly that column. Percentages are relative to the table width.
+	* 3. Cells spanning several columns share their width among the spanned columns that
+	*    are still unresolved.
+	* 4. Any column still unresolved gets an equal share of what is left of the table
+	*    width (or an equal share of the table width if nothing is left).
+	*
+	* @param options.rows - The table rows (including any vertical-merge continuation cells)
+	* @param options.width - The table's preferred width
+	* @param options.availableWidth - Width in twips available to the table (text width of the section, or the parent cell for nested tables)
+	* @returns One width per grid column, rounded to whole twips
+	*
+	* @example
+	* ```typescript
+	* // A 100% table with 90% / 10% cells in a 9026 twip wide section
+	* resolveColumnWidths({ rows, width: { size: 100, type: WidthType.PERCENTAGE }, availableWidth: 9026 });
+	* // => [8123, 903]
+	* ```
+	*/
+	var resolveColumnWidths = ({ rows, width, availableWidth }) => {
+		const columnCount = countGridColumns(rows);
+		if (columnCount === 0) return [];
+		const tableWidth = resolveTableWidth(width, availableWidth);
+		const widths = Array.from({ length: columnCount }, () => void 0);
+		const spanningCells = [];
+		for (const row of rows) {
+			let column = 0;
+			for (const cell of row.cells) {
+				const span = columnSpanOf(cell);
+				const cellWidth = resolvePreferredWidth(cell.options.width, tableWidth);
+				if (cellWidth !== void 0) {
+					if (span === 1) {
+						var _column, _widths$_column;
+						(_widths$_column = widths[_column = column]) !== null && _widths$_column !== void 0 || (widths[_column] = cellWidth);
+					} else spanningCells.push({
+						start: column,
+						span,
+						width: cellWidth
+					});
+				}
+				column += span;
+			}
+		}
+		for (const { start, span, width: cellWidth } of spanningCells) {
+			const columns = Array.from({ length: span }, (_, i) => start + i).filter((column) => column < columnCount);
+			const unresolvedSpanColumns = columns.filter((column) => widths[column] === void 0);
+			const remaining = cellWidth - columns.reduce((sum, column) => {
+				var _widths$column;
+				return sum + ((_widths$column = widths[column]) !== null && _widths$column !== void 0 ? _widths$column : 0);
+			}, 0);
+			if (unresolvedSpanColumns.length > 0 && remaining > 0) for (const column of unresolvedSpanColumns) widths[column] = remaining / unresolvedSpanColumns.length;
+		}
+		const unresolvedColumns = widths.flatMap((columnWidth, column) => columnWidth === void 0 ? [column] : []);
+		if (unresolvedColumns.length > 0) {
+			const remaining = tableWidth - widths.reduce((sum, columnWidth) => sum + (columnWidth !== null && columnWidth !== void 0 ? columnWidth : 0), 0);
+			const share = remaining > 0 ? remaining / unresolvedColumns.length : tableWidth / columnCount;
+			for (const column of unresolvedColumns) widths[column] = share;
+		}
+		return widths.map((columnWidth) => Math.round(columnWidth));
+	};
+	//#endregion
+	//#region src/file/table/grid.ts
+	/**
+	* Table grid module for WordprocessingML documents.
+	*
+	* The table grid defines the column structure of a table.
+	*
+	* Reference: http://officeopenxml.com/WPtableGrid.php
+	*
+	* ## XSD Schema
+	* ```xml
+	* <xsd:complexType name="CT_TblGridCol">
+	*   <xsd:attribute name="w" type="s:ST_TwipsMeasure"/>
+	* </xsd:complexType>
+	* <xsd:complexType name="CT_TblGridBase">
+	*   <xsd:sequence>
+	*     <xsd:element name="gridCol" type="CT_TblGridCol" minOccurs="0" maxOccurs="unbounded"/>
+	*   </xsd:sequence>
+	* </xsd:complexType>
+	* <xsd:complexType name="CT_TblGridChange">
+	*   <xsd:complexContent>
+	*     <xsd:extension base="CT_Markup">
+	*       <xsd:sequence>
+	*         <xsd:element name="tblGrid" type="CT_TblGridBase"/>
+	*       </xsd:sequence>
+	*     </xsd:extension>
+	*   </xsd:complexContent>
+	* </xsd:complexType>
+	* ```
+	*
+	* @module
+	*/
+	/**
+	* Creates a single column in the table grid.
+	*
+	* The gridCol element specifies the width of a single column.
+	*/
+	var createGridCol = (width) => new BuilderElement({
+		name: "w:gridCol",
+		attributes: width !== void 0 ? { width: {
+			key: "w:w",
+			value: twipsMeasureValue(width)
+		} } : void 0
+	});
+	/**
+	* Creates the table grid for a WordprocessingML document.
+	*
+	* The tblGrid element defines the number and width of columns in the table.
+	*
+	* Reference: http://officeopenxml.com/WPtableGrid.php
+	*/
+	var TableGrid = class extends XmlComponent {
+		constructor(widths, revision) {
+			super("w:tblGrid");
+			for (const width of widths) this.root.push(createGridCol(width));
+			if (revision) this.root.push(new TableGridChange(revision));
+		}
+	};
+	var TableGridChangeAttributes = class extends XmlAttributeComponent {
+		constructor(..._args) {
+			super(..._args);
+			_defineProperty(this, "xmlKeys", { id: "w:id" });
+		}
+	};
+	var TableGridChange = class extends XmlComponent {
+		constructor(options) {
+			super("w:tblGridChange");
+			this.root.push(new TableGridChangeAttributes({ id: options.id }));
+			this.root.push(new TableGrid(options.columnWidths));
+		}
+	};
+	//#endregion
+	//#region src/file/track-revision/track-revision-components/inserted-text-run.ts
+	/**
+	* Inserted text run module for track changes.
+	*
+	* Reference: http://officeopenxml.com/WPtrackChanges.php
+	*
+	* @module
+	*/
+	/**
+	* Represents an inserted text run in a tracked changes document.
+	*
+	* An insertion marks text that has been added to the document as part of
+	* revision tracking. It wraps a standard text run with metadata about who
+	* made the insertion and when.
+	*
+	* Reference: http://officeopenxml.com/WPtrackChanges.php
+	*
+	* @publicApi
+	*
+	* ## XSD Schema
+	* ```xml
+	* <xsd:element name="ins" type="CT_RunTrackChange" minOccurs="0"/>
+	*
+	* <xsd:complexType name="CT_RunTrackChange">
+	*   <xsd:complexContent>
+	*     <xsd:extension base="CT_TrackChange">
+	*       <xsd:choice minOccurs="0" maxOccurs="unbounded">
+	*         <xsd:group ref="EG_ContentRunContent"/>
+	*         <xsd:group ref="m:EG_OMathMathElements"/>
+	*       </xsd:choice>
+	*     </xsd:extension>
+	*   </xsd:complexContent>
+	* </xsd:complexType>
+	* ```
+	*
+	* @example
+	* ```typescript
+	* // Create an inserted text run
+	* new InsertedTextRun({
+	*   id: 1,
+	*   author: "John Doe",
+	*   date: "2024-01-15T10:30:00Z",
+	*   text: "This text was added",
+	*   bold: true
+	* });
+	* ```
+	*/
+	var InsertedTextRun = class extends XmlComponent {
+		constructor(options) {
+			super("w:ins");
+			this.root.push(new ChangeAttributes({
+				id: options.id,
+				author: options.author,
+				date: options.date
+			}));
+			this.addChildElement(new TextRun(options));
+		}
+	};
+	//#endregion
+	//#region src/file/track-revision/track-revision-components/deleted-page-number.ts
+	/**
+	* Deleted instruction text elements for field codes in track changes.
+	*
+	* Provides deleted versions of page number and page count field instructions.
+	*
+	* Reference: http://officeopenxml.com/WPtrackChanges.php
+	*
+	* @module
+	*/
+	/**
+	* Represents a deleted PAGE field instruction.
+	*
+	* This element contains the field instruction code for the current page number
+	* within a deletion. Uses w:delInstrText instead of w:instrText to mark it as
+	* part of a tracked deletion.
+	*
+	* Reference: http://officeopenxml.com/WPtrackChanges.php
+	*
+	* ## XSD Schema
+	* ```xml
+	* <xsd:element name="delInstrText" type="CT_Text"/>
+	*
+	* <xsd:complexType name="CT_Text">
+	*   <xsd:simpleContent>
+	*     <xsd:extension base="s:ST_String">
+	*       <xsd:attribute ref="xml:space" use="optional"/>
+	*     </xsd:extension>
+	*   </xsd:simpleContent>
+	* </xsd:complexType>
+	* ```
+	*
+	* @example
+	* ```typescript
+	* // Used internally within DeletedTextRun for page number fields
+	* new DeletedPage(); // Creates <w:delInstrText>PAGE</w:delInstrText>
+	* ```
+	*/
+	var DeletedPage = class extends XmlComponent {
+		constructor() {
+			super("w:delInstrText");
+			this.root.push(new TextAttributes({ space: SpaceType.PRESERVE }));
+			this.root.push("PAGE");
+		}
+	};
+	/**
+	* Represents a deleted NUMPAGES field instruction.
+	*
+	* This element contains the field instruction code for the total number of pages
+	* in the document within a deletion. Uses w:delInstrText instead of w:instrText
+	* to mark it as part of a tracked deletion.
+	*
+	* Reference: http://officeopenxml.com/WPtrackChanges.php
+	*
+	* ## XSD Schema
+	* ```xml
+	* <xsd:element name="delInstrText" type="CT_Text"/>
+	*
+	* <xsd:complexType name="CT_Text">
+	*   <xsd:simpleContent>
+	*     <xsd:extension base="s:ST_String">
+	*       <xsd:attribute ref="xml:space" use="optional"/>
+	*     </xsd:extension>
+	*   </xsd:simpleContent>
+	* </xsd:complexType>
+	* ```
+	*
+	* @example
+	* ```typescript
+	* // Used internally within DeletedTextRun for total pages field
+	* new DeletedNumberOfPages(); // Creates <w:delInstrText>NUMPAGES</w:delInstrText>
+	* ```
+	*/
+	var DeletedNumberOfPages = class extends XmlComponent {
+		constructor() {
+			super("w:delInstrText");
+			this.root.push(new TextAttributes({ space: SpaceType.PRESERVE }));
+			this.root.push("NUMPAGES");
+		}
+	};
+	/**
+	* Represents a deleted SECTIONPAGES field instruction.
+	*
+	* This element contains the field instruction code for the total number of pages
+	* in the current section within a deletion. Uses w:delInstrText instead of
+	* w:instrText to mark it as part of a tracked deletion.
+	*
+	* Reference: http://officeopenxml.com/WPtrackChanges.php
+	*
+	* ## XSD Schema
+	* ```xml
+	* <xsd:element name="delInstrText" type="CT_Text"/>
+	*
+	* <xsd:complexType name="CT_Text">
+	*   <xsd:simpleContent>
+	*     <xsd:extension base="s:ST_String">
+	*       <xsd:attribute ref="xml:space" use="optional"/>
+	*     </xsd:extension>
+	*   </xsd:simpleContent>
+	* </xsd:complexType>
+	* ```
+	*
+	* @example
+	* ```typescript
+	* // Used internally within DeletedTextRun for section pages field
+	* new DeletedNumberOfPagesSection(); // Creates <w:delInstrText>SECTIONPAGES</w:delInstrText>
+	* ```
+	*/
+	var DeletedNumberOfPagesSection = class extends XmlComponent {
+		constructor() {
+			super("w:delInstrText");
+			this.root.push(new TextAttributes({ space: SpaceType.PRESERVE }));
+			this.root.push("SECTIONPAGES");
+		}
+	};
+	//#endregion
+	//#region src/file/track-revision/track-revision-components/deleted-text.ts
+	/**
+	* Deleted text element module for track changes.
+	*
+	* Reference: http://officeopenxml.com/WPtrackChanges.php
+	*
+	* @module
+	*/
+	/**
+	* Represents deleted text content within a tracked deletion.
+	*
+	* This element contains the actual text that was deleted. Unlike regular text
+	* (w:t), deleted text uses the w:delText element to distinguish it as part of
+	* a deletion. The xml:space="preserve" attribute ensures whitespace is maintained.
+	*
+	* Reference: http://officeopenxml.com/WPtrackChanges.php
+	*
+	* ## XSD Schema
+	* ```xml
+	* <xsd:element name="delText" type="CT_Text"/>
+	*
+	* <xsd:complexType name="CT_Text">
+	*   <xsd:simpleContent>
+	*     <xsd:extension base="s:ST_String">
+	*       <xsd:attribute ref="xml:space" use="optional"/>
+	*     </xsd:extension>
+	*   </xsd:simpleContent>
+	* </xsd:complexType>
+	* ```
+	*
+	* @example
+	* ```typescript
+	* // Used internally within DeletedTextRun
+	* new DeletedText("This text was removed");
+	* ```
+	*/
+	var DeletedText = class extends XmlComponent {
+		constructor(text) {
+			super("w:delText");
+			this.root.push(new TextAttributes({ space: SpaceType.PRESERVE }));
+			this.root.push(text);
+		}
+	};
+	//#endregion
+	//#region src/file/track-revision/track-revision-components/deleted-text-run.ts
+	/**
+	* Deleted text run module for track changes.
+	*
+	* Reference: http://officeopenxml.com/WPtrackChanges.php
+	*
+	* @module
+	*/
+	/**
+	* Represents a deleted text run in a tracked changes document.
+	*
+	* A deletion marks text that has been removed from the document as part of
+	* revision tracking. It wraps a text run with metadata about who made the
+	* deletion and when. Deleted text is typically shown with strikethrough
+	* formatting in applications that support track changes.
+	*
+	* Reference: http://officeopenxml.com/WPtrackChanges.php
+	*
+	* @publicApi
+	*
+	* ## XSD Schema
+	* ```xml
+	* <xsd:element name="del" type="CT_RunTrackChange" minOccurs="0"/>
+	*
+	* <xsd:complexType name="CT_RunTrackChange">
+	*   <xsd:complexContent>
+	*     <xsd:extension base="CT_TrackChange">
+	*       <xsd:choice minOccurs="0" maxOccurs="unbounded">
+	*         <xsd:group ref="EG_ContentRunContent"/>
+	*         <xsd:group ref="m:EG_OMathMathElements"/>
+	*       </xsd:choice>
+	*     </xsd:extension>
+	*   </xsd:complexContent>
+	* </xsd:complexType>
+	* ```
+	*
+	* @example
+	* ```typescript
+	* // Create a deleted text run
+	* new DeletedTextRun({
+	*   id: 2,
+	*   author: "Jane Smith",
+	*   date: "2024-01-15T11:00:00Z",
+	*   text: "This text was removed",
+	*   italics: true
+	* });
+	*
+	* // Deleted run with page number field
+	* new DeletedTextRun({
+	*   id: 3,
+	*   author: "John Doe",
+	*   date: "2024-01-15T12:00:00Z",
+	*   children: [PageNumber.CURRENT]
+	* });
+	* ```
+	*/
+	var DeletedTextRun = class extends XmlComponent {
+		constructor(options) {
+			super("w:del");
+			_defineProperty(this, "deletedTextRunWrapper", void 0);
+			this.root.push(new ChangeAttributes({
+				id: options.id,
+				author: options.author,
+				date: options.date
+			}));
+			this.deletedTextRunWrapper = new DeletedTextRunWrapper(options);
+			this.addChildElement(this.deletedTextRunWrapper);
+		}
+	};
+	/**
+	* Internal wrapper for the run element within a deletion.
+	*
+	* Wraps the actual run content (text, fields, etc.) within a w:r element
+	* that appears inside the w:del element. Handles special cases like page
+	* numbers and other field codes using deleted-specific element types.
+	*
+	* @internal
+	*/
+	var DeletedTextRunWrapper = class DeletedTextRunWrapper extends XmlComponent {
+		constructor(options) {
+			super("w:r");
+			_defineProperty(this, "following", []);
+			this.root.push(new RunProperties(options));
+			if (options.children) for (const [index, child] of options.children.entries()) {
+				if (child instanceof Run) {
+					const rest = options.children.slice(index + 1);
+					this.following = [child, ...rest.length > 0 ? [new DeletedTextRunWrapper(_objectSpread2(_objectSpread2({}, options), {}, {
+						break: void 0,
+						children: rest
+					}))] : []];
+					break;
+				}
+				if (typeof child === "string") {
+					switch (child) {
+						case PageNumber.CURRENT:
+							this.root.push(createBegin());
+							this.root.push(new DeletedPage());
+							this.root.push(createSeparate());
+							this.root.push(createEnd());
+							break;
+						case PageNumber.TOTAL_PAGES:
+							this.root.push(createBegin());
+							this.root.push(new DeletedNumberOfPages());
+							this.root.push(createSeparate());
+							this.root.push(createEnd());
+							break;
+						case PageNumber.TOTAL_PAGES_IN_SECTION:
+							this.root.push(createBegin());
+							this.root.push(new DeletedNumberOfPagesSection());
+							this.root.push(createSeparate());
+							this.root.push(createEnd());
+							break;
+						default: this.root.push(new DeletedText(child));
+					}
+					continue;
+				}
+				this.root.push(child);
+			}
+			else if (options.text) this.root.push(new DeletedText(options.text));
+			if (options.break) for (let i = 0; i < options.break; i++) this.root.splice(1, 0, createBreak());
+		}
+		get writtenAs() {
+			return this.following.length > 0 ? [this, ...this.following.flatMap((run) => {
+				var _run$writtenAs;
+				return (_run$writtenAs = run.writtenAs) !== null && _run$writtenAs !== void 0 ? _run$writtenAs : run;
+			})] : void 0;
+		}
+	};
+	//#endregion
+	//#region src/file/track-revision/track-revision-components/inserted-table-row.ts
+	var InsertedTableRow = class extends XmlComponent {
+		constructor(options) {
+			super("w:ins");
+			this.root.push(new ChangeAttributes({
+				id: options.id,
+				author: options.author,
+				date: options.date
+			}));
+		}
+	};
+	//#endregion
+	//#region src/file/track-revision/track-revision-components/deleted-table-row.ts
+	var DeletedTableRow = class extends XmlComponent {
+		constructor(options) {
+			super("w:del");
+			this.root.push(new ChangeAttributes({
+				id: options.id,
+				author: options.author,
+				date: options.date
+			}));
+		}
+	};
+	//#endregion
+	//#region src/file/track-revision/track-revision-components/inserted-table-cell.ts
+	var InsertedTableCell = class extends XmlComponent {
+		constructor(options) {
+			super("w:cellIns");
+			this.root.push(new ChangeAttributes({
+				id: options.id,
+				author: options.author,
+				date: options.date
+			}));
+		}
+	};
+	//#endregion
+	//#region src/file/track-revision/track-revision-components/deleted-table-cell.ts
+	var DeletedTableCell = class extends XmlComponent {
+		constructor(options) {
+			super("w:cellDel");
+			this.root.push(new ChangeAttributes({
+				id: options.id,
+				author: options.author,
+				date: options.date
+			}));
+		}
+	};
+	//#endregion
+	//#region src/file/track-revision/track-revision-components/cell-merge.ts
+	/**
+	* Vertical merge revision types.
+	*/
+	var VerticalMergeRevisionType = {
+		/**
+		* Cell that is merged with upper one.
+		*/
+		CONTINUE: "cont",
+		/**
+		* Cell that is starting the vertical merge.
+		*/
+		RESTART: "rest"
+	};
+	var CellMergeAttributes = class extends XmlAttributeComponent {
+		constructor(..._args) {
+			super(..._args);
+			_defineProperty(this, "xmlKeys", {
+				id: "w:id",
+				author: "w:author",
+				date: "w:date",
+				verticalMerge: "w:vMerge",
+				verticalMergeOriginal: "w:vMergeOrig"
+			});
+		}
+	};
+	var CellMerge = class extends XmlComponent {
+		constructor(options) {
+			super("w:cellMerge");
+			this.root.push(new CellMergeAttributes(options));
+		}
+	};
+	//#endregion
+	//#region src/file/table/table-properties/table-cell-margin.ts
+	/**
+	* Table cell margin module for WordprocessingML documents.
+	*
+	* This module provides cell margin settings for tables and individual cells.
+	* Margins define the padding between cell content and cell borders.
+	*
+	* Reference: http://officeopenxml.com/WPtableCellProperties-Margins.php
+	*
+	* ## XSD Schema
+	* ```xml
+	* <xsd:complexType name="CT_TblCellMar">
+	*   <xsd:sequence>
+	*     <xsd:element name="top" type="CT_TblWidth" minOccurs="0" maxOccurs="1"/>
+	*     <xsd:element name="start" type="CT_TblWidth" minOccurs="0" maxOccurs="1"/>
+	*     <xsd:element name="left" type="CT_TblWidth" minOccurs="0"/>
+	*     <xsd:element name="bottom" type="CT_TblWidth" minOccurs="0" maxOccurs="1"/>
+	*     <xsd:element name="end" type="CT_TblWidth" minOccurs="0" maxOccurs="1"/>
+	*     <xsd:element name="right" type="CT_TblWidth" minOccurs="0"/>
+	*   </xsd:sequence>
+	* </xsd:complexType>
+	* ```
+	*
+	* @module
+	*/
+	/**
+	* Builds an array of margin child elements based on the provided options.
+	*
+	* @internal
+	*/
+	var buildMarginChildren = ({ marginUnitType = WidthType.DXA, top, left, bottom, right }) => [
+		{
+			name: "w:top",
+			size: top
+		},
+		{
+			name: "w:left",
+			size: left
+		},
+		{
+			name: "w:bottom",
+			size: bottom
+		},
+		{
+			name: "w:right",
+			size: right
+		}
+	].filter((entry) => entry.size !== void 0).map(({ name, size }) => createTableWidthElement(name, {
+		type: marginUnitType,
+		size
+	}));
+	/**
+	* Creates a table-level cell margin element (tblCellMar).
+	*
+	* The tblCellMar element specifies the default cell margins for all cells
+	* in the table. Individual cells can override these defaults using
+	* cell-level margins (tcMar).
+	*
+	* Reference: http://officeopenxml.com/WPtableCellProperties-Margins.php
+	*
+	* @param options - The margin options
+	* @returns An XmlComponent representing the tblCellMar element, or undefined if no margins specified
+	*
+	* @example
+	* ```typescript
+	* // Table with 100 twip margins on all sides
+	* new Table({
+	*   rows: [...],
+	*   margins: {
+	*     top: 100,
+	*     bottom: 100,
+	*     left: 100,
+	*     right: 100,
+	*   },
+	* });
+	* ```
+	*/
+	var createTableCellMargin = (options) => {
+		const children = buildMarginChildren(options);
+		if (children.length === 0) return;
+		return new BuilderElement({
+			name: "w:tblCellMar",
+			children
+		});
+	};
+	/**
+	* Creates a cell-level margin element (tcMar).
+	*
+	* The tcMar element specifies the margins for a specific table cell,
+	* overriding any table-level default margins (tblCellMar).
+	*
+	* Reference: http://officeopenxml.com/WPtableCellProperties-Margins.php
+	*
+	* @param options - The margin options
+	* @returns An XmlComponent representing the tcMar element, or undefined if no margins specified
+	*
+	* @example
+	* ```typescript
+	* // Cell with custom margins
+	* new TableCell({
+	*   children: [...],
+	*   margins: {
+	*     top: 50,
+	*     bottom: 50,
+	*     left: 100,
+	*     right: 100,
+	*   },
+	* });
+	* ```
+	*/
+	var createCellMargin = (options) => {
+		const children = buildMarginChildren(options);
+		if (children.length === 0) return;
+		return new BuilderElement({
+			name: "w:tcMar",
+			children
+		});
+	};
+	//#endregion
+	//#region src/file/table/table-cell/table-cell-components.ts
+	/**
+	* Table cell components module for WordprocessingML documents.
+	*
+	* This module provides XML components for table cell properties including borders,
+	* grid span (column span), vertical merge, and text direction.
+	*
+	* Reference: http://officeopenxml.com/WPtableCell.php
+	*
+	* @module
+	*/
+	/**
+	* Represents table cell borders (tcBorders) in a WordprocessingML document.
+	*
+	* The tcBorders element specifies the borders for a single table cell. Each border
+	* can be configured independently with different styles, colors, and widths.
+	*
+	* Reference: http://officeopenxml.com/WPtableCell.php
+	*
+	* ## XSD Schema
+	* ```xml
+	* <xsd:complexType name="CT_TcBorders">
+	*   <xsd:sequence>
+	*     <xsd:element name="top" type="CT_Border" minOccurs="0"/>
+	*     <xsd:element name="start" type="CT_Border" minOccurs="0"/>
+	*     <xsd:element name="left" type="CT_Border" minOccurs="0"/>
+	*     <xsd:element name="bottom" type="CT_Border" minOccurs="0"/>
+	*     <xsd:element name="end" type="CT_Border" minOccurs="0"/>
+	*     <xsd:element name="right" type="CT_Border" minOccurs="0"/>
+	*     <xsd:element name="insideH" type="CT_Border" minOccurs="0"/>
+	*     <xsd:element name="insideV" type="CT_Border" minOccurs="0"/>
+	*     <xsd:element name="tl2br" type="CT_Border" minOccurs="0"/>
+	*     <xsd:element name="tr2bl" type="CT_Border" minOccurs="0"/>
+	*   </xsd:sequence>
+	* </xsd:complexType>
+	* ```
+	*
+	* @example
+	* ```typescript
+	* new TableCellBorders({
+	*   top: { style: BorderStyle.SINGLE, size: 6, color: "FF0000" },
+	*   bottom: { style: BorderStyle.SINGLE, size: 6, color: "0000FF" },
+	* });
+	* ```
+	*/
+	var TableCellBorders = class extends IgnoreIfEmptyXmlComponent {
+		constructor(options) {
+			super("w:tcBorders");
+			if (options.top) this.root.push(createBorderElement("w:top", options.top));
+			if (options.start) this.root.push(createBorderElement("w:start", options.start));
+			if (options.left) this.root.push(createBorderElement("w:left", options.left));
+			if (options.bottom) this.root.push(createBorderElement("w:bottom", options.bottom));
+			if (options.end) this.root.push(createBorderElement("w:end", options.end));
+			if (options.right) this.root.push(createBorderElement("w:right", options.right));
+		}
+	};
+	/**
+	* Attributes for the GridSpan element.
+	*/
+	var GridSpanAttributes = class extends XmlAttributeComponent {
+		constructor(..._args) {
+			super(..._args);
+			_defineProperty(this, "xmlKeys", { val: "w:val" });
+		}
+	};
+	/**
+	* Represents a grid span (gridSpan) element in a WordprocessingML document.
+	*
+	* The gridSpan element specifies the number of logical columns this cell spans
+	* in the table grid. This is used to merge cells horizontally (column span).
+	*
+	* Reference: http://officeopenxml.com/WPtableCell.php
+	*
+	* ## XSD Schema
+	* ```xml
+	* <xsd:complexType name="CT_DecimalNumber">
+	*   <xsd:attribute name="val" type="ST_DecimalNumber" use="required"/>
+	* </xsd:complexType>
+	* ```
+	*
+	* @example
+	* ```typescript
+	* // Cell spanning 3 columns
+	* new GridSpan(3);
+	* ```
+	*/
+	var GridSpan = class extends XmlComponent {
+		constructor(value) {
+			super("w:gridSpan");
+			this.root.push(new GridSpanAttributes({ val: decimalNumber(value) }));
+		}
+	};
+	/**
+	* Vertical merge types for table cells.
+	*
+	* Defines the merge behavior for vertically merged cells (row span).
+	*/
+	var VerticalMergeType = {
+		/**
+		* Cell that is merged with upper one.
+		* This cell continues a vertical merge started by a cell above it.
+		*/
+		CONTINUE: "continue",
+		/**
+		* Cell that is starting the vertical merge.
+		* This cell begins a new vertical merge region.
+		*/
+		RESTART: "restart"
+	};
+	/**
+	* Attributes for the VerticalMerge element.
+	*/
+	var VerticalMergeAttributes = class extends XmlAttributeComponent {
+		constructor(..._args2) {
+			super(..._args2);
+			_defineProperty(this, "xmlKeys", { val: "w:val" });
+		}
+	};
+	/**
+	* Represents a vertical merge (vMerge) element in a WordprocessingML document.
+	*
+	* The vMerge element specifies that this cell is part of a vertically merged region.
+	* Cells can either restart a new merge region or continue an existing one from above.
+	* This is used to create row spans in tables.
+	*
+	* Reference: http://officeopenxml.com/WPtableCell.php
+	*
+	* ## XSD Schema
+	* ```xml
+	* <xsd:complexType name="CT_VMerge">
+	*   <xsd:attribute name="val" type="ST_Merge"/>
+	* </xsd:complexType>
+	* ```
+	*
+	* @example
+	* ```typescript
+	* // First cell in a vertical merge
+	* new VerticalMerge(VerticalMergeType.RESTART);
+	*
+	* // Subsequent cells that continue the merge
+	* new VerticalMerge(VerticalMergeType.CONTINUE);
+	* ```
+	*/
+	var VerticalMerge = class extends XmlComponent {
+		constructor(value) {
+			super("w:vMerge");
+			this.root.push(new VerticalMergeAttributes({ val: value }));
+		}
+	};
+	/**
+	* Text direction values for table cells.
+	*
+	* Specifies the direction in which text flows within a table cell.
+	*/
+	var TextDirection = {
+		/** Text flows from bottom to top, left to right */
+		BOTTOM_TO_TOP_LEFT_TO_RIGHT: "btLr",
+		/** Text flows from left to right, top to bottom (default) */
+		LEFT_TO_RIGHT_TOP_TO_BOTTOM: "lrTb",
+		/** Text flows from top to bottom, right to left */
+		TOP_TO_BOTTOM_RIGHT_TO_LEFT: "tbRl"
+	};
+	/**
+	* Attributes for the TDirection element.
+	*/
+	var TDirectionAttributes = class extends XmlAttributeComponent {
+		constructor(..._args3) {
+			super(..._args3);
+			_defineProperty(this, "xmlKeys", { val: "w:val" });
+		}
+	};
+	/**
+	* Represents a text direction (textDirection) element in a WordprocessingML document.
+	*
+	* The textDirection element specifies the flow of text within a table cell. This is
+	* useful for creating rotated text or supporting different writing systems.
+	*
+	* Reference: http://officeopenxml.com/WPtableCell.php
+	*
+	* ## XSD Schema
+	* ```xml
+	* <xsd:complexType name="CT_TextDirection">
+	*   <xsd:attribute name="val" type="ST_TextDirection" use="required"/>
+	* </xsd:complexType>
+	* ```
+	*
+	* @example
+	* ```typescript
+	* // Vertical text flowing from top to bottom
+	* new TDirection(TextDirection.TOP_TO_BOTTOM_RIGHT_TO_LEFT);
+	* ```
+	*/
+	var TDirection = class extends XmlComponent {
+		constructor(value) {
+			super("w:textDirection");
+			this.root.push(new TDirectionAttributes({ val: value }));
+		}
+	};
+	//#endregion
+	//#region src/file/table/table-cell/table-cell-properties.ts
+	/**
+	* Table cell properties module for WordprocessingML documents.
+	*
+	* This module provides cell-level properties including width, borders,
+	* shading, margins, and merge settings.
+	*
+	* Reference: http://officeopenxml.com/WPtableCellProperties.php
+	*
+	* @module
+	*/
+	/**
+	* Represents table cell properties (tcPr) in a WordprocessingML document.
+	*
+	* The tcPr element specifies properties for a table cell including width,
+	* borders, shading, margins, text direction, vertical alignment, and merge settings.
+	* These properties control the appearance and behavior of individual table cells.
+	*
+	* Reference: http://officeopenxml.com/WPtableCellProperties.php
+	*
+	* ## XSD Schema
+	* ```xml
+	* <xsd:complexType name="CT_TcPr">
+	*   <xsd:complexContent>
+	*     <xsd:extension base="CT_TcPrInner">
+	*       <xsd:sequence>
+	*         <xsd:element name="tcPrChange" type="CT_TcPrChange" minOccurs="0"/>
+	*       </xsd:sequence>
+	*     </xsd:extension>
+	*   </xsd:complexContent>
+	* </xsd:complexType>
+	*
+	* <xsd:complexType name="CT_TcPrInner">
+	*   <xsd:complexContent>
+	*     <xsd:extension base="CT_TcPrBase">
+	*       <xsd:sequence>
+	*         <xsd:group ref="EG_CellMarkupElements" minOccurs="0" maxOccurs="1"/>
+	*       </xsd:sequence>
+	*     </xsd:extension>
+	*   </xsd:complexContent>
+	* </xsd:complexType>
+	*
+	* <xsd:complexType name="CT_TcPrBase">
+	*   <xsd:sequence>
+	*     <xsd:element name="cnfStyle" type="CT_Cnf" minOccurs="0" maxOccurs="1"/>
+	*     <xsd:element name="tcW" type="CT_TblWidth" minOccurs="0" maxOccurs="1"/>
+	*     <xsd:element name="gridSpan" type="CT_DecimalNumber" minOccurs="0"/>
+	*     <xsd:element name="hMerge" type="CT_HMerge" minOccurs="0"/>
+	*     <xsd:element name="vMerge" type="CT_VMerge" minOccurs="0"/>
+	*     <xsd:element name="tcBorders" type="CT_TcBorders" minOccurs="0" maxOccurs="1"/>
+	*     <xsd:element name="shd" type="CT_Shd" minOccurs="0"/>
+	*     <xsd:element name="noWrap" type="CT_OnOff" minOccurs="0"/>
+	*     <xsd:element name="tcMar" type="CT_TcMar" minOccurs="0" maxOccurs="1"/>
+	*     <xsd:element name="textDirection" type="CT_TextDirection" minOccurs="0" maxOccurs="1"/>
+	*     <xsd:element name="tcFitText" type="CT_OnOff" minOccurs="0" maxOccurs="1"/>
+	*     <xsd:element name="vAlign" type="CT_VerticalJc" minOccurs="0"/>
+	*     <xsd:element name="hideMark" type="CT_OnOff" minOccurs="0"/>
+	*     <xsd:element name="headers" type="CT_Headers" minOccurs="0"/>
+	*   </xsd:sequence>
+	* </xsd:complexType>
+	*
+	* <xsd:group name="EG_CellMarkupElements">
+	*   <xsd:choice>
+	*     <xsd:element name="cellIns" type="CT_TrackChange" minOccurs="0"/>
+	*     <xsd:element name="cellDel" type="CT_TrackChange" minOccurs="0"/>
+	*     <xsd:element name="cellMerge" type="CT_CellMergeTrackChange" minOccurs="0"/>
+	*   </xsd:choice>
+	* </xsd:group>
+	*
+	* <xsd:complexType name="CT_TcPrChange">
+	*   <xsd:complexContent>
+	*     <xsd:extension base="CT_TrackChange">
+	*       <xsd:sequence>
+	*         <xsd:element name="tcPr" type="CT_TcPrInner" minOccurs="1"/>
+	*       </xsd:sequence>
+	*     </xsd:extension>
+	*   </xsd:complexContent>
+	* </xsd:complexType>
+	* ```
+	*
+	* @example
+	* ```typescript
+	* new TableCellProperties({
+	*   width: { size: 3000, type: WidthType.DXA },
+	*   shading: { fill: "EEEEEE" },
+	*   verticalAlign: VerticalAlign.CENTER,
+	*   columnSpan: 2,
+	* });
+	* ```
+	*/
+	var TableCellProperties = class extends IgnoreIfEmptyXmlComponent {
+		constructor(options) {
+			super("w:tcPr", options.includeIfEmpty);
+			if (options.width) this.root.push(createTableWidthElement("w:tcW", options.width));
+			if (options.columnSpan) this.root.push(new GridSpan(options.columnSpan));
+			if (options.verticalMerge) this.root.push(new VerticalMerge(options.verticalMerge));
+			else if (options.rowSpan && options.rowSpan > 1) this.root.push(new VerticalMerge(VerticalMergeType.RESTART));
+			if (options.borders) this.root.push(new TableCellBorders(options.borders));
+			if (options.shading) this.root.push(createShading(options.shading));
+			if (options.margins) {
+				const cellMargin = createCellMargin(options.margins);
+				if (cellMargin) this.root.push(cellMargin);
+			}
+			if (options.textDirection) this.root.push(new TDirection(options.textDirection));
+			if (options.verticalAlign) this.root.push(createVerticalAlign(options.verticalAlign));
+			if (options.insertion) this.root.push(new InsertedTableCell(options.insertion));
+			if (options.deletion) this.root.push(new DeletedTableCell(options.deletion));
+			if (options.cellMerge) this.root.push(new CellMerge(options.cellMerge));
+			if (options.revision) this.root.push(new TableCellPropertiesChange(options.revision));
+		}
+	};
+	var TableCellPropertiesChange = class extends XmlComponent {
+		constructor(options) {
+			super("w:tcPrChange");
+			this.root.push(new ChangeAttributes({
+				id: options.id,
+				author: options.author,
+				date: options.date
+			}));
+			this.root.push(new TableCellProperties(_objectSpread2(_objectSpread2({}, options), {}, { includeIfEmpty: true })));
+		}
+	};
+	//#endregion
+	//#region src/file/table/table-cell/table-cell.ts
+	/**
+	* Represents a table cell in a WordprocessingML document.
+	*
+	* A table cell is the basic unit of content within a table. Each cell can contain
+	* paragraphs, nested tables, or other block-level content. Cells must always end
+	* with a paragraph element.
+	*
+	* Reference: http://officeopenxml.com/WPtableCell.php
+	*
+	* @publicApi
+	*
+	* ## XSD Schema
+	* ```xml
+	* <xsd:complexType name="CT_Tc">
+	*   <xsd:sequence>
+	*     <xsd:element name="tcPr" type="CT_TcPr" minOccurs="0" maxOccurs="1"/>
+	*     <xsd:group ref="EG_BlockLevelElts" minOccurs="1" maxOccurs="unbounded"/>
+	*   </xsd:sequence>
+	*   <xsd:attribute name="id" type="s:ST_String" use="optional"/>
+	* </xsd:complexType>
+	* ```
+	*
+	* @example
+	* ```typescript
+	* new TableCell({
+	*   children: [new Paragraph("Cell content")],
+	*   width: { size: 3000, type: WidthType.DXA },
+	* });
+	* ```
+	*/
+	var TableCell = class extends XmlComponent {
+		constructor(options) {
+			super("w:tc");
+			_defineProperty(
+				this,
+				/**
+				* The options the cell was created with.
+				*
+				* Its borders and shading are declared with hex colors, as they were before they took colors of the document's
+				* theme, so that code reading them still compiles. A cell given a theme color has it here as it was given.
+				*/
+				"options",
+				void 0
+			);
+			this.options = options;
+			this.root.push(new TableCellProperties(options));
+			for (const child of options.children) this.root.push(child);
+		}
+		prepForXml(context) {
+			if (!(this.root[this.root.length - 1] instanceof Paragraph)) this.root.push(new Paragraph({}));
+			return super.prepForXml(context);
+		}
+	};
+	//#endregion
+	//#region src/file/table/on-off-only-element.ts
+	/**
+	* On/off elements of tables that Office only takes "on" and "off" for.
+	*
+	* @module
+	*/
+	/**
+	* Creates an on/off element that Office only takes "on" and "off" for.
+	*
+	* ISO 29500 types a table's w:bidiVisual and a row's w:cantSplit and w:tblHeader as CT_OnOff, which takes true, false,
+	* 1, 0, on and off. Office's schema types them as CT_OnOffOnly, which only takes on and off, so Word's validator rejects
+	* w:val="false". Off is written as "off", which both accept.
+	*
+	* @example
+	* ```typescript
+	* createOnOffOnlyElement("w:cantSplit", true);
+	* // Generates: <w:cantSplit/>
+	*
+	* createOnOffOnlyElement("w:cantSplit", false);
+	* // Generates: <w:cantSplit w:val="off"/>
+	* ```
+	*
+	* @internal
+	*/
+	var createOnOffOnlyElement = (name, value) => value ? new OnOffElement(name) : new StringValueElement(name, "off");
+	//#endregion
+	//#region src/file/table/table-properties/table-borders.ts
+	/**
+	* Table borders module for WordprocessingML documents.
+	*
+	* This module provides border options for tables.
+	*
+	* Reference: http://officeopenxml.com/WPtableBorders.php
+	*
+	* @module
+	*/
+	var NONE_BORDER = {
+		style: BorderStyle.NONE,
+		size: 0,
+		color: "auto"
+	};
+	var DEFAULT_BORDER = {
+		style: BorderStyle.SINGLE,
+		size: 4,
+		color: "auto"
+	};
+	/**
+	* Represents table borders in a WordprocessingML document.
+	*
+	* The tblBorders element specifies the borders for all cells in the table.
+	*
+	* Reference: http://officeopenxml.com/WPtableBorders.php
+	*
+	* @publicApi
+	*
+	* @example
+	* ```typescript
+	* new TableBorders({
+	*   top: { style: BorderStyle.SINGLE, size: 6, color: "000000" },
+	*   bottom: { style: BorderStyle.SINGLE, size: 6, color: "000000" },
+	* });
+	*
+	* // To remove all borders
+	* new TableBorders(TableBorders.NONE);
+	* ```
+	*/
+	var TableBorders = class extends XmlComponent {
+		constructor(options) {
+			var _options$top, _options$left, _options$bottom, _options$right, _options$insideHorizo, _options$insideVertic;
+			super("w:tblBorders");
+			this.root.push(createBorderElement("w:top", (_options$top = options.top) !== null && _options$top !== void 0 ? _options$top : DEFAULT_BORDER));
+			this.root.push(createBorderElement("w:left", (_options$left = options.left) !== null && _options$left !== void 0 ? _options$left : DEFAULT_BORDER));
+			this.root.push(createBorderElement("w:bottom", (_options$bottom = options.bottom) !== null && _options$bottom !== void 0 ? _options$bottom : DEFAULT_BORDER));
+			this.root.push(createBorderElement("w:right", (_options$right = options.right) !== null && _options$right !== void 0 ? _options$right : DEFAULT_BORDER));
+			this.root.push(createBorderElement("w:insideH", (_options$insideHorizo = options.insideHorizontal) !== null && _options$insideHorizo !== void 0 ? _options$insideHorizo : DEFAULT_BORDER));
+			this.root.push(createBorderElement("w:insideV", (_options$insideVertic = options.insideVertical) !== null && _options$insideVertic !== void 0 ? _options$insideVertic : DEFAULT_BORDER));
+		}
+	};
+	_defineProperty(TableBorders, "NONE", {
+		top: NONE_BORDER,
+		bottom: NONE_BORDER,
+		left: NONE_BORDER,
+		right: NONE_BORDER,
+		insideHorizontal: NONE_BORDER,
+		insideVertical: NONE_BORDER
+	});
+	//#endregion
+	//#region src/file/table/table-properties/table-float-properties.ts
+	/**
+	* Table float properties module for WordprocessingML documents.
+	*
+	* This module provides floating table positioning options, allowing tables
+	* to float with text wrapping around them.
+	*
+	* Reference: http://officeopenxml.com/WPtableFloating.php
+	*
+	* @module
+	*/
+	/**
+	* Anchor types for floating table positioning.
+	*
+	* Specifies the base object from which positioning is determined.
+	*/
+	var TableAnchorType = {
+		MARGIN: "margin",
+		PAGE: "page",
+		TEXT: "text"
+	};
+	/**
+	* Relative horizontal position values for floating tables.
+	*/
+	var RelativeHorizontalPosition = {
+		CENTER: "center",
+		INSIDE: "inside",
+		LEFT: "left",
+		OUTSIDE: "outside",
+		RIGHT: "right"
+	};
+	/**
+	* Relative vertical position values for floating tables.
+	*/
+	var RelativeVerticalPosition = {
+		CENTER: "center",
+		INSIDE: "inside",
+		BOTTOM: "bottom",
+		OUTSIDE: "outside",
+		INLINE: "inline",
+		TOP: "top"
+	};
+	/**
+	* Table overlap behavior types.
+	*
+	* ## XSD Schema
+	* ```xml
+	* <xsd:simpleType name="ST_TblOverlap">
+	*   <xsd:restriction base="xsd:string">
+	*     <xsd:enumeration value="never"/>
+	*     <xsd:enumeration value="overlap"/>
+	*   </xsd:restriction>
+	* </xsd:simpleType>
+	* ```
+	*/
+	var OverlapType = {
+		NEVER: "never",
+		OVERLAP: "overlap"
+	};
+	/**
+	* Creates floating table properties in a WordprocessingML document.
+	*
+	* This element specifies the positioning of a floating table,
+	* including anchor points, offsets, and text wrapping behavior.
+	* The overlap option isn't part of it: the table properties write it as w:tblOverlap.
+	*
+	* Reference: http://officeopenxml.com/WPtableFloating.php
+	*
+	* ## XSD Schema
+	* ```xml
+	* <xsd:complexType name="CT_TblPPr">
+	*   <xsd:attribute name="leftFromText" type="s:ST_TwipsMeasure"/>
+	*   <xsd:attribute name="rightFromText" type="s:ST_TwipsMeasure"/>
+	*   <xsd:attribute name="topFromText" type="s:ST_TwipsMeasure"/>
+	*   <xsd:attribute name="bottomFromText" type="s:ST_TwipsMeasure"/>
+	*   <xsd:attribute name="vertAnchor" type="ST_VAnchor"/>
+	*   <xsd:attribute name="horzAnchor" type="ST_HAnchor"/>
+	*   <xsd:attribute name="tblpXSpec" type="s:ST_XAlign"/>
+	*   <xsd:attribute name="tblpX" type="ST_SignedTwipsMeasure"/>
+	*   <xsd:attribute name="tblpYSpec" type="s:ST_YAlign"/>
+	*   <xsd:attribute name="tblpY" type="ST_SignedTwipsMeasure"/>
+	* </xsd:complexType>
+	* ```
+	*
+	* @example
+	* ```typescript
+	* createTableFloatProperties({
+	*   horizontalAnchor: TableAnchorType.MARGIN,
+	*   relativeHorizontalPosition: RelativeHorizontalPosition.CENTER,
+	*   topFromText: 200,
+	*   bottomFromText: 200,
+	* });
+	* ```
+	*/
+	var createTableFloatProperties = ({ horizontalAnchor, verticalAnchor, absoluteHorizontalPosition, relativeHorizontalPosition, absoluteVerticalPosition, relativeVerticalPosition, bottomFromText, topFromText, leftFromText, rightFromText }) => new BuilderElement({
+		name: "w:tblpPr",
+		attributes: {
+			leftFromText: {
+				key: "w:leftFromText",
+				value: leftFromText === void 0 ? void 0 : twipsMeasureValue(leftFromText)
+			},
+			rightFromText: {
+				key: "w:rightFromText",
+				value: rightFromText === void 0 ? void 0 : twipsMeasureValue(rightFromText)
+			},
+			topFromText: {
+				key: "w:topFromText",
+				value: topFromText === void 0 ? void 0 : twipsMeasureValue(topFromText)
+			},
+			bottomFromText: {
+				key: "w:bottomFromText",
+				value: bottomFromText === void 0 ? void 0 : twipsMeasureValue(bottomFromText)
+			},
+			absoluteHorizontalPosition: {
+				key: "w:tblpX",
+				value: absoluteHorizontalPosition === void 0 ? void 0 : signedTwipsMeasureValue(absoluteHorizontalPosition)
+			},
+			absoluteVerticalPosition: {
+				key: "w:tblpY",
+				value: absoluteVerticalPosition === void 0 ? void 0 : signedTwipsMeasureValue(absoluteVerticalPosition)
+			},
+			horizontalAnchor: {
+				key: "w:horzAnchor",
+				value: horizontalAnchor
+			},
+			relativeHorizontalPosition: {
+				key: "w:tblpXSpec",
+				value: relativeHorizontalPosition
+			},
+			relativeVerticalPosition: {
+				key: "w:tblpYSpec",
+				value: relativeVerticalPosition
+			},
+			verticalAnchor: {
+				key: "w:vertAnchor",
+				value: verticalAnchor
+			}
+		}
+	});
+	//#endregion
+	//#region src/file/table/table-properties/table-layout.ts
+	/**
+	* Table layout module for WordprocessingML documents.
+	*
+	* This module provides table layout algorithm settings.
+	*
+	* @module
+	*/
+	/**
+	* Table layout algorithm types.
+	*
+	* Specifies how the table width is calculated.
+	*
+	* ## XSD Schema
+	* ```xml
+	* <xsd:simpleType name="ST_TblLayoutType">
+	*   <xsd:restriction base="xsd:string">
+	*     <xsd:enumeration value="fixed"/>
+	*     <xsd:enumeration value="autofit"/>
+	*   </xsd:restriction>
+	* </xsd:simpleType>
+	* ```
+	*
+	* @publicApi
+	*/
+	var TableLayoutType = {
+		/** Auto-fit layout - column widths are adjusted based on content */
+		AUTOFIT: "autofit",
+		/** Fixed layout - column widths are fixed as specified */
+		FIXED: "fixed"
+	};
+	/**
+	* Creates table layout settings in a WordprocessingML document.
+	*
+	* The tblLayout element specifies the algorithm used to lay out the table.
+	*
+	* ## XSD Schema
+	* ```xml
+	* <xsd:complexType name="CT_TblLayoutType">
+	*   <xsd:attribute name="type" type="ST_TblLayoutType"/>
+	* </xsd:complexType>
+	* ```
+	*
+	* @example
+	* ```typescript
+	* createTableLayout(TableLayoutType.FIXED);
+	* ```
+	*/
+	var createTableLayout = (type) => new BuilderElement({
+		name: "w:tblLayout",
+		attributes: { type: {
+			key: "w:type",
+			value: type
+		} }
+	});
+	//#endregion
+	//#region src/file/table/table-cell-spacing.ts
+	/**
+	* Table cell spacing module for WordprocessingML documents.
+	*
+	* This module provides cell spacing settings for tables, controlling
+	* the space between cells in a table.
+	*
+	* Reference: http://officeopenxml.com/WPtableCellSpacing.php
+	*
+	* @module
+	*/
+	/**
+	* Cell spacing measurement types.
+	*
+	* ## XSD Schema
+	* ```xml
+	* <xsd:simpleType name="ST_TblCellSpacing">
+	*   <xsd:restriction base="xsd:string">
+	*     <xsd:enumeration value="nil"/>
+	*     <xsd:enumeration value="dxa"/>
+	*   </xsd:restriction>
+	* </xsd:simpleType>
+	* ```
+	*/
+	var CellSpacingType = {
+		/** Value is in twentieths of a point */
+		DXA: "dxa",
+		/** No (empty) value. */
+		NIL: "nil"
+	};
+	/**
+	* Creates table cell spacing in a WordprocessingML document.
+	*
+	* The tblCellSpacing element specifies the spacing between cells in a table.
+	*
+	* Reference: http://officeopenxml.com/WPtableCellSpacing.php
+	*
+	* ## XSD Schema
+	* ```xml
+	* <xsd:complexType name="CT_TblCellSpacing">
+	*   <xsd:attribute name="w" type="ST_MeasurementOrPercent"/>
+	*   <xsd:attribute name="type" type="ST_TblCellSpacing"/>
+	* </xsd:complexType>
+	* ```
+	*
+	* @example
+	* ```typescript
+	* createTableCellSpacing({ value: 100, type: CellSpacingType.DXA });
+	* ```
+	*/
+	var createTableCellSpacing = ({ type = CellSpacingType.DXA, value }) => new BuilderElement({
+		name: "w:tblCellSpacing",
+		attributes: {
+			type: {
+				key: "w:type",
+				value: type
+			},
+			value: {
+				key: "w:w",
+				value: measurementOrPercentValue(value)
+			}
+		}
+	});
+	//#endregion
+	//#region src/file/table/table-properties/table-look.ts
+	/**
+	* Table look module for WordprocessingML documents.
+	*
+	* Table look specifies conditional formatting settings that determine which
+	* special formatting is applied to a table. These settings control whether
+	* special formatting is applied to the first row, last row, first column,
+	* last column, and whether to display horizontal or vertical banding.
+	*
+	* Reference: http://officeopenxml.com/WPtblLook.php
+	*
+	* ## XSD Schema
+	* ```xml
+	* <xsd:complexType name="CT_TblLook">
+	*   <xsd:attribute name="firstRow" type="s:ST_OnOff"/>
+	*   <xsd:attribute name="lastRow" type="s:ST_OnOff"/>
+	*   <xsd:attribute name="firstColumn" type="s:ST_OnOff"/>
+	*   <xsd:attribute name="lastColumn" type="s:ST_OnOff"/>
+	*   <xsd:attribute name="noHBand" type="s:ST_OnOff"/>
+	*   <xsd:attribute name="noVBand" type="s:ST_OnOff"/>
+	* </xsd:complexType>
+	* ```
+	*
+	* @module
+	*/
+	/**
+	* Creates a table look element for conditional formatting settings.
+	*
+	* The tblLook element specifies which conditional formatting settings
+	* are active for a table. These settings work in conjunction with table
+	* styles to apply special formatting to specific regions of the table.
+	*
+	* Reference: http://officeopenxml.com/WPtblLook.php
+	*
+	* @example
+	* ```typescript
+	* // Table with header row formatting and alternating row colors
+	* new Table({
+	*   rows: [...],
+	*   tableLook: {
+	*     firstRow: true,
+	*     noHBand: false,
+	*     noVBand: true,
+	*   },
+	* });
+	* ```
+	*/
+	var createTableLook = ({ firstRow, lastRow, firstColumn, lastColumn, noHBand, noVBand }) => new BuilderElement({
+		name: "w:tblLook",
+		attributes: {
+			firstRow: {
+				key: "w:firstRow",
+				value: firstRow
+			},
+			lastRow: {
+				key: "w:lastRow",
+				value: lastRow
+			},
+			firstColumn: {
+				key: "w:firstColumn",
+				value: firstColumn
+			},
+			lastColumn: {
+				key: "w:lastColumn",
+				value: lastColumn
+			},
+			noHBand: {
+				key: "w:noHBand",
+				value: noHBand
+			},
+			noVBand: {
+				key: "w:noVBand",
+				value: noVBand
+			}
+		}
+	});
+	//#endregion
+	//#region src/file/table/table-properties/table-properties.ts
+	/**
+	* Table properties module for WordprocessingML documents.
+	*
+	* This module provides table-level properties including width, borders,
+	* layout, alignment, and margins.
+	*
+	* Reference: http://officeopenxml.com/WPtableProperties.php
+	*
+	* ## XSD Schema
+	* ```xml
+	* <xsd:complexType name="CT_TblPrBase">
+	*   <xsd:sequence>
+	*     <xsd:element name="tblStyle" type="CT_String" minOccurs="0"/>
+	*     <xsd:element name="tblpPr" type="CT_TblPPr" minOccurs="0" maxOccurs="1"/>
+	*     <xsd:element name="tblOverlap" type="CT_TblOverlap" minOccurs="0" maxOccurs="1"/>
+	*     <xsd:element name="bidiVisual" type="CT_OnOff" minOccurs="0" maxOccurs="1"/>
+	*     <xsd:element name="tblStyleRowBandSize" type="CT_DecimalNumber" minOccurs="0" maxOccurs="1"/>
+	*     <xsd:element name="tblStyleColBandSize" type="CT_DecimalNumber" minOccurs="0" maxOccurs="1"/>
+	*     <xsd:element name="tblW" type="CT_TblWidth" minOccurs="0" maxOccurs="1"/>
+	*     <xsd:element name="jc" type="CT_JcTable" minOccurs="0" maxOccurs="1"/>
+	*     <xsd:element name="tblCellSpacing" type="CT_TblWidth" minOccurs="0" maxOccurs="1"/>
+	*     <xsd:element name="tblInd" type="CT_TblWidth" minOccurs="0" maxOccurs="1"/>
+	*     <xsd:element name="tblBorders" type="CT_TblBorders" minOccurs="0" maxOccurs="1"/>
+	*     <xsd:element name="shd" type="CT_Shd" minOccurs="0" maxOccurs="1"/>
+	*     <xsd:element name="tblLayout" type="CT_TblLayoutType" minOccurs="0" maxOccurs="1"/>
+	*     <xsd:element name="tblCellMar" type="CT_TblCellMar" minOccurs="0" maxOccurs="1"/>
+	*     <xsd:element name="tblLook" type="CT_TblLook" minOccurs="0" maxOccurs="1"/>
+	*     <xsd:element name="tblCaption" type="CT_String" minOccurs="0" maxOccurs="1"/>
+	*     <xsd:element name="tblDescription" type="CT_String" minOccurs="0" maxOccurs="1"/>
+	*   </xsd:sequence>
+	* </xsd:complexType>
+	*
+	* <xsd:complexType name="CT_TblPrChange">
+	*   <xsd:complexContent>
+	*     <xsd:extension base="CT_TrackChange">
+	*       <xsd:sequence>
+	*         <xsd:element name="tblPr" type="CT_TblPrBase"/>
+	*       </xsd:sequence>
+	*     </xsd:extension>
+	*   </xsd:complexContent>
+	* </xsd:complexType>
+	* ```
+	*
+	* @module
+	*/
+	var createTableOverlap = (overlap) => new BuilderElement({
+		name: "w:tblOverlap",
+		attributes: { val: {
+			key: "w:val",
+			value: overlap
+		} }
+	});
+	/**
+	* Represents table properties (tblPr) in a WordprocessingML document.
+	*
+	* The tblPr element specifies the properties for a table including width,
+	* alignment, borders, margins, and layout.
+	*
+	* Reference: http://officeopenxml.com/WPtableProperties.php
+	*/
+	var TableProperties = class extends IgnoreIfEmptyXmlComponent {
+		constructor(options) {
+			var _options$float;
+			super("w:tblPr", options.includeIfEmpty);
+			if (options.style) this.root.push(new StringValueElement("w:tblStyle", options.style));
+			if (options.float) this.root.push(createTableFloatProperties(options.float));
+			if ((_options$float = options.float) === null || _options$float === void 0 ? void 0 : _options$float.overlap) this.root.push(createTableOverlap(options.float.overlap));
+			if (options.visuallyRightToLeft !== void 0) this.root.push(createOnOffOnlyElement("w:bidiVisual", options.visuallyRightToLeft));
+			if (options.width) this.root.push(createTableWidthElement("w:tblW", options.width));
+			if (options.alignment) this.root.push(createAlignment(options.alignment));
+			if (options.cellSpacing) this.root.push(createTableCellSpacing(options.cellSpacing));
+			if (options.indent) this.root.push(createTableWidthElement("w:tblInd", options.indent));
+			if (options.borders) this.root.push(new TableBorders(options.borders));
+			if (options.shading) this.root.push(createShading(options.shading));
+			if (options.layout) this.root.push(createTableLayout(options.layout));
+			if (options.cellMargin) {
+				const cellMargin = createTableCellMargin(options.cellMargin);
+				if (cellMargin) this.root.push(cellMargin);
+			}
+			if (options.tableLook) this.root.push(createTableLook(options.tableLook));
+			if (options.revision) this.root.push(new TablePropertiesChange(options.revision));
+		}
+	};
+	var TablePropertiesChange = class extends XmlComponent {
+		constructor(options) {
+			super("w:tblPrChange");
+			this.root.push(new ChangeAttributes({
+				id: options.id,
+				author: options.author,
+				date: options.date
+			}));
+			this.root.push(new TableProperties(_objectSpread2(_objectSpread2({}, options), {}, { includeIfEmpty: true })));
+		}
+	};
+	//#endregion
+	//#region src/file/table/table-row/table-row-height.ts
+	/**
+	* Table row height module for WordprocessingML documents.
+	*
+	* This module provides row height configuration including rules for how height should be applied.
+	*
+	* Reference: http://officeopenxml.com/WPtableRow.php
+	*
+	* @module
+	*/
+	/**
+	* Height rules for table rows.
+	*
+	* Specifies how the height value should be interpreted.
+	*
+	* ## XSD Schema
+	* ```xml
+	* <xsd:simpleType name="ST_HeightRule">
+	*   <xsd:restriction base="xsd:string">
+	*     <xsd:enumeration value="auto"/>
+	*     <xsd:enumeration value="exact"/>
+	*     <xsd:enumeration value="atLeast"/>
+	*   </xsd:restriction>
+	* </xsd:simpleType>
+	* ```
+	*
+	* @publicApi
+	*/
+	var HeightRule = {
+		/** Height is determined based on the content, so value is ignored. */
+		AUTO: "auto",
+		/** At least the value specified */
+		ATLEAST: "atLeast",
+		/** Exactly the value specified */
+		EXACT: "exact"
+	};
+	/**
+	* Creates table row height (trHeight) in a WordprocessingML document.
+	*
+	* The trHeight element specifies the height of a table row, along with a rule
+	* determining how the height should be applied.
+	*
+	* Reference: http://officeopenxml.com/WPtableRow.php
+	*
+	* ## XSD Schema
+	* ```xml
+	* <xsd:complexType name="CT_Height">
+	*   <xsd:attribute name="val" type="s:ST_TwipsMeasure"/>
+	*   <xsd:attribute name="hRule" type="ST_HeightRule"/>
+	* </xsd:complexType>
+	* ```
+	*
+	* @example
+	* ```typescript
+	* createTableRowHeight(1000, HeightRule.EXACT);
+	* ```
+	*/
+	var createTableRowHeight = (value, rule) => new BuilderElement({
+		name: "w:trHeight",
+		attributes: {
+			value: {
+				key: "w:val",
+				value: twipsMeasureValue(value)
+			},
+			rule: {
+				key: "w:hRule",
+				value: rule
+			}
+		}
+	});
+	//#endregion
+	//#region src/file/table/table-row/table-row-properties.ts
+	/**
+	* Table row properties module for WordprocessingML documents.
+	*
+	* This module provides row-level properties including height and header row settings.
+	*
+	* Reference: http://officeopenxml.com/WPtableRowProperties.php
+	*
+	* ## XSD Schema
+	* ```xml
+	* <xsd:complexType name="CT_TrPrBase">
+	*   <xsd:choice maxOccurs="unbounded">
+	*     <xsd:element name="cnfStyle" type="CT_Cnf" minOccurs="0" maxOccurs="1"/>
+	*     <xsd:element name="divId" type="CT_DecimalNumber" minOccurs="0"/>
+	*     <xsd:element name="gridBefore" type="CT_DecimalNumber" minOccurs="0"/>
+	*     <xsd:element name="gridAfter" type="CT_DecimalNumber" minOccurs="0"/>
+	*     <xsd:element name="wBefore" type="CT_TblWidth" minOccurs="0" maxOccurs="1"/>
+	*     <xsd:element name="wAfter" type="CT_TblWidth" minOccurs="0" maxOccurs="1"/>
+	*     <xsd:element name="cantSplit" type="CT_OnOff" minOccurs="0"/>
+	*     <xsd:element name="trHeight" type="CT_Height" minOccurs="0"/>
+	*     <xsd:element name="tblHeader" type="CT_OnOff" minOccurs="0"/>
+	*     <xsd:element name="tblCellSpacing" type="CT_TblWidth" minOccurs="0" maxOccurs="1"/>
+	*     <xsd:element name="jc" type="CT_JcTable" minOccurs="0" maxOccurs="1"/>
+	*     <xsd:element name="hidden" type="CT_OnOff" minOccurs="0"/>
+	*   </xsd:choice>
+	* </xsd:complexType>
+	* <xsd:complexType name="CT_TrPr">
+	*   <xsd:complexContent>
+	*     <xsd:extension base="CT_TrPrBase">
+	*       <xsd:sequence>
+	*         <xsd:element name="ins" type="CT_TrackChange" minOccurs="0"/>
+	*         <xsd:element name="del" type="CT_TrackChange" minOccurs="0"/>
+	*         <xsd:element name="trPrChange" type="CT_TrPrChange" minOccurs="0"/>
+	*       </xsd:sequence>
+	*     </xsd:extension>
+	*   </xsd:complexContent>
+	* </xsd:complexType>
+	* <xsd:complexType name="CT_TrPrChange">
+	*   <xsd:complexContent>
+	*     <xsd:extension base="CT_TrackChange">
+	*       <xsd:sequence>
+	*         <xsd:element name="trPr" type="CT_TrPrBase" minOccurs="1"/>
+	*       </xsd:sequence>
+	*     </xsd:extension>
+	*   </xsd:complexContent>
+	* </xsd:complexType>
+	* ```
+	*
+	* @module
+	*/
+	/**
+	* Represents table row properties (trPr) in a WordprocessingML document.
+	*
+	* The trPr element specifies properties for a table row including height,
+	* whether it can split across pages, and whether it's a header row.
+	*
+	* Reference: http://officeopenxml.com/WPtableRowProperties.php
+	*
+	* @example
+	* ```typescript
+	* new TableRowProperties({
+	*   cantSplit: true,
+	*   tableHeader: true,
+	*   height: {
+	*     value: 1000,
+	*     rule: HeightRule.EXACT,
+	*   },
+	* });
+	* ```
+	*/
+	var TableRowProperties = class extends IgnoreIfEmptyXmlComponent {
+		constructor(options) {
+			super("w:trPr", options.includeIfEmpty);
+			if (options.cantSplit !== void 0) this.root.push(createOnOffOnlyElement("w:cantSplit", options.cantSplit));
+			if (options.tableHeader !== void 0) this.root.push(createOnOffOnlyElement("w:tblHeader", options.tableHeader));
+			if (options.height) this.root.push(createTableRowHeight(options.height.value, options.height.rule));
+			if (options.cellSpacing) this.root.push(createTableCellSpacing(options.cellSpacing));
+			if (options.insertion) this.root.push(new InsertedTableRow(options.insertion));
+			if (options.deletion) this.root.push(new DeletedTableRow(options.deletion));
+			if (options.revision) this.root.push(new TableRowPropertiesChange(options.revision));
+		}
+	};
+	var TableRowPropertiesChange = class extends XmlComponent {
+		constructor(options) {
+			super("w:trPrChange");
+			this.root.push(new ChangeAttributes({
+				id: options.id,
+				author: options.author,
+				date: options.date
+			}));
+			this.root.push(new TableRowProperties(_objectSpread2(_objectSpread2({}, options), {}, { includeIfEmpty: true })));
+		}
+	};
+	//#endregion
+	//#region src/file/table/table-row/table-row.ts
+	/**
+	* Table row module for WordprocessingML documents.
+	*
+	* Reference: http://officeopenxml.com/WPtableRow.php
+	*
+	* @module
+	*/
+	/**
+	* Represents a table row in a WordprocessingML document.
+	*
+	* A table row is a single row of cells within a table. Each row contains
+	* one or more table cells that hold the actual content.
+	*
+	* Reference: http://officeopenxml.com/WPtableRow.php
+	*
+	* @publicApi
+	*
+	* ## XSD Schema
+	* ```xml
+	* <xsd:complexType name="CT_Row">
+	*   <xsd:sequence>
+	*     <xsd:element name="tblPrEx" type="CT_TblPrEx" minOccurs="0" maxOccurs="1"/>
+	*     <xsd:element name="trPr" type="CT_TrPr" minOccurs="0" maxOccurs="1"/>
+	*     <xsd:group ref="EG_ContentCellContent" minOccurs="0" maxOccurs="unbounded"/>
+	*   </xsd:sequence>
+	*   <xsd:attribute name="rsidRPr" type="ST_LongHexNumber"/>
+	*   <xsd:attribute name="rsidR" type="ST_LongHexNumber"/>
+	*   <xsd:attribute name="rsidDel" type="ST_LongHexNumber"/>
+	*   <xsd:attribute name="rsidTr" type="ST_LongHexNumber"/>
+	* </xsd:complexType>
+	* ```
+	*
+	* @example
+	* ```typescript
+	* new TableRow({
+	*   children: [
+	*     new TableCell({ children: [new Paragraph("Cell 1")] }),
+	*     new TableCell({ children: [new Paragraph("Cell 2")] }),
+	*   ],
+	* });
+	* ```
+	*/
+	var TableRow = class extends XmlComponent {
+		constructor(options) {
+			super("w:tr");
+			_defineProperty(this, "options", void 0);
+			this.options = options;
+			this.root.push(new TableRowProperties(options));
+			for (const child of options.children) this.root.push(child);
+		}
+		get CellCount() {
+			return this.options.children.length;
+		}
+		get cells() {
+			return this.root.filter((xmlComponent) => xmlComponent instanceof TableCell);
+		}
+		addCellToIndex(cell, index) {
+			this.root.splice(index + 1, 0, cell);
+		}
+		addCellToColumnIndex(cell, columnIndex) {
+			const rootIndex = this.columnIndexToRootIndex(columnIndex, true);
+			this.addCellToIndex(cell, rootIndex - 1);
+		}
+		rootIndexToColumnIndex(rootIndex) {
+			if (rootIndex < 1 || rootIndex >= this.root.length) throw new Error(`cell 'rootIndex' should between 1 to ${this.root.length - 1}`);
+			let colIdx = 0;
+			for (let rootIdx = 1; rootIdx < rootIndex; rootIdx++) {
+				const cell = this.root[rootIdx];
+				colIdx += cell.options.columnSpan || 1;
+			}
+			return colIdx;
+		}
+		columnIndexToRootIndex(columnIndex, allowEndNewCell = false) {
+			if (columnIndex < 0) throw new Error(`cell 'columnIndex' should not less than zero`);
+			let colIdx = 0;
+			let rootIdx = 1;
+			while (colIdx <= columnIndex) {
+				if (rootIdx >= this.root.length) {
+					if (allowEndNewCell) return this.root.length;
+					else throw new Error(`cell 'columnIndex' should not great than ${colIdx - 1}`);
+				}
+				const cell = this.root[rootIdx];
+				rootIdx += 1;
+				colIdx += cell && cell.options.columnSpan || 1;
+			}
+			return rootIdx - 1;
+		}
+	};
+	//#endregion
+	//#region src/file/table/table.ts
+	/**
+	* Table module for WordprocessingML documents.
+	*
+	* Reference: http://officeopenxml.com/WPtableGrid.php
+	*
+	* @module
+	*/
+	/**
+	* Represents a table in a WordprocessingML document.
+	*
+	* A table is a set of paragraphs (and other block-level content) arranged in rows and columns.
+	* Tables are used to organize content into a grid structure.
+	*
+	* Reference: http://officeopenxml.com/WPtable.php
+	*
+	* @publicApi
+	*
+	* ## XSD Schema
+	* ```xml
+	* <xsd:complexType name="CT_Tbl">
+	*   <xsd:sequence>
+	*     <xsd:group ref="EG_RangeMarkupElements" minOccurs="0" maxOccurs="unbounded"/>
+	*     <xsd:element name="tblPr" type="CT_TblPr"/>
+	*     <xsd:element name="tblGrid" type="CT_TblGrid"/>
+	*     <xsd:group ref="EG_ContentRowContent" minOccurs="0" maxOccurs="unbounded"/>
+	*   </xsd:sequence>
+	* </xsd:complexType>
+	* ```
+	*
+	* @example
+	* ```typescript
+	* new Table({
+	*   rows: [
+	*     new TableRow({
+	*       children: [
+	*         new TableCell({ children: [new Paragraph("Cell 1")] }),
+	*         new TableCell({ children: [new Paragraph("Cell 2")] }),
+	*       ],
+	*     }),
+	*   ],
+	* });
+	* ```
+	*/
+	var Table = class Table extends FileChild {
+		constructor({ rows, width, columnWidths, columnWidthsRevision, margins, indent, float, layout, style, borders, alignment, visuallyRightToLeft, tableLook, cellSpacing, revision }) {
+			super("w:tbl");
+			_defineProperty(this, "rows", void 0);
+			_defineProperty(this, "width", void 0);
+			_defineProperty(this, "columnWidths", void 0);
+			_defineProperty(this, "columnWidthsRevision", void 0);
+			_defineProperty(
+				this,
+				/**
+				* Grid column widths in twips: the explicit `columnWidths`, or the widths derived
+				* from the table and cell widths (re-resolved against the actual page or parent
+				* cell every time the table is serialized).
+				*/
+				"resolvedColumnWidths",
+				void 0
+			);
+			this.rows = rows;
+			this.width = width !== null && width !== void 0 ? width : { size: 100 };
+			this.columnWidths = columnWidths;
+			this.columnWidthsRevision = columnWidthsRevision;
+			rows.forEach((row, rowIndex) => {
+				if (rowIndex === rows.length - 1) return;
+				let columnIndex = 0;
+				row.cells.forEach((cell) => {
+					if (cell.options.rowSpan && cell.options.rowSpan > 1) {
+						const continueCell = new TableCell({
+							rowSpan: cell.options.rowSpan - 1,
+							columnSpan: cell.options.columnSpan,
+							borders: cell.options.borders,
+							children: [],
+							verticalMerge: VerticalMergeType.CONTINUE
+						});
+						rows[rowIndex + 1].addCellToColumnIndex(continueCell, columnIndex);
+					}
+					columnIndex += cell.options.columnSpan || 1;
+				});
+			});
+			this.resolvedColumnWidths = columnWidths !== null && columnWidths !== void 0 ? columnWidths : resolveColumnWidths({
+				rows,
+				width: this.width,
+				availableWidth: DEFAULT_AVAILABLE_WIDTH
+			});
+			this.root.push(new TableProperties({
+				borders: borders !== null && borders !== void 0 ? borders : {},
+				width: this.width,
+				indent,
+				float,
+				layout,
+				style,
+				alignment,
+				cellMargin: margins,
+				visuallyRightToLeft,
+				tableLook,
+				cellSpacing,
+				revision
+			}));
+			this.root.push(new TableGrid(this.resolvedColumnWidths, columnWidthsRevision));
+			for (const row of rows) this.root.push(row);
+		}
+		/**
+		* Widths of the grid columns in twips, as they will be written to `w:tblGrid`.
+		*
+		* These are the explicit `columnWidths` when given, otherwise the widths derived
+		* from the table and cell widths. Derived widths are resolved against the page (or
+		* the parent cell for nested tables) during serialization, so before that they
+		* reflect the default page size.
+		*/
+		get ColumnWidths() {
+			return this.resolvedColumnWidths;
+		}
+		/**
+		* Width in twips, according to the grid, of a cell in one of this table's rows.
+		*
+		* Used by nested tables to resolve their own widths against the cell they sit in.
+		*
+		* @param row - A row of this table
+		* @param cell - A cell of that row
+		* @returns The summed width of the grid columns the cell spans, or undefined if the cell cannot be located on the grid
+		*/
+		getCellWidth(row, cell) {
+			const { cells } = row;
+			const cellIndex = cells.indexOf(cell);
+			if (cellIndex === -1) return;
+			const start = cells.slice(0, cellIndex).reduce((column, previous) => column + (previous.options.columnSpan || 1), 0);
+			const columns = this.resolvedColumnWidths.slice(start, start + (cell.options.columnSpan || 1));
+			return columns.length === 0 ? void 0 : columns.reduce((sum, columnWidth) => sum + columnWidth, 0);
+		}
+		/**
+		* Resolves derived grid column widths against the width actually available to the
+		* table (the section's text width, or the parent cell for nested tables) before
+		* serializing.
+		*/
+		prepForXml(context) {
+			if (this.columnWidths === void 0) {
+				this.resolvedColumnWidths = resolveColumnWidths({
+					rows: this.rows,
+					width: this.width,
+					availableWidth: this.resolveAvailableWidth(context)
+				});
+				const gridIndex = this.root.findIndex((component) => component instanceof TableGrid);
+				this.root[gridIndex] = new TableGrid(this.resolvedColumnWidths, this.columnWidthsRevision);
+			}
+			return super.prepForXml(context);
+		}
+		/**
+		* Finds the width in twips available to this table from the serialization context:
+		* the parent cell for a nested table, otherwise the text width of the section the
+		* table belongs to (the first section for headers, footers and other parts). Falls
+		* back to the default page when the context carries no document.
+		*/
+		resolveAvailableWidth(context) {
+			var _context$file, _stack, _section$AvailableTex;
+			const { stack } = context;
+			const cell = stack[stack.length - 1];
+			const row = stack[stack.length - 2];
+			const parentTable = stack[stack.length - 3];
+			if (cell instanceof TableCell && row instanceof TableRow && parentTable instanceof Table) {
+				const cellWidth = parentTable.getCellWidth(row, cell);
+				if (cellWidth !== void 0) return cellWidth;
+			}
+			const bodyIndex = stack.findIndex((component) => component instanceof Body);
+			const documentBody = (_context$file = context.file) === null || _context$file === void 0 || (_context$file = _context$file.Document) === null || _context$file === void 0 ? void 0 : _context$file.View.Body;
+			const section = bodyIndex >= 0 ? stack[bodyIndex].getSectionPropertiesFor((_stack = stack[bodyIndex + 1]) !== null && _stack !== void 0 ? _stack : this) : documentBody === null || documentBody === void 0 ? void 0 : documentBody.getSectionPropertiesFor();
+			return (_section$AvailableTex = section === null || section === void 0 ? void 0 : section.AvailableTextWidth) !== null && _section$AvailableTex !== void 0 ? _section$AvailableTex : DEFAULT_AVAILABLE_WIDTH;
+		}
+	};
+	//#endregion
+	//#region src/file/app-properties/app-properties-attributes.ts
+	/**
+	* App Properties Attributes module for WordprocessingML documents.
+	*
+	* Provides namespace attributes for extended document properties.
+	*
+	* Reference: ISO-IEC29500-4_2016 shared-documentPropertiesExtended.xsd
+	*
+	* @module
+	*/
+	/**
+	* XML namespace attributes for the app properties element.
+	*
+	* @property xmlns - Main namespace for extended properties
+	* @property vt - Namespace for variant types
+	*/
+	var AppPropertiesAttributes = class extends XmlAttributeComponent {
+		constructor(..._args) {
+			super(..._args);
+			_defineProperty(this, "xmlKeys", {
+				xmlns: "xmlns",
+				vt: "xmlns:vt"
+			});
+		}
+	};
+	//#endregion
+	//#region src/file/app-properties/app-properties.ts
+	/**
+	* App Properties module for WordprocessingML documents.
+	*
+	* Provides support for extended document properties specific to Office applications.
+	*
+	* Reference: ISO-IEC29500-4_2016 shared-documentPropertiesExtended.xsd
+	*
+	* @module
+	*/
+	/**
+	* Represents the extended application properties of a WordprocessingML document.
+	*
+	* Extended properties contain application-specific metadata such as total editing time,
+	* word count, character count, and other Office-specific information.
+	*
+	* Reference: ISO-IEC29500-4_2016 shared-documentPropertiesExtended.xsd
+	*
+	* ## XSD Schema
+	* ```xml
+	* <xsd:complexType name="CT_Properties">
+	*   <xsd:sequence>
+	*     <xsd:element name="Template" type="xsd:string" minOccurs="0"/>
+	*     <xsd:element name="Manager" type="xsd:string" minOccurs="0"/>
+	*     <xsd:element name="Company" type="xsd:string" minOccurs="0"/>
+	*     <xsd:element name="Pages" type="xsd:int" minOccurs="0"/>
+	*     <xsd:element name="Words" type="xsd:int" minOccurs="0"/>
+	*     <xsd:element name="Characters" type="xsd:int" minOccurs="0"/>
+	*     <xsd:element name="PresentationFormat" type="xsd:string" minOccurs="0"/>
+	*     <xsd:element name="Lines" type="xsd:int" minOccurs="0"/>
+	*     <xsd:element name="Paragraphs" type="xsd:int" minOccurs="0"/>
+	*     <xsd:element name="CharactersWithSpaces" type="xsd:int" minOccurs="0"/>
+	*     <xsd:element name="Application" type="xsd:string" minOccurs="0"/>
+	*     <xsd:element name="DocSecurity" type="xsd:int" minOccurs="0"/>
+	*   </xsd:sequence>
+	* </xsd:complexType>
+	* ```
+	*
+	* @example
+	* ```typescript
+	* const appProps = new AppProperties();
+	* ```
+	*/
+	var AppProperties = class extends XmlComponent {
+		constructor() {
+			super("Properties");
+			this.root.push(new AppPropertiesAttributes({
+				xmlns: "http://schemas.openxmlformats.org/officeDocument/2006/extended-properties",
+				vt: "http://schemas.openxmlformats.org/officeDocument/2006/docPropsVTypes"
+			}));
+		}
+	};
+	//#endregion
+	//#region src/file/content-types/content-types-attributes.ts
+	/**
+	* Attributes for the Types (Content Types) element.
+	*
+	* Defines the XML namespace for the content types part.
+	*
+	* @example
+	* ```typescript
+	* new ContentTypeAttributes({
+	*   xmlns: "http://schemas.openxmlformats.org/package/2006/content-types"
+	* });
+	* ```
+	*/
+	var ContentTypeAttributes = class extends XmlAttributeComponent {
+		constructor(..._args) {
+			super(..._args);
+			_defineProperty(this, "xmlKeys", { xmlns: "xmlns" });
+		}
+	};
+	//#endregion
+	//#region src/file/content-types/default/default.ts
+	/**
+	* Creates a default content type mapping by file extension.
+	*
+	* Default elements map file extensions (e.g., "png", "xml") to MIME content types.
+	* This tells the package reader what type of content to expect for files with
+	* a given extension.
+	*
+	* @example
+	* ```typescript
+	* // Map .png files to image/png content type
+	* createDefault("image/png", "png");
+	*
+	* // Map .xml files to application/xml content type
+	* createDefault("application/xml", "xml");
+	* ```
+	*/
+	var createDefault = (contentType, extension) => new BuilderElement({
+		name: "Default",
+		attributes: {
+			contentType: {
+				key: "ContentType",
+				value: contentType
+			},
+			extension: {
+				key: "Extension",
+				value: extension
+			}
+		}
+	});
+	//#endregion
+	//#region src/file/content-types/override/override.ts
+	/**
+	* Creates a content type override for a specific part.
+	*
+	* Override elements map specific part paths to MIME content types,
+	* taking precedence over default extension mappings. This is used for
+	* important parts like document.xml, styles.xml, etc.
+	*
+	* @example
+	* ```typescript
+	* // Override content type for the main document part
+	* createOverride(
+	*   "application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml",
+	*   "/word/document.xml"
+	* );
+	*
+	* // Override for a header part
+	* createOverride(
+	*   "application/vnd.openxmlformats-officedocument.wordprocessingml.header+xml",
+	*   "/word/header1.xml"
+	* );
+	* ```
+	*/
+	var createOverride = (contentType, partName) => new BuilderElement({
+		name: "Override",
+		attributes: {
+			contentType: {
+				key: "ContentType",
+				value: contentType
+			},
+			partName: {
+				key: "PartName",
+				value: partName
+			}
+		}
+	});
+	//#endregion
+	//#region src/file/content-types/content-types.ts
+	/**
+	* Content Types module for Open Packaging Conventions.
+	*
+	* This module provides the [Content_Types].xml part which defines
+	* the content types for all parts in the DOCX package.
+	*
+	* Reference: http://officeopenxml.com/anatomyofOOXML.php
+	*
+	* @module
+	*/
+	/**
+	* Represents the Content Types part of an OPC package.
+	*
+	* ContentTypes maps file extensions and specific paths to their
+	* MIME content types, enabling applications to process each part correctly.
+	*
+	* Reference: http://officeopenxml.com/anatomyofOOXML.php
+	*
+	* @example
+	* ```typescript
+	* const contentTypes = new ContentTypes();
+	* contentTypes.addHeader(1); // Add header1.xml
+	* contentTypes.addFooter(1); // Add footer1.xml
+	* ```
+	*/
+	var ContentTypes = class extends XmlComponent {
+		constructor() {
+			super("Types");
+			this.root.push(new ContentTypeAttributes({ xmlns: "http://schemas.openxmlformats.org/package/2006/content-types" }));
+			this.root.push(createDefault("image/png", "png"));
+			this.root.push(createDefault("image/jpeg", "jpeg"));
+			this.root.push(createDefault("image/jpeg", "jpg"));
+			this.root.push(createDefault("image/bmp", "bmp"));
+			this.root.push(createDefault("image/gif", "gif"));
+			this.root.push(createDefault("image/svg+xml", "svg"));
+			this.root.push(createDefault("application/vnd.openxmlformats-package.relationships+xml", "rels"));
+			this.root.push(createDefault("application/xml", "xml"));
+			this.root.push(createDefault("application/vnd.openxmlformats-officedocument.obfuscatedFont", "odttf"));
+			this.root.push(createOverride("application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml", "/word/document.xml"));
+			this.root.push(createOverride("application/vnd.openxmlformats-officedocument.wordprocessingml.styles+xml", "/word/styles.xml"));
+			this.root.push(createOverride("application/vnd.openxmlformats-package.core-properties+xml", "/docProps/core.xml"));
+			this.root.push(createOverride("application/vnd.openxmlformats-officedocument.custom-properties+xml", "/docProps/custom.xml"));
+			this.root.push(createOverride("application/vnd.openxmlformats-officedocument.extended-properties+xml", "/docProps/app.xml"));
+			this.root.push(createOverride("application/vnd.openxmlformats-officedocument.wordprocessingml.numbering+xml", "/word/numbering.xml"));
+			this.root.push(createOverride("application/vnd.openxmlformats-officedocument.wordprocessingml.footnotes+xml", "/word/footnotes.xml"));
+			this.root.push(createOverride("application/vnd.openxmlformats-officedocument.wordprocessingml.endnotes+xml", "/word/endnotes.xml"));
+			this.root.push(createOverride("application/vnd.openxmlformats-officedocument.wordprocessingml.settings+xml", "/word/settings.xml"));
+			this.root.push(createOverride("application/vnd.openxmlformats-officedocument.wordprocessingml.fontTable+xml", "/word/fontTable.xml"));
+			this.root.push(createOverride("application/vnd.openxmlformats-officedocument.theme+xml", "/word/theme/theme1.xml"));
+		}
+		/**
+		* Registers the comments part in the content types.
+		*/
+		addComments() {
+			this.root.push(createOverride("application/vnd.openxmlformats-officedocument.wordprocessingml.comments+xml", "/word/comments.xml"));
+		}
+		/**
+		* Registers the commentsExtended part in the content types.
+		*/
+		addCommentsExtended() {
+			this.root.push(createOverride("application/vnd.openxmlformats-officedocument.wordprocessingml.commentsExtended+xml", "/word/commentsExtended.xml"));
+		}
+		/**
+		* Registers the commentsIds part in the content types.
+		*/
+		addCommentsIds() {
+			this.root.push(createOverride("application/vnd.openxmlformats-officedocument.wordprocessingml.commentsIds+xml", "/word/commentsIds.xml"));
+		}
+		/**
+		* Registers a footer part in the content types.
+		*
+		* @param index - Footer index number (e.g., 1 for footer1.xml)
+		*/
+		addFooter(index) {
+			this.root.push(createOverride("application/vnd.openxmlformats-officedocument.wordprocessingml.footer+xml", `/word/footer${index}.xml`));
+		}
+		/**
+		* Registers a part by its name, such as a chart or an embedded workbook that a drawing adds to the package.
+		*
+		* @param contentType - The part's content type
+		* @param partName - The part's name, from the root of the package, such as "/word/charts/chart1.xml"
+		*/
+		addOverride(contentType, partName) {
+			this.root.push(createOverride(contentType, partName));
+		}
+		/**
+		* Registers a header part in the content types.
+		*
+		* @param index - Header index number (e.g., 1 for header1.xml)
+		*/
+		addHeader(index) {
+			this.root.push(createOverride("application/vnd.openxmlformats-officedocument.wordprocessingml.header+xml", `/word/header${index}.xml`));
+		}
+	};
+	//#endregion
+	//#region src/file/document/document-attributes.ts
+	/**
+	* Document attributes module for WordprocessingML documents.
+	*
+	* This module defines the XML namespace declarations used in OOXML documents.
+	* These namespaces are required for proper document parsing and generation.
+	*
+	* Reference: http://officeopenxml.com/anatomyofOOXML.php
+	*
+	* @module
+	*/
+	/**
+	* XML namespace URIs used in WordprocessingML documents.
+	*
+	* These namespaces define the various XML schemas that can be referenced
+	* in a document, including WordprocessingML, DrawingML, VML, and others.
+	*/
+	var DocumentAttributeNamespaces = {
+		wpc: "http://schemas.microsoft.com/office/word/2010/wordprocessingCanvas",
+		mc: "http://schemas.openxmlformats.org/markup-compatibility/2006",
+		o: "urn:schemas-microsoft-com:office:office",
+		r: "http://schemas.openxmlformats.org/officeDocument/2006/relationships",
+		m: "http://schemas.openxmlformats.org/officeDocument/2006/math",
+		v: "urn:schemas-microsoft-com:vml",
+		wp14: "http://schemas.microsoft.com/office/word/2010/wordprocessingDrawing",
+		wp: "http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing",
+		w10: "urn:schemas-microsoft-com:office:word",
+		w: "http://schemas.openxmlformats.org/wordprocessingml/2006/main",
+		w14: "http://schemas.microsoft.com/office/word/2010/wordml",
+		w15: "http://schemas.microsoft.com/office/word/2012/wordml",
+		wpg: "http://schemas.microsoft.com/office/word/2010/wordprocessingGroup",
+		wpi: "http://schemas.microsoft.com/office/word/2010/wordprocessingInk",
+		wne: "http://schemas.microsoft.com/office/word/2006/wordml",
+		wps: "http://schemas.microsoft.com/office/word/2010/wordprocessingShape",
+		cp: "http://schemas.openxmlformats.org/package/2006/metadata/core-properties",
+		dc: "http://purl.org/dc/elements/1.1/",
+		dcterms: "http://purl.org/dc/terms/",
+		dcmitype: "http://purl.org/dc/dcmitype/",
+		xsi: "http://www.w3.org/2001/XMLSchema-instance",
+		cx: "http://schemas.microsoft.com/office/drawing/2014/chartex",
+		cx1: "http://schemas.microsoft.com/office/drawing/2015/9/8/chartex",
+		cx2: "http://schemas.microsoft.com/office/drawing/2015/10/21/chartex",
+		cx3: "http://schemas.microsoft.com/office/drawing/2016/5/9/chartex",
+		cx4: "http://schemas.microsoft.com/office/drawing/2016/5/10/chartex",
+		cx5: "http://schemas.microsoft.com/office/drawing/2016/5/11/chartex",
+		cx6: "http://schemas.microsoft.com/office/drawing/2016/5/12/chartex",
+		cx7: "http://schemas.microsoft.com/office/drawing/2016/5/13/chartex",
+		cx8: "http://schemas.microsoft.com/office/drawing/2016/5/14/chartex",
+		aink: "http://schemas.microsoft.com/office/drawing/2016/ink",
+		am3d: "http://schemas.microsoft.com/office/drawing/2017/model3d",
+		w16cex: "http://schemas.microsoft.com/office/word/2018/wordml/cex",
+		w16cid: "http://schemas.microsoft.com/office/word/2016/wordml/cid",
+		w16: "http://schemas.microsoft.com/office/word/2018/wordml",
+		w16sdtdh: "http://schemas.microsoft.com/office/word/2020/wordml/sdtdatahash",
+		w16se: "http://schemas.microsoft.com/office/word/2015/wordml/symex"
+	};
+	/**
+	* Represents XML namespace attributes for a WordprocessingML document.
+	*
+	* This class generates the xmlns declarations required at the root element
+	* of document.xml and other document parts.
+	*
+	* @example
+	* ```typescript
+	* new DocumentAttributes(['w', 'r', 'wp'], 'w14 w15');
+	* // Generates: xmlns:w="..." xmlns:r="..." xmlns:wp="..." mc:Ignorable="w14 w15"
+	* ```
+	*
+	* @internal
+	*/
+	var DocumentAttributes = class extends XmlAttributeComponent {
+		constructor(ns, Ignorable) {
+			super(_objectSpread2({ Ignorable }, Object.fromEntries(ns.map((n) => [n, DocumentAttributeNamespaces[n]]))));
+			_defineProperty(this, "xmlKeys", _objectSpread2({ Ignorable: "mc:Ignorable" }, Object.fromEntries(Object.keys(DocumentAttributeNamespaces).map((key) => [key, `xmlns:${key}`]))));
+		}
+	};
+	//#endregion
+	//#region src/file/core-properties/properties.ts
+	/**
+	* Represents the core properties of a WordprocessingML document.
+	*
+	* Core properties contain document metadata based on Dublin Core elements,
+	* including title, subject, creator, keywords, description, and modification tracking.
+	*
+	* Reference: ISO-IEC29500-4_2016 shared-documentPropertiesCore.xsd
+	*
+	* ## XSD Schema
+	* ```xml
+	* <xs:complexType name="CT_CoreProperties">
+	*   <xs:all>
+	*     <xs:element name="category" minOccurs="0" maxOccurs="1" type="xs:string"/>
+	*     <xs:element name="contentStatus" minOccurs="0" maxOccurs="1" type="xs:string"/>
+	*     <xs:element ref="dcterms:created" minOccurs="0" maxOccurs="1"/>
+	*     <xs:element ref="dc:creator" minOccurs="0" maxOccurs="1"/>
+	*     <xs:element ref="dc:description" minOccurs="0" maxOccurs="1"/>
+	*     <xs:element ref="dc:identifier" minOccurs="0" maxOccurs="1"/>
+	*     <xs:element name="keywords" minOccurs="0" maxOccurs="1" type="CT_Keywords"/>
+	*     <xs:element ref="dc:language" minOccurs="0" maxOccurs="1"/>
+	*     <xs:element name="lastModifiedBy" minOccurs="0" maxOccurs="1" type="xs:string"/>
+	*     <xs:element name="lastPrinted" minOccurs="0" maxOccurs="1" type="xs:dateTime"/>
+	*     <xs:element ref="dcterms:modified" minOccurs="0" maxOccurs="1"/>
+	*     <xs:element name="revision" minOccurs="0" maxOccurs="1" type="xs:string"/>
+	*     <xs:element ref="dc:subject" minOccurs="0" maxOccurs="1"/>
+	*     <xs:element ref="dc:title" minOccurs="0" maxOccurs="1"/>
+	*     <xs:element name="version" minOccurs="0" maxOccurs="1" type="xs:string"/>
+	*   </xs:all>
+	* </xs:complexType>
+	* ```
+	*
+	* @example
+	* ```typescript
+	* const coreProps = new CoreProperties({
+	*   title: "My Document",
+	*   subject: "Sample Document",
+	*   creator: "John Doe",
+	*   keywords: "docx, example",
+	*   description: "A sample document",
+	*   lastModifiedBy: "Jane Doe",
+	*   revision: 1
+	* });
+	* ```
+	*/
+	var CoreProperties = class extends XmlComponent {
+		constructor(options) {
+			super("cp:coreProperties");
+			this.root.push(new DocumentAttributes([
+				"cp",
+				"dc",
+				"dcterms",
+				"dcmitype",
+				"xsi"
+			]));
+			if (options.title) this.root.push(new StringContainer("dc:title", options.title));
+			if (options.subject) this.root.push(new StringContainer("dc:subject", options.subject));
+			if (options.creator) this.root.push(new StringContainer("dc:creator", options.creator));
+			if (options.keywords) this.root.push(new StringContainer("cp:keywords", options.keywords));
+			if (options.description) this.root.push(new StringContainer("dc:description", options.description));
+			if (options.lastModifiedBy) this.root.push(new StringContainer("cp:lastModifiedBy", options.lastModifiedBy));
+			if (options.revision) this.root.push(new StringContainer("cp:revision", String(options.revision)));
+			this.root.push(new TimestampElement("dcterms:created"));
+			this.root.push(new TimestampElement("dcterms:modified"));
+		}
+	};
+	/**
+	* Attributes for timestamp elements in core properties.
+	* Specifies the W3C DateTime Format type for timestamps.
+	*/
+	var TimestampElementProperties = class extends XmlAttributeComponent {
+		constructor(..._args) {
+			super(..._args);
+			_defineProperty(this, "xmlKeys", { type: "xsi:type" });
+		}
+	};
+	/**
+	* Represents a timestamp element (created or modified date).
+	* Uses W3C DateTime Format (dcterms:W3CDTF) for dates.
+	*/
+	var TimestampElement = class extends XmlComponent {
+		constructor(name) {
+			super(name);
+			this.root.push(new TimestampElementProperties({ type: "dcterms:W3CDTF" }));
+			this.root.push(dateTimeValue(/* @__PURE__ */ new Date()));
+		}
+	};
+	//#endregion
+	//#region src/file/custom-properties/custom-properties-attributes.ts
+	/**
+	* Custom Properties Attributes module for WordprocessingML documents.
+	*
+	* Provides namespace attributes for custom document properties.
+	*
+	* Reference: ISO-IEC29500-4_2016 shared-documentPropertiesCustom.xsd
+	*
+	* @module
+	*/
+	/**
+	* XML namespace attributes for the custom properties element.
+	*
+	* @property xmlns - Main namespace for custom properties
+	* @property vt - Namespace for variant types
+	*/
+	var CustomPropertiesAttributes = class extends XmlAttributeComponent {
+		constructor(..._args) {
+			super(..._args);
+			_defineProperty(this, "xmlKeys", {
+				xmlns: "xmlns",
+				vt: "xmlns:vt"
+			});
+		}
+	};
+	//#endregion
+	//#region src/file/custom-properties/custom-property-attributes.ts
+	/**
+	* Custom Property Attributes module for WordprocessingML documents.
+	*
+	* Provides attributes for individual custom document properties.
+	*
+	* Reference: ISO-IEC29500-4_2016 shared-documentPropertiesCustom.xsd
+	*
+	* @module
+	*/
+	/**
+	* XML attributes for a custom property element.
+	*
+	* @property formatId - Format identifier (GUID)
+	* @property pid - Property identifier (unique ID)
+	* @property name - Property name
+	*/
+	var CustomPropertyAttributes = class extends XmlAttributeComponent {
+		constructor(..._args) {
+			super(..._args);
+			_defineProperty(this, "xmlKeys", {
+				formatId: "fmtid",
+				pid: "pid",
+				name: "name"
+			});
+		}
+	};
+	//#endregion
+	//#region src/file/custom-properties/custom-property.ts
+	/**
+	* Custom Property module for WordprocessingML documents.
+	*
+	* Provides support for individual custom document properties.
+	*
+	* Reference: ISO-IEC29500-4_2016 shared-documentPropertiesCustom.xsd
+	*
+	* @module
+	*/
+	/**
+	* Represents a single custom document property.
+	*
+	* Custom properties allow storing arbitrary key-value pairs in the document metadata.
+	* Each property has a unique name and a string value.
+	*
+	* Reference: ISO-IEC29500-4_2016 shared-documentPropertiesCustom.xsd
+	*
+	* ## XSD Schema
+	* ```xml
+	* <xsd:complexType name="CT_Property">
+	*   <xsd:sequence>
+	*     <xsd:element name="lpwstr" type="xsd:string" minOccurs="0"/>
+	*   </xsd:sequence>
+	*   <xsd:attribute name="fmtid" type="ST_Guid" use="required"/>
+	*   <xsd:attribute name="pid" type="xsd:int" use="required"/>
+	*   <xsd:attribute name="name" type="xsd:string"/>
+	* </xsd:complexType>
+	* ```
+	*
+	* @example
+	* ```typescript
+	* const customProp = new CustomProperty(2, {
+	*   name: "Department",
+	*   value: "Engineering"
+	* });
+	* ```
+	*/
+	var CustomProperty = class extends XmlComponent {
+		constructor(id, properties) {
+			super("property");
+			this.root.push(new CustomPropertyAttributes({
+				formatId: "{D5CDD505-2E9C-101B-9397-08002B2CF9AE}",
+				pid: id.toString(),
+				name: properties.name
+			}));
+			this.root.push(new CustomPropertyValue(properties.value));
+		}
+	};
+	/**
+	* Represents the value of a custom property.
+	* Uses the variant type "long pointer to wide string" for string values.
+	*/
+	var CustomPropertyValue = class extends XmlComponent {
+		constructor(value) {
+			super("vt:lpwstr");
+			this.root.push(value);
+		}
+	};
+	//#endregion
+	//#region src/file/custom-properties/custom-properties.ts
+	/**
+	* Custom Properties module for WordprocessingML documents.
+	*
+	* Provides support for managing custom document properties collection.
+	*
+	* Reference: ISO-IEC29500-4_2016 shared-documentPropertiesCustom.xsd
+	*
+	* @module
+	*/
+	/**
+	* Represents the collection of custom document properties.
+	*
+	* Custom properties allow storing arbitrary metadata as name-value pairs.
+	* Each property is assigned a unique ID starting from 2 (per Office specification).
+	*
+	* Reference: ISO-IEC29500-4_2016 shared-documentPropertiesCustom.xsd
+	*
+	* ## XSD Schema
+	* ```xml
+	* <xsd:complexType name="CT_CustomProperties">
+	*   <xsd:sequence>
+	*     <xsd:element name="property" type="CT_Property" minOccurs="0" maxOccurs="unbounded"/>
+	*   </xsd:sequence>
+	* </xsd:complexType>
+	* ```
+	*
+	* @example
+	* ```typescript
+	* const customProps = new CustomProperties([
+	*   { name: "Department", value: "Engineering" },
+	*   { name: "Project", value: "Alpha" }
+	* ]);
+	* ```
+	*/
+	var CustomProperties = class extends XmlComponent {
+		constructor(properties) {
+			super("Properties");
+			_defineProperty(this, "nextId", void 0);
+			_defineProperty(this, "properties", []);
+			this.root.push(new CustomPropertiesAttributes({
+				xmlns: "http://schemas.openxmlformats.org/officeDocument/2006/custom-properties",
+				vt: "http://schemas.openxmlformats.org/officeDocument/2006/docPropsVTypes"
+			}));
+			this.nextId = 2;
+			for (const property of properties) this.addCustomProperty(property);
+		}
+		prepForXml(context) {
+			this.properties.forEach((x) => this.root.push(x));
+			return super.prepForXml(context);
+		}
+		addCustomProperty(property) {
+			this.properties.push(new CustomProperty(this.nextId++, property));
 		}
 	};
 	//#endregion
@@ -23281,121 +24797,12 @@ MAX: 9026 };
 		}
 	};
 	//#endregion
-	//#region src/file/document/body/body.ts
-	/**
-	* Document body module for WordprocessingML documents.
-	*
-	* Reference: http://officeopenxml.com/WPdocument.php
-	*
-	* @module
-	*/
-	/**
-	* Represents the document body in a WordprocessingML document.
-	*
-	* The body element is the container for all block-level content in the document.
-	* This includes paragraphs, tables, and section properties that define page layout.
-	*
-	* The body supports multiple sections, where each section (except the last one) must
-	* have its section properties stored in a paragraph's properties at the end of that
-	* section. The last section's properties are stored as a direct child of the body element.
-	*
-	* Reference: http://officeopenxml.com/WPdocument.php
-	*
-	* ## XSD Schema
-	* ```xml
-	* <xsd:complexType name="CT_Body">
-	*   <xsd:sequence>
-	*     <xsd:group ref="EG_BlockLevelElts" minOccurs="0" maxOccurs="unbounded"/>
-	*     <xsd:element name="sectPr" minOccurs="0" maxOccurs="1" type="CT_SectPr"/>
-	*   </xsd:sequence>
-	* </xsd:complexType>
-	* ```
-	*
-	* @example
-	* ```typescript
-	* // Body is typically created internally by the Document class
-	* const doc = new Document({});
-	* const body = doc.Body;
-	*
-	* // Add content to the body via Document.add()
-	* doc.add(new Paragraph("Content in first section"));
-	*
-	* // Add a new section
-	* body.addSection({
-	*   page: {
-	*     size: { width: 12240, height: 15840 },
-	*   },
-	* });
-	*
-	* // Content after addSection belongs to the new section
-	* doc.add(new Paragraph("Content in second section"));
-	* ```
-	*/
-	var Body = class extends XmlComponent {
-		constructor() {
-			super("w:body");
-			_defineProperty(this, "sections", []);
-		}
-		/**
-		* Adds new section properties to the document body.
-		*
-		* Creates a new section by moving the previous section's properties into a paragraph
-		* at the end of that section, and then adding the new section as the current section.
-		*
-		* According to the OOXML specification:
-		* - Section properties for all sections except the last must be stored in a paragraph's
-		*   properties (pPr/sectPr) at the end of each section
-		* - The last section's properties are stored as a direct child of the body element (w:body/w:sectPr)
-		*
-		* @param options - Section properties configuration (page size, margins, headers, footers, etc.)
-		*/
-		addSection(options) {
-			const currentSection = this.sections.pop();
-			this.root.push(this.createSectionParagraph(currentSection));
-			this.sections.push(new SectionProperties(options));
-		}
-		/**
-		* Prepares the body element for XML serialization.
-		*
-		* Ensures that the last section's properties are placed as a direct child of the body
-		* element, as required by the OOXML specification.
-		*
-		* @param context - The XML serialization context
-		* @returns The prepared XML object or undefined
-		*/
-		prepForXml(context) {
-			if (this.sections.length === 1) {
-				this.root.splice(0, 1);
-				this.root.push(this.sections.pop());
-			}
-			return super.prepForXml(context);
-		}
-		/**
-		* Adds a block-level component to the body.
-		*
-		* This method is used internally by the Document class to add paragraphs,
-		* tables, and other block-level elements to the document body.
-		*
-		* @param component - The XML component to add (paragraph, table, etc.)
-		*/
-		push(component) {
-			this.root.push(component);
-		}
-		createSectionParagraph(section) {
-			const paragraph = new Paragraph({});
-			const properties = new ParagraphProperties({});
-			properties.push(section);
-			paragraph.addChildElement(properties);
-			return paragraph;
-		}
-	};
-	//#endregion
 	//#region src/file/document/document-background/document-background.ts
 	/**
 	* Document background module for WordprocessingML documents.
 	*
-	* This module provides functionality for setting document background colors
-	* and theme-based backgrounds.
+	* This module provides functionality for setting document background colors,
+	* in hex or in a color of the document's theme.
 	*
 	* Reference: http://officeopenxml.com/WPdocument.php
 	*
@@ -23470,29 +24877,38 @@ MAX: 9026 };
 	* @example
 	* ```typescript
 	* new DocumentBackground({ color: "FFFF00" }); // Yellow background
-	* new DocumentBackground({ themeColor: "accent1" }); // Theme accent color
+	* new DocumentBackground({ color: { theme: "accent1", lighter: 80 } }); // A light version of the theme's first accent color
 	* ```
 	*/
 	var DocumentBackground = class extends XmlComponent {
-		constructor(options) {
+		/**
+		* @throws If a color isn't valid, or `color` is a theme color and `themeColor`, `themeShade` or `themeTint` is given
+		*/
+		constructor({ color, themeColor, themeShade, themeTint }) {
 			super("w:background");
-			this.root.push(new DocumentBackgroundAttributes({
-				color: options.color === void 0 ? void 0 : hexColorValue(options.color),
-				themeColor: options.themeColor,
-				themeShade: options.themeShade === void 0 ? void 0 : uCharHexNumber(options.themeShade),
-				themeTint: options.themeTint === void 0 ? void 0 : uCharHexNumber(options.themeTint)
-			}));
+			if (typeof color === "object" && (themeColor !== void 0 || themeShade !== void 0 || themeTint !== void 0)) throw new Error("Invalid background. Expected a theme color in color, or themeColor, themeShade and themeTint, not both");
+			this.root.push(new ColorAttributeComponent([
+				{
+					keys: COLOR_ATTRIBUTES,
+					color
+				},
+				{
+					key: "w:themeColor",
+					value: themeColor
+				},
+				{
+					key: "w:themeShade",
+					value: themeShade === void 0 ? void 0 : uCharHexNumber(themeShade)
+				},
+				{
+					key: "w:themeTint",
+					value: themeTint === void 0 ? void 0 : uCharHexNumber(themeTint)
+				}
+			]));
 		}
 	};
 	//#endregion
 	//#region src/file/document/document.ts
-	/**
-	* Document module for WordprocessingML documents.
-	*
-	* Reference: http://officeopenxml.com/WPdocument.php
-	*
-	* @module
-	*/
 	/**
 	* Represents the main document element in a WordprocessingML document.
 	*
@@ -23586,7 +25002,7 @@ MAX: 9026 };
 		/**
 		* Adds a block-level element to the document body.
 		*
-		* @param item - The element to add (paragraph, table, table of contents, or hyperlink)
+		* @param item - The element to add (paragraph, table, table of contents, hyperlink, or any other file child)
 		* @returns The Document instance for method chaining
 		*/
 		add(item) {
@@ -24636,12 +26052,6 @@ MAX: 9026 };
 		}
 	};
 	//#endregion
-	//#region src/file/media/data.ts
-	/**
-	* @ignore
-	*/
-	var WORKAROUND2 = "";
-	//#endregion
 	//#region src/file/numbering/level.ts
 	/**
 	* Numbering level definitions module for WordprocessingML documents.
@@ -24811,7 +26221,7 @@ MAX: 9026 };
 			super(..._args);
 			_defineProperty(this, "xmlKeys", {
 				ilvl: "w:ilvl",
-				tentative: "w15:tentative"
+				tentative: "w:tentative"
 			});
 		}
 	};
@@ -24838,13 +26248,21 @@ MAX: 9026 };
 			this.root.push(new Attributes({ val: value }));
 		}
 	};
+	var levelAlignment = (value) => {
+		switch (value) {
+			case AlignmentType.CENTER: return "center";
+			case AlignmentType.END:
+			case AlignmentType.RIGHT: return "right";
+			default: return "left";
+		}
+	};
 	/**
 	* Alignment specification for level numbering.
 	*/
 	var LevelJc = class extends XmlComponent {
 		constructor(value) {
 			super("w:lvlJc");
-			this.root.push(new Attributes({ val: value }));
+			this.root.push(new Attributes({ val: levelAlignment(value) }));
 		}
 	};
 	/**
@@ -24942,13 +26360,17 @@ MAX: 9026 };
 			_defineProperty(this, "runProperties", void 0);
 			this.root.push(new NumberValueElement("w:start", decimalNumber(start)));
 			if (format) this.root.push(new NumberFormat$1(format));
-			if (suffix) this.root.push(new Suffix(suffix));
+			if (style === null || style === void 0 ? void 0 : style.style) this.root.push(createParagraphStyle(style.style));
 			if (isLegalNumberingStyle) this.root.push(new IsLegalNumberingStyle());
+			if (suffix) this.root.push(new Suffix(suffix));
 			if (text) this.root.push(new LevelText(text));
 			this.root.push(new LevelJc(alignment));
-			if (style === null || style === void 0 ? void 0 : style.style) this.root.push(createParagraphStyle(style.style));
-			this.paragraphProperties = new ParagraphProperties(style && style.paragraph);
-			this.runProperties = new RunProperties(style && style.run);
+			this.paragraphProperties = new ParagraphProperties(style && style.paragraph, { implicitListParagraphStyle: false });
+			this.runProperties = new RunProperties((style === null || style === void 0 ? void 0 : style.run) && _objectSpread2(_objectSpread2({}, style.run), {}, {
+				highlight: void 0,
+				math: void 0,
+				revision: void 0
+			}));
 			this.root.push(this.paragraphProperties);
 			this.root.push(this.runProperties);
 			if (level > 9) throw new Error("Level cannot be greater than 9. Read more here: https://answers.microsoft.com/en-us/msoffice/forum/all/does-word-support-more-than-9-list-levels/d130fdcd-1781-446d-8c84-c6c79124e4d7");
@@ -25593,6 +27015,139 @@ MAX: 9026 };
 		}
 	};
 	//#endregion
+	//#region src/file/package-part/package-part.ts
+	var RESERVED_FOLDERS = /* @__PURE__ */ new Set([
+		"_rels",
+		"fonts",
+		"media",
+		"theme"
+	]);
+	/**
+	* A part that something in a document adds to the package when it is written, such as a chart, with the relationship to
+	* it from the part it is used in: the document, a header, a footer, the footnotes, the endnotes or the comments.
+	*
+	* The part is added once, however many times it is written, and parts are numbered in the order they are added, such
+	* as word/charts/chart1.xml and word/charts/chart2.xml. The XML that refers to the part uses {@link relationshipId}, and
+	* calls {@link addTo} from its `prepForXml`.
+	*
+	* @publicApi
+	*
+	* @example
+	* ```typescript
+	* const chart = new PackagePart({
+	*   folder: "charts",
+	*   name: "chart",
+	*   extension: "xml",
+	*   contentType: "application/vnd.openxmlformats-officedocument.drawingml.chart+xml",
+	*   relationshipType: "http://schemas.openxmlformats.org/officeDocument/2006/relationships/chart",
+	*   content: chartSpace,
+	* });
+	*
+	* class ChartReference extends XmlComponent {
+	*   public prepForXml(context: IContext): IXmlableObject | undefined {
+	*     chart.addTo(context);
+	*     return super.prepForXml(context);
+	*   }
+	* }
+	* ```
+	*/
+	var PackagePart = class {
+		/**
+		* @throws If the folder isn't a single folder name, or is one of the folders docx writes parts of its own in
+		*/
+		constructor(options) {
+			_defineProperty(this, "options", void 0);
+			_defineProperty(this, "id", uniqueId());
+			_defineProperty(
+				this,
+				/** The id of the relationship to the part, such as a chart's `r:id` in the document */
+				"relationshipId",
+				`rId${this.id}`
+			);
+			_defineProperty(this, "addedTo", /* @__PURE__ */ new WeakSet());
+			this.options = options;
+			if (!/^[\w-]+$/.test(options.folder) || RESERVED_FOLDERS.has(options.folder)) throw new Error(`Invalid package part folder "${options.folder}". Expected a folder name docx doesn't use, such as "charts"`);
+		}
+		/**
+		* Adds the part to the package being written, once, and a relationship to it from the part being written.
+		*/
+		addTo(context) {
+			const parts = context.file.PackageParts;
+			const path = parts.add(this);
+			const relationships = context.viewWrapper.Relationships;
+			if (this.addedTo.has(relationships)) return;
+			this.addedTo.add(relationships);
+			relationships.addRelationship(this.id, this.options.relationshipType, parts.getTarget(relationships, path));
+		}
+	};
+	/**
+	* The parts added to a document's package when it is written, with their paths under word/, in the order they were
+	* added. Not part of the public API: `File` holds one, and the compiler writes its parts, as `patchDocument` does.
+	*/
+	var PackageParts = class {
+		/**
+		* @param contentTypes - Where each part's content type is added
+		* @param existingPaths - The paths under word/ of the parts the package already has, such as a template's charts,
+		* which new parts are numbered after
+		*/
+		constructor(contentTypes, existingPaths = /* @__PURE__ */ new Set()) {
+			_defineProperty(this, "contentTypes", void 0);
+			_defineProperty(this, "existingPaths", void 0);
+			_defineProperty(this, "paths", /* @__PURE__ */ new Map());
+			_defineProperty(this, "folders", /* @__PURE__ */ new WeakMap());
+			this.contentTypes = contentTypes;
+			this.existingPaths = existingPaths;
+		}
+		/**
+		* Adds a part, and its content type, once.
+		*
+		* @returns The part's path under word/, such as "charts/chart1.xml"
+		*/
+		add(part) {
+			const added = this.paths.get(part);
+			if (added !== void 0) return added;
+			const { folder, name, extension, contentType } = part.options;
+			const taken = /* @__PURE__ */ new Set([...this.existingPaths, ...this.paths.values()]);
+			let index = 1;
+			while (taken.has(`${folder}/${name}${index}.${extension}`)) index++;
+			const path = `${folder}/${name}${index}.${extension}`;
+			this.paths.set(part, path);
+			this.contentTypes.addOverride(contentType, `/word/${path}`);
+			return path;
+		}
+		/**
+		* Each part added, with its path under word/, in the order they were added.
+		*/
+		get Array() {
+			return [...this.paths].map(([part, path]) => ({
+				part,
+				path
+			}));
+		}
+		/**
+		* Creates the relationships of a part whose XML is being written, so the parts its XML refers to are found from its
+		* folder.
+		*
+		* @param path - The part's path under word/
+		*/
+		createRelationships(path) {
+			const relationships = new Relationships();
+			this.folders.set(relationships, path.slice(0, path.indexOf("/")));
+			return relationships;
+		}
+		/**
+		* The target of a relationship to a part, relative to the part the relationships are from. The document, headers,
+		* footers, footnotes, endnotes and comments are all in word/.
+		*
+		* @param path - The part's path under word/
+		*/
+		getTarget(relationships, path) {
+			const from = this.folders.get(relationships);
+			if (from === void 0) return path;
+			return path.startsWith(`${from}/`) ? path.slice(from.length + 1) : `../${path}`;
+		}
+	};
+	//#endregion
 	//#region src/file/settings/compatibility-setting/compatibility-setting.ts
 	/**
 	* Compatibility setting module for WordprocessingML documents.
@@ -25683,8 +27238,8 @@ MAX: 9026 };
 	*     <xsd:element name="noTabHangInd" type="CT_OnOff" minOccurs="0"/>
 	*     <xsd:element name="noLeading" type="CT_OnOff" minOccurs="0"/>
 	*     <xsd:element name="usePrinterMetrics" type="CT_OnOff" minOccurs="0"/>
-	*     <xsd:element name="compatSetting" type="CT_CompatSetting" minOccurs="0" maxOccurs="unbounded"/>
 	*     <!-- Additional compatibility elements omitted for brevity -->
+	*     <xsd:element name="compatSetting" type="CT_CompatSetting" minOccurs="0" maxOccurs="unbounded"/>
 	*   </xsd:sequence>
 	* </xsd:complexType>
 	* ```
@@ -25707,7 +27262,6 @@ MAX: 9026 };
 	var Compatibility = class extends XmlComponent {
 		constructor(options) {
 			super("w:compat");
-			if (options.version) this.root.push(createCompatibilitySetting(options.version));
 			if (options.useSingleBorderforContiguousCells) this.root.push(new OnOffElement("w:useSingleBorderforContiguousCells", options.useSingleBorderforContiguousCells));
 			if (options.wordPerfectJustification) this.root.push(new OnOffElement("w:wpJustification", options.wordPerfectJustification));
 			if (options.noTabStopForHangingIndent) this.root.push(new OnOffElement("w:noTabHangInd", options.noTabStopForHangingIndent));
@@ -25773,6 +27327,7 @@ MAX: 9026 };
 			if (options.ignoreVerticalAlignmentInTextboxes) this.root.push(new OnOffElement("w:doNotVertAlignInTxbx", options.ignoreVerticalAlignmentInTextboxes));
 			if (options.useAnsiKerningPairs) this.root.push(new OnOffElement("w:useAnsiKerningPairs", options.useAnsiKerningPairs));
 			if (options.cachedColumnBalance) this.root.push(new OnOffElement("w:cachedColBalance", options.cachedColumnBalance));
+			if (options.version) this.root.push(createCompatibilitySetting(options.version));
 		}
 	};
 	//#endregion
@@ -25833,12 +27388,12 @@ MAX: 9026 };
 	* <xsd:complexType name="CT_Settings">
 	*   <xsd:sequence>
 	*     <xsd:element name="trackRevisions" type="CT_OnOff" minOccurs="0"/>
-	*     <xsd:element name="evenAndOddHeaders" type="CT_OnOff" minOccurs="0"/>
 	*     <xsd:element name="defaultTabStop" type="CT_TwipsMeasure" minOccurs="0"/>
 	*     <xsd:element name="autoHyphenation" type="CT_OnOff" minOccurs="0"/>
 	*     <xsd:element name="consecutiveHyphenLimit" type="CT_DecimalNumber" minOccurs="0"/>
 	*     <xsd:element name="hyphenationZone" type="CT_TwipsMeasure" minOccurs="0"/>
 	*     <xsd:element name="doNotHyphenateCaps" type="CT_OnOff" minOccurs="0"/>
+	*     <xsd:element name="evenAndOddHeaders" type="CT_OnOff" minOccurs="0"/>
 	*     <xsd:element name="updateFields" type="CT_OnOff" minOccurs="0"/>
 	*     <xsd:element name="compat" type="CT_Compat" minOccurs="0"/>
 	*     <!-- Additional elements omitted for brevity -->
@@ -25891,13 +27446,13 @@ MAX: 9026 };
 			}));
 			this.root.push(new OnOffElement("w:displayBackgroundShape", true));
 			if (options.trackRevisions !== void 0) this.root.push(new OnOffElement("w:trackRevisions", options.trackRevisions));
-			if (options.evenAndOddHeaders !== void 0) this.root.push(new OnOffElement("w:evenAndOddHeaders", options.evenAndOddHeaders));
-			if (options.updateFields !== void 0) this.root.push(new OnOffElement("w:updateFields", options.updateFields));
 			if (options.defaultTabStop !== void 0) this.root.push(new NumberValueElement("w:defaultTabStop", options.defaultTabStop));
 			if (((_options$hyphenation = options.hyphenation) === null || _options$hyphenation === void 0 ? void 0 : _options$hyphenation.autoHyphenation) !== void 0) this.root.push(new OnOffElement("w:autoHyphenation", options.hyphenation.autoHyphenation));
-			if (((_options$hyphenation2 = options.hyphenation) === null || _options$hyphenation2 === void 0 ? void 0 : _options$hyphenation2.hyphenationZone) !== void 0) this.root.push(new NumberValueElement("w:hyphenationZone", options.hyphenation.hyphenationZone));
-			if (((_options$hyphenation3 = options.hyphenation) === null || _options$hyphenation3 === void 0 ? void 0 : _options$hyphenation3.consecutiveHyphenLimit) !== void 0) this.root.push(new NumberValueElement("w:consecutiveHyphenLimit", options.hyphenation.consecutiveHyphenLimit));
+			if (((_options$hyphenation2 = options.hyphenation) === null || _options$hyphenation2 === void 0 ? void 0 : _options$hyphenation2.consecutiveHyphenLimit) !== void 0) this.root.push(new NumberValueElement("w:consecutiveHyphenLimit", options.hyphenation.consecutiveHyphenLimit));
+			if (((_options$hyphenation3 = options.hyphenation) === null || _options$hyphenation3 === void 0 ? void 0 : _options$hyphenation3.hyphenationZone) !== void 0) this.root.push(new NumberValueElement("w:hyphenationZone", options.hyphenation.hyphenationZone));
 			if (((_options$hyphenation4 = options.hyphenation) === null || _options$hyphenation4 === void 0 ? void 0 : _options$hyphenation4.doNotHyphenateCaps) !== void 0) this.root.push(new OnOffElement("w:doNotHyphenateCaps", options.hyphenation.doNotHyphenateCaps));
+			if (options.evenAndOddHeaders !== void 0) this.root.push(new OnOffElement("w:evenAndOddHeaders", options.evenAndOddHeaders));
+			if (options.updateFields !== void 0) this.root.push(new OnOffElement("w:updateFields", options.updateFields));
 			this.root.push(new Compatibility(_objectSpread2(_objectSpread2({}, (_options$compatibilit = options.compatibility) !== null && _options$compatibilit !== void 0 ? _options$compatibilit : {}), {}, { version: (_ref = (_options$compatibilit2 = (_options$compatibilit3 = options.compatibility) === null || _options$compatibilit3 === void 0 ? void 0 : _options$compatibilit3.version) !== null && _options$compatibilit2 !== void 0 ? _options$compatibilit2 : options.compatibilityModeVersion) !== null && _ref !== void 0 ? _ref : 15 })));
 		}
 	};
@@ -26111,7 +27666,7 @@ MAX: 9026 };
 			}, options);
 			_defineProperty(this, "paragraphProperties", void 0);
 			_defineProperty(this, "runProperties", void 0);
-			this.paragraphProperties = new ParagraphProperties(options.paragraph);
+			this.paragraphProperties = new ParagraphProperties(options.paragraph, { implicitListParagraphStyle: false });
 			this.runProperties = new RunProperties(options.run);
 			this.root.push(this.paragraphProperties);
 			this.root.push(this.runProperties);
@@ -26480,6 +28035,30 @@ MAX: 9026 };
 	};
 	//#endregion
 	//#region src/file/styles/styles.ts
+	/** The name of a formatted element, such as `w:style`, or `_attr` for its parent's attributes */
+	var nameOf = (child) => typeof child === "object" ? Object.keys(child)[0] : void 0;
+	/** The attributes of a formatted `w:style` */
+	var attributesOf = (style) => {
+		var _flat$find;
+		return (_flat$find = [style["w:style"]].flat().find((part) => part._attr)) === null || _flat$find === void 0 ? void 0 : _flat$find._attr;
+	};
+	/** The id of a formatted `w:style` */
+	var styleIdOf = (style) => {
+		var _attributesOf;
+		return (_attributesOf = attributesOf(style)) === null || _attributesOf === void 0 ? void 0 : _attributesOf["w:styleId"];
+	};
+	/** Whether a formatted `w:style` is a paragraph style marked as the default for paragraphs */
+	var isDefaultParagraphStyle = (style) => {
+		var _attributes$wType;
+		const attributes = attributesOf(style);
+		return ((_attributes$wType = attributes === null || attributes === void 0 ? void 0 : attributes["w:type"]) !== null && _attributes$wType !== void 0 ? _attributes$wType : "paragraph") === "paragraph" && (attributes === null || attributes === void 0 ? void 0 : attributes["w:default"]) !== void 0 && ![
+			"0",
+			"false",
+			"off"
+		].includes(String(attributes["w:default"]));
+	};
+	/** A formatted `w:style`, marked as the default for its type */
+	var markedAsDefault = (style) => ({ "w:style": [style["w:style"]].flat().map((part) => part._attr ? { _attr: _objectSpread2(_objectSpread2({}, part._attr), {}, { "w:default": "1" }) } : part) });
 	/**
 	* Represents the styles definitions in a WordprocessingML document.
 	*
@@ -26526,6 +28105,35 @@ MAX: 9026 };
 			if (options.paragraphStyles) for (const style of options.paragraphStyles) this.root.push(new StyleForParagraph(style));
 			if (options.characterStyles) for (const style of options.characterStyles) this.root.push(new StyleForCharacter(style));
 		}
+		/**
+		* Writes the styles in the schema's order: the document defaults, the latent styles, then the styles. A style id
+		* can only be used once, so a style replaces an earlier one with its id. That way external styles replace docx's
+		* default styles, and paragraph and character styles replace the default and imported ones. Of several document
+		* defaults, or several latent styles, the last is kept. Normal is marked as the default paragraph style when no
+		* style is.
+		*/
+		prepForXml(context) {
+			const xml = super.prepForXml(context);
+			const children = xml["w:styles"];
+			if (!Array.isArray(children)) return xml;
+			const named = (name) => children.filter((child) => nameOf(child) === name);
+			const ids = children.map((child) => nameOf(child) === "w:style" ? styleIdOf(child) : void 0);
+			const kept = children.filter((child, index) => ![
+				"_attr",
+				"w:docDefaults",
+				"w:latentStyles"
+			].includes(nameOf(child)) && (ids[index] === void 0 || ids.lastIndexOf(ids[index]) === index));
+			const styles = kept.some((child) => nameOf(child) === "w:style" && isDefaultParagraphStyle(child)) ? kept : kept.map((child) => {
+				var _attributesOf$wType, _attributesOf2;
+				return nameOf(child) === "w:style" && styleIdOf(child) === "Normal" && ((_attributesOf$wType = (_attributesOf2 = attributesOf(child)) === null || _attributesOf2 === void 0 ? void 0 : _attributesOf2["w:type"]) !== null && _attributesOf$wType !== void 0 ? _attributesOf$wType : "paragraph") === "paragraph" ? markedAsDefault(child) : child;
+			});
+			return { "w:styles": [
+				...named("_attr"),
+				...named("w:docDefaults").slice(-1),
+				...named("w:latentStyles").slice(-1),
+				...styles
+			] };
+		}
 	};
 	//#endregion
 	//#region src/file/styles/defaults/paragraph-properties.ts
@@ -26541,7 +28149,7 @@ MAX: 9026 };
 	* ```xml
 	* <xsd:complexType name="CT_PPrDefault">
 	*   <xsd:sequence>
-	*     <xsd:element name="pPr" type="CT_PPr" minOccurs="0"/>
+	*     <xsd:element name="pPr" type="CT_PPrGeneral" minOccurs="0"/>
 	*   </xsd:sequence>
 	* </xsd:complexType>
 	* ```
@@ -26557,7 +28165,7 @@ MAX: 9026 };
 	var ParagraphPropertiesDefaults = class extends XmlComponent {
 		constructor(options) {
 			super("w:pPrDefault");
-			this.root.push(new ParagraphProperties(options));
+			this.root.push(new ParagraphProperties(options, { implicitListParagraphStyle: false }));
 		}
 	};
 	//#endregion
@@ -26705,14 +28313,49 @@ MAX: 9026 };
 	//#endregion
 	//#region src/file/styles/factory.ts
 	/**
-	* Factory module for creating default document styles.
+	* docx's default styles, each under the option of `styles.default` that configures it, and Normal.
 	*
-	* Provides a factory class that creates pre-configured styles for common document elements.
-	*
-	* Reference: http://officeopenxml.com/WPstyles.php
-	*
-	* @module
+	* @internal
 	*/
+	var createDefaultStyles = (options = {}) => {
+		var _options$document;
+		return {
+			normal: new StyleForParagraph({
+				id: "Normal",
+				name: "Normal",
+				quickFormat: true
+			}),
+			document: new DocumentDefaults((_options$document = options.document) !== null && _options$document !== void 0 ? _options$document : {}),
+			title: new TitleStyle(_objectSpread2({ run: { size: 56 } }, options.title)),
+			heading1: new Heading1Style(_objectSpread2({ run: {
+				color: "2E74B5",
+				size: 32
+			} }, options.heading1)),
+			heading2: new Heading2Style(_objectSpread2({ run: {
+				color: "2E74B5",
+				size: 26
+			} }, options.heading2)),
+			heading3: new Heading3Style(_objectSpread2({ run: {
+				color: "1F4D78",
+				size: 24
+			} }, options.heading3)),
+			heading4: new Heading4Style(_objectSpread2({ run: {
+				color: "2E74B5",
+				italics: true
+			} }, options.heading4)),
+			heading5: new Heading5Style(_objectSpread2({ run: { color: "2E74B5" } }, options.heading5)),
+			heading6: new Heading6Style(_objectSpread2({ run: { color: "1F4D78" } }, options.heading6)),
+			strong: new StrongStyle(_objectSpread2({ run: { bold: true } }, options.strong)),
+			listParagraph: new ListParagraph(options.listParagraph || {}),
+			hyperlink: new HyperlinkStyle(options.hyperlink || {}),
+			footnoteReference: new FootnoteReferenceStyle(options.footnoteReference || {}),
+			footnoteText: new FootnoteText(options.footnoteText || {}),
+			footnoteTextChar: new FootnoteTextChar(options.footnoteTextChar || {}),
+			endnoteReference: new EndnoteReferenceStyle(options.endnoteReference || {}),
+			endnoteText: new EndnoteText(options.endnoteText || {}),
+			endnoteTextChar: new EndnoteTextChar(options.endnoteTextChar || {})
+		};
+	};
 	/**
 	* Factory for creating default document styles.
 	*
@@ -26735,7 +28378,6 @@ MAX: 9026 };
 	*/
 	var DefaultStylesFactory = class {
 		newInstance(options = {}) {
-			var _options$document;
 			return {
 				initialStyles: new DocumentAttributes([
 					"mc",
@@ -26744,38 +28386,531 @@ MAX: 9026 };
 					"w14",
 					"w15"
 				], "w14 w15"),
-				importedStyles: [
-					new DocumentDefaults((_options$document = options.document) !== null && _options$document !== void 0 ? _options$document : {}),
-					new TitleStyle(_objectSpread2({ run: { size: 56 } }, options.title)),
-					new Heading1Style(_objectSpread2({ run: {
-						color: "2E74B5",
-						size: 32
-					} }, options.heading1)),
-					new Heading2Style(_objectSpread2({ run: {
-						color: "2E74B5",
-						size: 26
-					} }, options.heading2)),
-					new Heading3Style(_objectSpread2({ run: {
-						color: "1F4D78",
-						size: 24
-					} }, options.heading3)),
-					new Heading4Style(_objectSpread2({ run: {
-						color: "2E74B5",
-						italics: true
-					} }, options.heading4)),
-					new Heading5Style(_objectSpread2({ run: { color: "2E74B5" } }, options.heading5)),
-					new Heading6Style(_objectSpread2({ run: { color: "1F4D78" } }, options.heading6)),
-					new StrongStyle(_objectSpread2({ run: { bold: true } }, options.strong)),
-					new ListParagraph(options.listParagraph || {}),
-					new HyperlinkStyle(options.hyperlink || {}),
-					new FootnoteReferenceStyle(options.footnoteReference || {}),
-					new FootnoteText(options.footnoteText || {}),
-					new FootnoteTextChar(options.footnoteTextChar || {}),
-					new EndnoteReferenceStyle(options.endnoteReference || {}),
-					new EndnoteText(options.endnoteText || {}),
-					new EndnoteTextChar(options.endnoteTextChar || {})
-				]
+				importedStyles: Object.values(createDefaultStyles(options))
 			};
+		}
+	};
+	//#endregion
+	//#region src/file/theme/font-scheme.ts
+	/**
+	* Font scheme module for DrawingML themes.
+	*
+	* The two fonts of a document's theme: one for headings and one for body text. Styles and text that use a theme font
+	* change when the theme's fonts change.
+	*
+	* Reference: http://officeopenxml.com/drwTheme.php
+	*
+	* @module
+	*/
+	var OFFICE_FONTS = {
+		headings: {
+			latin: "Calibri Light",
+			panose: "020F0302020204030204"
+		},
+		body: {
+			latin: "Calibri",
+			panose: "020F0502020204030204"
+		}
+	};
+	var OFFICE_SCRIPT_FONTS = [
+		[
+			"Jpan",
+			"游ゴシック Light",
+			"游明朝"
+		],
+		["Hang", "맑은 고딕"],
+		[
+			"Hans",
+			"等线 Light",
+			"等线"
+		],
+		["Hant", "新細明體"],
+		[
+			"Arab",
+			"Times New Roman",
+			"Arial"
+		],
+		[
+			"Hebr",
+			"Times New Roman",
+			"Arial"
+		],
+		[
+			"Thai",
+			"Angsana New",
+			"Cordia New"
+		],
+		["Ethi", "Nyala"],
+		["Beng", "Vrinda"],
+		["Gujr", "Shruti"],
+		[
+			"Khmr",
+			"MoolBoran",
+			"DaunPenh"
+		],
+		["Knda", "Tunga"],
+		["Guru", "Raavi"],
+		["Cans", "Euphemia"],
+		["Cher", "Plantagenet Cherokee"],
+		["Yiii", "Microsoft Yi Baiti"],
+		["Tibt", "Microsoft Himalaya"],
+		["Thaa", "MV Boli"],
+		["Deva", "Mangal"],
+		["Telu", "Gautami"],
+		["Taml", "Latha"],
+		["Syrc", "Estrangelo Edessa"],
+		["Orya", "Kalinga"],
+		["Mlym", "Kartika"],
+		["Laoo", "DokChampa"],
+		["Sinh", "Iskoola Pota"],
+		["Mong", "Mongolian Baiti"],
+		[
+			"Viet",
+			"Times New Roman",
+			"Arial"
+		],
+		["Uigh", "Microsoft Uighur"],
+		["Geor", "Sylfaen"],
+		["Armn", "Arial"],
+		["Bugi", "Leelawadee UI"],
+		["Bopo", "Microsoft JhengHei"],
+		["Java", "Javanese Text"],
+		["Lisu", "Segoe UI"],
+		["Mymr", "Myanmar Text"],
+		["Nkoo", "Ebrima"],
+		["Olck", "Nirmala UI"],
+		["Osma", "Ebrima"],
+		["Phag", "Phagspa"],
+		["Syrn", "Estrangelo Edessa"],
+		["Syrj", "Estrangelo Edessa"],
+		["Syre", "Estrangelo Edessa"],
+		["Sora", "Nirmala UI"],
+		["Tale", "Microsoft Tai Le"],
+		["Talu", "Microsoft New Tai Lue"],
+		["Tfng", "Ebrima"]
+	];
+	var createTextFont = (name, typeface, panose) => new BuilderElement({
+		name,
+		attributes: {
+			typeface: {
+				key: "typeface",
+				value: typeface
+			},
+			panose: {
+				key: "panose",
+				value: panose
+			}
+		}
+	});
+	/**
+	* The Latin font of one of a theme's fonts, as given or as Office's.
+	*/
+	var themeLatinFont = (use, fonts) => {
+		const font = fonts[use];
+		const latin = typeof font === "string" ? font : font === null || font === void 0 ? void 0 : font.latin;
+		return latin !== null && latin !== void 0 ? latin : OFFICE_FONTS[use].latin;
+	};
+	var createFontCollection = (use, fonts) => {
+		const font = fonts[use];
+		const { eastAsia = "", complexScript = "" } = typeof font === "object" ? font : {};
+		const latin = themeLatinFont(use, fonts);
+		const office = OFFICE_FONTS[use];
+		return new BuilderElement({
+			name: use === "headings" ? "a:majorFont" : "a:minorFont",
+			children: [
+				createTextFont("a:latin", latin, latin === office.latin ? office.panose : void 0),
+				createTextFont("a:ea", eastAsia),
+				createTextFont("a:cs", complexScript),
+				...OFFICE_SCRIPT_FONTS.map(([script, headings, body = headings]) => new BuilderElement({
+					name: "a:font",
+					attributes: {
+						script: {
+							key: "script",
+							value: script
+						},
+						typeface: {
+							key: "typeface",
+							value: use === "headings" ? headings : body
+						}
+					}
+				}))
+			]
+		});
+	};
+	/**
+	* Creates a theme's font scheme, with Office's fonts in place of those not given.
+	*
+	* ## XSD Schema
+	* ```xml
+	* <xsd:complexType name="CT_FontScheme">
+	*   <xsd:sequence>
+	*     <xsd:element name="majorFont" type="CT_FontCollection" minOccurs="1" maxOccurs="1"/>
+	*     <xsd:element name="minorFont" type="CT_FontCollection" minOccurs="1" maxOccurs="1"/>
+	*     <xsd:element name="extLst" type="CT_OfficeArtExtensionList" minOccurs="0" maxOccurs="1"/>
+	*   </xsd:sequence>
+	*   <xsd:attribute name="name" type="xsd:string" use="required"/>
+	* </xsd:complexType>
+	*
+	* <xsd:complexType name="CT_FontCollection">
+	*   <xsd:sequence>
+	*     <xsd:element name="latin" type="CT_TextFont" minOccurs="1" maxOccurs="1"/>
+	*     <xsd:element name="ea" type="CT_TextFont" minOccurs="1" maxOccurs="1"/>
+	*     <xsd:element name="cs" type="CT_TextFont" minOccurs="1" maxOccurs="1"/>
+	*     <xsd:element name="font" type="CT_SupplementalFont" minOccurs="0" maxOccurs="unbounded"/>
+	*     <xsd:element name="extLst" type="CT_OfficeArtExtensionList" minOccurs="0" maxOccurs="1"/>
+	*   </xsd:sequence>
+	* </xsd:complexType>
+	* ```
+	*/
+	var createFontScheme = (name, fonts = {}) => new BuilderElement({
+		name: "a:fontScheme",
+		attributes: { name: {
+			key: "name",
+			value: name
+		} },
+		children: [createFontCollection("headings", fonts), createFontCollection("body", fonts)]
+	});
+	//#endregion
+	//#region src/file/theme/format-scheme.ts
+	/**
+	* Format scheme module for DrawingML themes.
+	*
+	* The fills, lines and effects that shapes styled by the theme use, as Office's theme has them.
+	*
+	* Reference: http://officeopenxml.com/drwTheme.php
+	*
+	* @module
+	*/
+	/**
+	* The color a style is used with (`phClr`), changed by each of `changes` in turn.
+	*/
+	var createStyleColor = (changes = []) => new BuilderElement({
+		name: "a:schemeClr",
+		attributes: { value: {
+			key: "val",
+			value: "phClr"
+		} },
+		children: changes.map(([name, value]) => new BuilderElement({
+			name: `a:${name}`,
+			attributes: { value: {
+				key: "val",
+				value
+			} }
+		}))
+	});
+	var createSolidFill = (changes) => new BuilderElement({
+		name: "a:solidFill",
+		children: [createStyleColor(changes)]
+	});
+	/**
+	* A gradient from top to bottom, with a stop at the start, the middle and the end.
+	*/
+	var createGradientFill = (stops) => new BuilderElement({
+		name: "a:gradFill",
+		attributes: { rotateWithShape: {
+			key: "rotWithShape",
+			value: true
+		} },
+		children: [new BuilderElement({
+			name: "a:gsLst",
+			children: stops.map((changes, index) => new BuilderElement({
+				name: "a:gs",
+				attributes: { position: {
+					key: "pos",
+					value: index * 5e4
+				} },
+				children: [createStyleColor(changes)]
+			}))
+		}), new BuilderElement({
+			name: "a:lin",
+			attributes: {
+				angle: {
+					key: "ang",
+					value: 54e5
+				},
+				scaled: {
+					key: "scaled",
+					value: false
+				}
+			}
+		})]
+	});
+	/**
+	* A solid line of the given width in EMUs.
+	*/
+	var createLine = (width) => new BuilderElement({
+		name: "a:ln",
+		attributes: {
+			width: {
+				key: "w",
+				value: width
+			},
+			cap: {
+				key: "cap",
+				value: "flat"
+			},
+			compound: {
+				key: "cmpd",
+				value: "sng"
+			},
+			alignment: {
+				key: "algn",
+				value: "ctr"
+			}
+		},
+		children: [
+			createSolidFill(),
+			new BuilderElement({
+				name: "a:prstDash",
+				attributes: { value: {
+					key: "val",
+					value: "solid"
+				} }
+			}),
+			new BuilderElement({
+				name: "a:miter",
+				attributes: { limit: {
+					key: "lim",
+					value: 8e5
+				} }
+			})
+		]
+	});
+	var createEffectStyle = (effects) => new BuilderElement({
+		name: "a:effectStyle",
+		children: [new BuilderElement({
+			name: "a:effectLst",
+			children: effects
+		})]
+	});
+	var createShadow = () => new BuilderElement({
+		name: "a:outerShdw",
+		attributes: {
+			blurRadius: {
+				key: "blurRad",
+				value: 57150
+			},
+			distance: {
+				key: "dist",
+				value: 19050
+			},
+			direction: {
+				key: "dir",
+				value: 54e5
+			},
+			alignment: {
+				key: "algn",
+				value: "ctr"
+			},
+			rotateWithShape: {
+				key: "rotWithShape",
+				value: false
+			}
+		},
+		children: [new BuilderElement({
+			name: "a:srgbClr",
+			attributes: { value: {
+				key: "val",
+				value: "000000"
+			} },
+			children: [new BuilderElement({
+				name: "a:alpha",
+				attributes: { value: {
+					key: "val",
+					value: 63e3
+				} }
+			})]
+		})]
+	});
+	/**
+	* Creates Office's format scheme: from Office 2016 to 2021, the three fills, lines, effects and backgrounds that
+	* shapes styled by the theme use, from subtle to intense.
+	*
+	* ## XSD Schema
+	* ```xml
+	* <xsd:complexType name="CT_StyleMatrix">
+	*   <xsd:sequence>
+	*     <xsd:element name="fillStyleLst" type="CT_FillStyleList" minOccurs="1" maxOccurs="1"/>
+	*     <xsd:element name="lnStyleLst" type="CT_LineStyleList" minOccurs="1" maxOccurs="1"/>
+	*     <xsd:element name="effectStyleLst" type="CT_EffectStyleList" minOccurs="1" maxOccurs="1"/>
+	*     <xsd:element name="bgFillStyleLst" type="CT_BackgroundFillStyleList" minOccurs="1" maxOccurs="1"/>
+	*   </xsd:sequence>
+	*   <xsd:attribute name="name" type="xsd:string" use="optional" default=""/>
+	* </xsd:complexType>
+	* ```
+	*/
+	var createFormatScheme = () => new BuilderElement({
+		name: "a:fmtScheme",
+		attributes: { name: {
+			key: "name",
+			value: "Office"
+		} },
+		children: [
+			new BuilderElement({
+				name: "a:fillStyleLst",
+				children: [
+					createSolidFill(),
+					createGradientFill([
+						[
+							["lumMod", 11e4],
+							["satMod", 105e3],
+							["tint", 67e3]
+						],
+						[
+							["lumMod", 105e3],
+							["satMod", 103e3],
+							["tint", 73e3]
+						],
+						[
+							["lumMod", 105e3],
+							["satMod", 109e3],
+							["tint", 81e3]
+						]
+					]),
+					createGradientFill([
+						[
+							["satMod", 103e3],
+							["lumMod", 102e3],
+							["tint", 94e3]
+						],
+						[
+							["satMod", 11e4],
+							["lumMod", 1e5],
+							["shade", 1e5]
+						],
+						[
+							["lumMod", 99e3],
+							["satMod", 12e4],
+							["shade", 78e3]
+						]
+					])
+				]
+			}),
+			new BuilderElement({
+				name: "a:lnStyleLst",
+				children: [
+					createLine(6350),
+					createLine(12700),
+					createLine(19050)
+				]
+			}),
+			new BuilderElement({
+				name: "a:effectStyleLst",
+				children: [
+					createEffectStyle([]),
+					createEffectStyle([]),
+					createEffectStyle([createShadow()])
+				]
+			}),
+			new BuilderElement({
+				name: "a:bgFillStyleLst",
+				children: [
+					createSolidFill(),
+					createSolidFill([["tint", 95e3], ["satMod", 17e4]]),
+					createGradientFill([
+						[
+							["tint", 93e3],
+							["satMod", 15e4],
+							["shade", 98e3],
+							["lumMod", 102e3]
+						],
+						[
+							["tint", 98e3],
+							["satMod", 13e4],
+							["shade", 9e4],
+							["lumMod", 103e3]
+						],
+						[["shade", 63e3], ["satMod", 12e4]]
+					])
+				]
+			})
+		]
+	});
+	//#endregion
+	//#region src/file/theme/theme.ts
+	/**
+	* Theme module for WordprocessingML documents.
+	*
+	* A document's theme (`word/theme/theme1.xml`) gives it a set of colors, a font for headings and one for body text,
+	* and the fills, lines and effects of shapes styled by the theme. Text, tables and shapes that use the theme's colors
+	* and fonts change when the theme changes, as they do in Word's Design tab.
+	*
+	* Reference: http://officeopenxml.com/drwTheme.php
+	*
+	* @module
+	*/
+	/**
+	* Represents the theme of a document, written to `word/theme/theme1.xml`.
+	*
+	* Every document has one: Office's theme, from Office 2016 to 2021, with the colors and fonts the options give.
+	*
+	* Reference: http://officeopenxml.com/drwTheme.php
+	*
+	* ## XSD Schema
+	* ```xml
+	* <xsd:element name="theme" type="CT_OfficeStyleSheet"/>
+	*
+	* <xsd:complexType name="CT_OfficeStyleSheet">
+	*   <xsd:sequence>
+	*     <xsd:element name="themeElements" type="CT_BaseStyles" minOccurs="1" maxOccurs="1"/>
+	*     <xsd:element name="objectDefaults" type="CT_ObjectStyleDefaults" minOccurs="0" maxOccurs="1"/>
+	*     <xsd:element name="extraClrSchemeLst" type="CT_ColorSchemeList" minOccurs="0" maxOccurs="1"/>
+	*     <xsd:element name="custClrLst" type="CT_CustomColorList" minOccurs="0" maxOccurs="1"/>
+	*     <xsd:element name="extLst" type="CT_OfficeArtExtensionList" minOccurs="0" maxOccurs="1"/>
+	*   </xsd:sequence>
+	*   <xsd:attribute name="name" type="xsd:string" use="optional" default=""/>
+	* </xsd:complexType>
+	*
+	* <xsd:complexType name="CT_BaseStyles">
+	*   <xsd:sequence>
+	*     <xsd:element name="clrScheme" type="CT_ColorScheme" minOccurs="1" maxOccurs="1"/>
+	*     <xsd:element name="fontScheme" type="CT_FontScheme" minOccurs="1" maxOccurs="1"/>
+	*     <xsd:element name="fmtScheme" type="CT_StyleMatrix" minOccurs="1" maxOccurs="1"/>
+	*     <xsd:element name="extLst" type="CT_OfficeArtExtensionList" minOccurs="0" maxOccurs="1"/>
+	*   </xsd:sequence>
+	* </xsd:complexType>
+	* ```
+	*
+	* @example
+	* ```typescript
+	* // A document whose theme has a green accent and Georgia for headings
+	* const doc = new Document({
+	*   theme: { colors: { accent1: "2E7D32" }, fonts: { headings: "Georgia" } },
+	*   sections: [],
+	* });
+	* ```
+	*/
+	var Theme = class extends XmlComponent {
+		constructor({ name = "Office Theme", colors, fonts } = {}) {
+			super("a:theme");
+			_defineProperty(this, "colors", void 0);
+			this.colors = themeColorValues(colors);
+			this.root.push(new NextAttributeComponent({
+				namespace: {
+					key: "xmlns:a",
+					value: "http://schemas.openxmlformats.org/drawingml/2006/main"
+				},
+				name: {
+					key: "name",
+					value: name
+				}
+			}));
+			this.root.push(new BuilderElement({
+				name: "a:themeElements",
+				children: [
+					createColorScheme(colors ? name : "Office", colors),
+					createFontScheme(fonts ? name : "Office", fonts),
+					createFormatScheme()
+				]
+			}));
+			this.root.push(new BuilderElement({ name: "a:objectDefaults" }));
+			this.root.push(new BuilderElement({ name: "a:extraClrSchemeLst" }));
+		}
+		/**
+		* The hex color of each of the theme's colors. The system's window text and window colors are black and white.
+		*/
+		get Colors() {
+			return this.colors;
 		}
 	};
 	//#endregion
@@ -26894,6 +29029,8 @@ MAX: 9026 };
 				void 0
 			);
 			_defineProperty(this, "fontWrapper", void 0);
+			_defineProperty(this, "theme", void 0);
+			_defineProperty(this, "packageParts", void 0);
 			this.coreProperties = new CoreProperties(_objectSpread2(_objectSpread2({}, options), {}, {
 				creator: (_options$creator = options.creator) !== null && _options$creator !== void 0 ? _options$creator : "Un-named",
 				revision: (_options$revision = options.revision) !== null && _options$revision !== void 0 ? _options$revision : 1,
@@ -26909,6 +29046,7 @@ MAX: 9026 };
 			this.footnotesWrapper = new FootnotesWrapper();
 			this.endnotesWrapper = new EndnotesWrapper();
 			this.contentTypes = new ContentTypes();
+			this.packageParts = new PackageParts(this.contentTypes);
 			this.documentWrapper = new DocumentWrapper({ background: options.background });
 			this.settings = new Settings({
 				compatibilityModeVersion: options.compatabilityModeVersion,
@@ -26926,10 +29064,16 @@ MAX: 9026 };
 			});
 			this.media = new Media();
 			if (options.externalStyles !== void 0) {
-				var _options$styles;
-				const defaultStyles = new DefaultStylesFactory().newInstance((_options$styles = options.styles) === null || _options$styles === void 0 ? void 0 : _options$styles.default);
+				var _options$styles$defau, _options$styles;
+				const given = (_options$styles$defau = (_options$styles = options.styles) === null || _options$styles === void 0 ? void 0 : _options$styles.default) !== null && _options$styles$defau !== void 0 ? _options$styles$defau : {};
+				const defaultStyles = Object.entries(createDefaultStyles(given));
+				const isGiven = ([key]) => given[key] !== void 0;
 				const externalStyles = new ExternalStylesFactory().newInstance(options.externalStyles);
-				this.styles = new Styles(_objectSpread2(_objectSpread2({}, externalStyles), {}, { importedStyles: [...defaultStyles.importedStyles, ...externalStyles.importedStyles] }));
+				this.styles = new Styles(_objectSpread2(_objectSpread2({}, externalStyles), {}, { importedStyles: [
+					...defaultStyles.filter((entry) => !isGiven(entry)).map(([, style]) => style),
+					...externalStyles.importedStyles,
+					...defaultStyles.filter(isGiven).map(([, style]) => style)
+				] }));
 			} else if (options.styles) {
 				const defaultStyles = new DefaultStylesFactory().newInstance(options.styles.default);
 				this.styles = new Styles(_objectSpread2(_objectSpread2({}, defaultStyles), options.styles));
@@ -26942,6 +29086,8 @@ MAX: 9026 };
 			if (options.footnotes) for (const key in options.footnotes) this.footnotesWrapper.View.createFootNote(parseFloat(key), options.footnotes[key].children);
 			if (options.endnotes) for (const key in options.endnotes) this.endnotesWrapper.View.createEndnote(parseFloat(key), options.endnotes[key].children);
 			this.fontWrapper = new FontWrapper((_options$fonts = options.fonts) !== null && _options$fonts !== void 0 ? _options$fonts : []);
+			this.theme = new Theme(options.theme);
+			this.documentWrapper.Relationships.addRelationship(this.currentRelationshipId++, "http://schemas.openxmlformats.org/officeDocument/2006/relationships/theme", "theme/theme1.xml");
 		}
 		addSection({ headers = {}, footers = {}, children, properties }) {
 			this.documentWrapper.View.Body.addSection(_objectSpread2(_objectSpread2({}, properties), {}, {
@@ -26996,7 +29142,10 @@ MAX: 9026 };
 			this.documentWrapper.Relationships.addRelationship(this.currentRelationshipId++, "http://schemas.openxmlformats.org/officeDocument/2006/relationships/footnotes", "footnotes.xml");
 			this.documentWrapper.Relationships.addRelationship(this.currentRelationshipId++, "http://schemas.openxmlformats.org/officeDocument/2006/relationships/endnotes", "endnotes.xml");
 			this.documentWrapper.Relationships.addRelationship(this.currentRelationshipId++, "http://schemas.openxmlformats.org/officeDocument/2006/relationships/settings", "settings.xml");
-			this.documentWrapper.Relationships.addRelationship(this.currentRelationshipId++, "http://schemas.openxmlformats.org/officeDocument/2006/relationships/comments", "comments.xml");
+			if (!this.comments.IsEmpty) {
+				this.documentWrapper.Relationships.addRelationship(this.currentRelationshipId++, "http://schemas.openxmlformats.org/officeDocument/2006/relationships/comments", "comments.xml");
+				this.contentTypes.addComments();
+			}
 			if (this.commentsExtended) {
 				this.documentWrapper.Relationships.addRelationship(this.currentRelationshipId++, "http://schemas.microsoft.com/office/2011/relationships/commentsExtended", "commentsExtended.xml");
 				this.contentTypes.addCommentsExtended();
@@ -27061,6 +29210,14 @@ MAX: 9026 };
 		}
 		get FontTable() {
 			return this.fontWrapper;
+		}
+		/** The document's theme (word/theme/theme1.xml). */
+		get Theme() {
+			return this.theme;
+		}
+		/** The parts that drawings, such as charts, add to the package when it is written. */
+		get PackageParts() {
+			return this.packageParts;
 		}
 	};
 	//#endregion
@@ -27228,28 +29385,6 @@ MAX: 9026 };
 		}
 	};
 	//#endregion
-	//#region \0@oxc-project+runtime@0.133.0/helpers/esm/objectWithoutPropertiesLoose.js
-	function _objectWithoutPropertiesLoose(r, e) {
-		if (null == r) return {};
-		var t = {};
-		for (var n in r) if ({}.hasOwnProperty.call(r, n)) {
-			if (e.includes(n)) continue;
-			t[n] = r[n];
-		}
-		return t;
-	}
-	//#endregion
-	//#region \0@oxc-project+runtime@0.133.0/helpers/esm/objectWithoutProperties.js
-	function _objectWithoutProperties(e, t) {
-		if (null == e) return {};
-		var o, r, i = _objectWithoutPropertiesLoose(e, t);
-		if (Object.getOwnPropertySymbols) {
-			var s = Object.getOwnPropertySymbols(e);
-			for (r = 0; r < s.length; r++) o = s[r], t.includes(o) || {}.propertyIsEnumerable.call(e, o) && (i[o] = e[o]);
-		}
-		return i;
-	}
-	//#endregion
 	//#region src/file/table-of-contents/table-of-contents.ts
 	/**
 	* Table of Contents module for WordprocessingML documents.
@@ -27261,7 +29396,7 @@ MAX: 9026 };
 	*
 	* @module
 	*/
-	var _excluded$1 = [
+	var _excluded$2 = [
 		"contentChildren",
 		"cachedEntries",
 		"beginDirty"
@@ -27297,7 +29432,7 @@ MAX: 9026 };
 	*/
 	var TableOfContents = class extends FileChild {
 		constructor(alias = "Table of Contents", _ref = {}) {
-			let { contentChildren = [], cachedEntries = [], beginDirty = true } = _ref, properties = _objectWithoutProperties(_ref, _excluded$1);
+			let { contentChildren = [], cachedEntries = [], beginDirty = true } = _ref, properties = _objectWithoutProperties(_ref, _excluded$2);
 			super("w:sdt");
 			this.root.push(new StructuredDocumentTagProperties(alias));
 			const content = new StructuredDocumentTagContent();
@@ -27754,6 +29889,242 @@ MAX: 9026 };
 		}
 	};
 	//#endregion
+	//#region src/file/vml/vml-values.ts
+	/**
+	* Converts a boolean into the VML `t`/`f` representation.
+	*
+	* Undefined values are passed through so that optional attributes are omitted
+	* from the generated XML.
+	*
+	* @param value - The boolean to convert
+	* @returns `"t"` for true, `"f"` for false, or `undefined` when no value was given
+	*
+	* @example
+	* ```typescript
+	* vmlTrueFalse(true); // "t"
+	* vmlTrueFalse(false); // "f"
+	* vmlTrueFalse(undefined); // undefined
+	* ```
+	*/
+	var vmlTrueFalse = (value) => value === void 0 ? void 0 : value ? "t" : "f";
+	//#endregion
+	//#region src/file/vml/pict/pict.ts
+	/**
+	* Picture element module for WordprocessingML documents.
+	*
+	* Provides functionality for creating pict (picture) elements that contain VML content.
+	*
+	* @module
+	*/
+	/**
+	* Creates a picture element containing VML content.
+	*
+	* The picture element (w:pict) is the container for VML (Vector Markup Language) content
+	* within WordprocessingML documents. It is used for text boxes, watermarks and other
+	* legacy drawing objects. A picture element typically holds an optional `v:shapetype`
+	* followed by one or more `v:shape` elements.
+	*
+	* ## XSD Schema
+	* ```xml
+	* <xsd:complexType name="CT_Picture">
+	*   <xsd:sequence>
+	*     <xsd:sequence maxOccurs="unbounded">
+	*       <xsd:any processContents="lax" namespace="urn:schemas-microsoft-com:vml" minOccurs="0"
+	*         maxOccurs="unbounded"/>
+	*       <xsd:any processContents="lax" namespace="urn:schemas-microsoft-com:office:office"
+	*         minOccurs="0" maxOccurs="unbounded"/>
+	*     </xsd:sequence>
+	*     <xsd:element name="movie" type="CT_Rel" minOccurs="0"/>
+	*     <xsd:element name="control" type="CT_Control" minOccurs="0"/>
+	*   </xsd:sequence>
+	* </xsd:complexType>
+	* ```
+	*
+	* @param options - Configuration options containing the VML children
+	* @returns An XmlComponent representing the w:pict element
+	*
+	* @example
+	* ```typescript
+	* const pict = createPict({
+	*   children: [createVmlShape({ id: "shape1", style: { width: 100, height: 50 } })],
+	* });
+	* ```
+	*/
+	var createPict = ({ children }) => new BuilderElement({
+		name: "w:pict",
+		children
+	});
+	//#endregion
+	//#region src/file/vml/shape/vml-shape-style.ts
+	/**
+	* Maps VmlShapeStyle property names to their corresponding CSS-style property names.
+	* Used internally for converting TypeScript-friendly property names to VML style attributes.
+	*/
+	var STYLE_KEY_MAP = {
+		flip: "flip",
+		height: "height",
+		left: "left",
+		marginBottom: "margin-bottom",
+		marginLeft: "margin-left",
+		marginRight: "margin-right",
+		marginTop: "margin-top",
+		positionHorizontal: "mso-position-horizontal",
+		positionHorizontalRelative: "mso-position-horizontal-relative",
+		positionVertical: "mso-position-vertical",
+		positionVerticalRelative: "mso-position-vertical-relative",
+		wrapDistanceBottom: "mso-wrap-distance-bottom",
+		wrapDistanceLeft: "mso-wrap-distance-left",
+		wrapDistanceRight: "mso-wrap-distance-right",
+		wrapDistanceTop: "mso-wrap-distance-top",
+		wrapEdited: "mso-wrap-edited",
+		wrapStyle: "mso-wrap-style",
+		position: "position",
+		rotation: "rotation",
+		top: "top",
+		visibility: "visibility",
+		width: "width",
+		zIndex: "z-index"
+	};
+	/**
+	* Formats a VmlShapeStyle object into the CSS-like string used by the VML `style` attribute.
+	*
+	* Properties whose value is `undefined` are skipped so that callers can build
+	* the style object from optional inputs without leaking `undefined` into the output.
+	*
+	* @param style - The VmlShapeStyle object to format
+	* @returns A CSS-style string (e.g., "width:100pt;height:50pt") or undefined if no style provided
+	*
+	* @example
+	* ```typescript
+	* formatVmlShapeStyle({ width: "3in", height: "1in", position: "absolute" });
+	* // "width:3in;height:1in;position:absolute"
+	* ```
+	*/
+	var formatVmlShapeStyle = (style) => style ? Object.entries(style).filter(([, value]) => value !== void 0).map(([key, value]) => `${STYLE_KEY_MAP[key]}:${value}`).join(";") : void 0;
+	//#endregion
+	//#region src/file/vml/shape/vml-shape.ts
+	/**
+	* VML shape module for WordprocessingML documents.
+	*
+	* Provides functionality for creating VML shape elements with customizable styling and positioning.
+	* The shape is the fundamental building block of VML drawings: text boxes, WordArt, pictures
+	* and free-form drawings are all shapes with different types and children.
+	*
+	* References:
+	* - https://c-rex.net/samples/ooxml/e1/Part3/OOXML_P3_Primer_OfficeArt_topic_ID0ELU5O.html
+	* - http://webapp.docx4java.org/OnlineDemo/ecma376/VML/shape.html
+	*
+	* @module
+	*/
+	/**
+	* Creates a VML shape element.
+	*
+	* The VML shape element (v:shape) represents a vector graphics shape in WordprocessingML documents.
+	* The shape's appearance is determined by its type (a reference to a `v:shapetype`), its style,
+	* and its children.
+	*
+	* ## XSD Schema
+	* ```xml
+	* <xsd:complexType name="CT_Shape">
+	*   <xsd:choice maxOccurs="unbounded">
+	*     <xsd:group ref="EG_ShapeElements"/>
+	*     <xsd:element ref="o:ink"/>
+	*     <xsd:element ref="pvml:iscomment"/>
+	*     <xsd:element ref="o:equationxml"/>
+	*   </xsd:choice>
+	*   <xsd:attributeGroup ref="AG_AllCoreAttributes"/>
+	*   <xsd:attributeGroup ref="AG_AllShapeAttributes"/>
+	*   <xsd:attributeGroup ref="AG_Type"/>
+	*   <xsd:attributeGroup ref="AG_Adj"/>
+	*   <xsd:attributeGroup ref="AG_Path"/>
+	*   <xsd:attribute ref="o:gfxdata"/>
+	*   <xsd:attribute name="equationxml" type="xsd:string" use="optional"/>
+	* </xsd:complexType>
+	* ```
+	*
+	* @param options - Configuration options for the shape
+	* @returns An XmlComponent representing the v:shape element
+	*
+	* Text boxes are drawn with it, and so are the watermarks in `docx/watermarks`.
+	*
+	* @example
+	* ```typescript
+	* const shape = createVmlShape({
+	*   id: "box",
+	*   type: "#_x0000_t202",
+	*   style: { position: "absolute", width: "200pt", height: "50pt", rotation: 10 },
+	*   fillColor: "silver",
+	*   stroked: false,
+	* });
+	* ```
+	*/
+	var createVmlShape = ({ id, type, style, coordinateSize, adjustment, path, presetShapeType, allowInCell, alt, title, fillColor, filled, stroked, strokeColor, strokeWeight, children = [] }) => new BuilderElement({
+		name: "v:shape",
+		attributes: {
+			id: {
+				key: "id",
+				value: id
+			},
+			type: {
+				key: "type",
+				value: type
+			},
+			style: {
+				key: "style",
+				value: formatVmlShapeStyle(style)
+			},
+			coordinateSize: {
+				key: "coordsize",
+				value: coordinateSize
+			},
+			adjustment: {
+				key: "adj",
+				value: adjustment
+			},
+			path: {
+				key: "path",
+				value: path
+			},
+			presetShapeType: {
+				key: "o:spt",
+				value: presetShapeType
+			},
+			allowInCell: {
+				key: "o:allowincell",
+				value: vmlTrueFalse(allowInCell)
+			},
+			alt: {
+				key: "alt",
+				value: alt
+			},
+			title: {
+				key: "title",
+				value: title
+			},
+			fillColor: {
+				key: "fillcolor",
+				value: fillColor
+			},
+			filled: {
+				key: "filled",
+				value: vmlTrueFalse(filled)
+			},
+			stroked: {
+				key: "stroked",
+				value: vmlTrueFalse(stroked)
+			},
+			strokeColor: {
+				key: "strokecolor",
+				value: strokeColor
+			},
+			strokeWeight: {
+				key: "strokeweight",
+				value: strokeWeight
+			}
+		},
+		children
+	});
+	//#endregion
 	//#region src/file/textbox/pict-element/pict-element.ts
 	/**
 	* Picture element module for WordprocessingML documents.
@@ -27797,10 +30168,7 @@ MAX: 9026 };
 	* });
 	* ```
 	*/
-	var createPictElement = ({ shape }) => new BuilderElement({
-		name: "w:pict",
-		children: [shape]
-	});
+	var createPictElement = ({ shape }) => createPict({ children: [shape] });
 	//#endregion
 	//#region src/file/textbox/texbox-content/textbox-content.ts
 	/**
@@ -27878,10 +30246,6 @@ MAX: 9026 };
 				key: "style",
 				value: style
 			},
-			insetMode: {
-				key: "insetmode",
-				value: inset ? "custom" : "auto"
-			},
 			inset: {
 				key: "inset",
 				value: inset ? `${inset.left}, ${inset.top}, ${inset.right}, ${inset.bottom}` : void 0
@@ -27891,44 +30255,8 @@ MAX: 9026 };
 	});
 	//#endregion
 	//#region src/file/textbox/shape/shape.ts
+	/** Identifier of the text box shape type as referenced by shapes. */
 	var SHAPE_TYPE = "#_x0000_t202";
-	/**
-	* Maps VmlShapeStyle property names to their corresponding CSS-style property names.
-	* Used internally for converting TypeScript-friendly property names to VML style attributes.
-	*/
-	var styleToKeyMap = {
-		flip: "flip",
-		height: "height",
-		left: "left",
-		marginBottom: "margin-bottom",
-		marginLeft: "margin-left",
-		marginRight: "margin-right",
-		marginTop: "margin-top",
-		positionHorizontal: "mso-position-horizontal",
-		positionHorizontalRelative: "mso-position-horizontal-relative",
-		positionVertical: "mso-position-vertical",
-		positionVerticalRelative: "mso-position-vertical-relative",
-		wrapDistanceBottom: "mso-wrap-distance-bottom",
-		wrapDistanceLeft: "mso-wrap-distance-left",
-		wrapDistanceRight: "mso-wrap-distance-right",
-		wrapDistanceTop: "mso-wrap-distance-top",
-		wrapEdited: "mso-wrap-edited",
-		wrapStyle: "mso-wrap-style",
-		position: "position",
-		rotation: "rotation",
-		top: "top",
-		visibility: "visibility",
-		width: "width",
-		zIndex: "z-index"
-	};
-	/**
-	* Formats VmlShapeStyle object into a CSS-style string for VML shape attributes.
-	*
-	* @param style - The VmlShapeStyle object to format
-	* @returns A CSS-style string (e.g., "width:100pt;height:50pt;") or undefined if no style provided
-	* @internal
-	*/
-	var formatShapeStyle = (style) => style ? Object.entries(style).map(([key, value]) => `${styleToKeyMap[key]}:${value}`).join(";") : void 0;
 	/**
 	* Creates a VML shape element with textbox content.
 	*
@@ -27973,22 +30301,10 @@ MAX: 9026 };
 	* });
 	* ```
 	*/
-	var createShape = ({ id, children, type = SHAPE_TYPE, style }) => new BuilderElement({
-		name: "v:shape",
-		attributes: {
-			id: {
-				key: "id",
-				value: id
-			},
-			type: {
-				key: "type",
-				value: type
-			},
-			style: {
-				key: "style",
-				value: formatShapeStyle(style)
-			}
-		},
+	var createShape = ({ id, children, type = SHAPE_TYPE, style }) => createVmlShape({
+		id,
+		type,
+		style,
 		children: [createVmlTextbox({
 			style: "mso-fit-shape-to-text:t;",
 			children
@@ -28004,7 +30320,7 @@ MAX: 9026 };
 	*
 	* @module
 	*/
-	var _excluded = ["style", "children"];
+	var _excluded$1 = ["style", "children"];
 	/**
 	* Represents a textbox in a WordprocessingML document.
 	*
@@ -28012,14 +30328,17 @@ MAX: 9026 };
 	* anywhere on the page. Unlike regular paragraphs, textboxes support absolute positioning,
 	* custom dimensions, and text wrapping control.
 	*
-	* The textbox is implemented as a paragraph containing a picture element (w:pict) with
-	* a VML shape (v:shape) that contains a VML textbox (v:textbox) with the actual content.
+	* The textbox is implemented as a paragraph with a run containing a picture element (w:pict)
+	* with a VML shape (v:shape) that contains a VML textbox (v:textbox) with the actual content.
+	* In a paragraph's children, the textbox is only the run, in that paragraph, and its own
+	* paragraph options, such as its alignment, don't apply.
 	*
 	* @publicApi
 	*
 	* ## XSD Schema
 	* The Textbox combines multiple OOXML elements:
 	* - w:p (paragraph container)
+	* - w:r (run containing the picture)
 	* - w:pict (picture element containing VML)
 	* - v:shape (VML shape with styling)
 	* - v:textbox (VML textbox content container)
@@ -28029,7 +30348,7 @@ MAX: 9026 };
 	* ```typescript
 	* // Simple textbox with text
 	* new Textbox({
-	*   children: [new TextRun("Hello World")],
+	*   children: [new Paragraph("Hello World")],
 	*   style: {
 	*     width: "3in",
 	*     height: "1in"
@@ -28039,8 +30358,12 @@ MAX: 9026 };
 	* // Positioned textbox with wrapping
 	* new Textbox({
 	*   children: [
-	*     new TextRun({ text: "Floating Text", bold: true }),
-	*     new TextRun({ text: " in a textbox", break: 1 })
+	*     new Paragraph({
+	*       children: [
+	*         new TextRun({ text: "Floating Text", bold: true }),
+	*         new TextRun({ text: " in a textbox", break: 1 })
+	*       ]
+	*     })
 	*   ],
 	*   style: {
 	*     width: "2.5in",
@@ -28051,18 +30374,37 @@ MAX: 9026 };
 	*     wrapStyle: "square"
 	*   }
 	* });
+	*
+	* // Textbox in a paragraph, after its text
+	* new Paragraph({
+	*   children: [
+	*     new TextRun("See the note: "),
+	*     new Textbox({
+	*       children: [new Paragraph("A note")],
+	*       style: { width: "2in", height: "auto" }
+	*     })
+	*   ]
+	* });
 	* ```
 	*/
 	var Textbox = class extends FileChild {
 		constructor(_ref) {
-			let { style, children } = _ref, rest = _objectWithoutProperties(_ref, _excluded);
+			let { style, children } = _ref, rest = _objectWithoutProperties(_ref, _excluded$1);
 			super("w:p");
+			_defineProperty(this, "run", void 0);
 			this.root.push(new ParagraphProperties(rest));
-			this.root.push(createPictElement({ shape: createShape({
-				children,
-				id: uniqueId(),
-				style
-			}) }));
+			this.run = new BuilderElement({
+				name: "w:r",
+				children: [createPictElement({ shape: createShape({
+					children,
+					id: uniqueId(),
+					style
+				}) })]
+			});
+			this.root.push(this.run);
+		}
+		prepForXml(context) {
+			return context.stack[context.stack.length - 1] instanceof Paragraph ? this.run.prepForXml(context) : super.prepForXml(context);
 		}
 	};
 	//#endregion
@@ -28072,7 +30414,7 @@ MAX: 9026 };
 		init_dist();
 		/*!
 		
-		JSZip v3.10.1 - A JavaScript class for generating and reading zip files
+		JSZip v3.10.2 - A JavaScript class for generating and reading zip files
 		<http://stuartk.com/jszip>
 		
 		(c) 2009-2016 Stuart Knightley <stuart [at] stuartk.com>
@@ -28387,7 +30729,7 @@ MAX: 9026 };
 							return e;
 						};
 					}
-					(n.prototype = e("./object")).loadAsync = e("./load"), n.support = e("./support"), n.defaults = e("./defaults"), n.version = "3.10.1", n.loadAsync = function(e, t) {
+					(n.prototype = e("./object")).loadAsync = e("./load"), n.support = e("./support"), n.defaults = e("./defaults"), n.version = "3.10.2", n.loadAsync = function(e, t) {
 						return new n().loadAsync(e, t);
 					}, n.external = e("./external"), t.exports = n;
 				}, {
@@ -28740,7 +31082,7 @@ MAX: 9026 };
 						n.call(this, e);
 					}
 					e("../utils").inherits(i, n), i.prototype.readData = function(e) {
-						if (this.checkOffset(e), 0 === e) return new Uint8Array(0);
+						if (this.checkOffset(e), 0 === e) return /* @__PURE__ */ new Uint8Array(0);
 						var t = this.data.subarray(this.zero + this.index, this.zero + this.index + e);
 						return this.index += e, t;
 					}, t.exports = i;
@@ -29143,7 +31485,7 @@ MAX: 9026 };
 						applyCanBeUsed: {
 							uint8array: function() {
 								try {
-									return o.uint8array && 1 === String.fromCharCode.apply(null, new Uint8Array(1)).length;
+									return o.uint8array && 1 === String.fromCharCode.apply(null, /* @__PURE__ */ new Uint8Array(1)).length;
 								} catch (e) {
 									return !1;
 								}
@@ -29247,7 +31589,9 @@ MAX: 9026 };
 						}
 						return r.join("/");
 					}, a.getTypeOf = function(e) {
-						return "string" == typeof e ? "string" : "[object Array]" === Object.prototype.toString.call(e) ? "array" : o.nodebuffer && r.isBuffer(e) ? "nodebuffer" : o.uint8array && e instanceof Uint8Array ? "uint8array" : o.arraybuffer && e instanceof ArrayBuffer ? "arraybuffer" : void 0;
+						if ("string" == typeof e) return "string";
+						var t = Object.prototype.toString.call(e);
+						return "[object Array]" === t ? "array" : o.nodebuffer && r.isBuffer(e) ? "nodebuffer" : o.uint8array && "[object Uint8Array]" === t ? "uint8array" : o.arraybuffer && "[object ArrayBuffer]" === t ? "arraybuffer" : void 0;
 					}, a.checkSupport = function(e) {
 						if (!o[e.toLowerCase()]) throw new Error(e + " is not supported by this platform");
 					}, a.MAX_VALUE_16BITS = 65535, a.MAX_VALUE_32BITS = -1, a.pretty = function(e) {
@@ -29267,14 +31611,14 @@ MAX: 9026 };
 						return r;
 					}, a.prepareContent = function(r, e, n, i, s) {
 						return u.Promise.resolve(e).then(function(n) {
-							return o.blob && (n instanceof Blob || -1 !== ["[object File]", "[object Blob]"].indexOf(Object.prototype.toString.call(n))) && "undefined" != typeof FileReader ? new u.Promise(function(t, r) {
+							return o.blob && (n instanceof Blob || -1 !== ["[object File]", "[object Blob]"].indexOf(Object.prototype.toString.call(n))) ? void 0 !== Blob.prototype.arrayBuffer ? n.arrayBuffer() : "undefined" != typeof FileReader ? new u.Promise(function(t, r) {
 								var e = new FileReader();
 								e.onload = function(e) {
 									t(e.target.result);
 								}, e.onerror = function(e) {
 									r(e.target.error);
 								}, e.readAsArrayBuffer(n);
-							}) : n;
+							}) : u.Promise.reject(/* @__PURE__ */ new Error(r + " is a Blob, but we have no way of reading it.")) : n;
 						}).then(function(e) {
 							var t = a.getTypeOf(e);
 							return t ? ("arraybuffer" === t ? e = a.transformTo("uint8array", e) : "string" === t && (s ? e = h.decode(e) : n && !0 !== i && (e = function(e) {
@@ -29326,8 +31670,8 @@ MAX: 9026 };
 							if (this.diskWithZip64CentralDirStart = this.reader.readInt(4), this.relativeOffsetEndOfZip64CentralDir = this.reader.readInt(8), this.disksCount = this.reader.readInt(4), 1 < this.disksCount) throw new Error("Multi-volumes zip are not supported");
 						},
 						readLocalFiles: function() {
-							var e, t;
-							for (e = 0; e < this.files.length; e++) t = this.files[e], this.reader.setIndex(t.localHeaderOffset), this.checkSignature(s.LOCAL_FILE_HEADER), t.readLocalPart(this.reader), t.handleUTF8(), t.processAttributes();
+							var e = 0, t;
+							for (; e < this.files.length; e++) t = this.files[e], this.reader.setIndex(t.localHeaderOffset), this.checkSignature(s.LOCAL_FILE_HEADER), t.readLocalPart(this.reader), t.handleUTF8(), t.processAttributes();
 						},
 						readCentralDir: function() {
 							var e;
@@ -29706,8 +32050,8 @@ MAX: 9026 };
 						var r = a.deflateInit2(this.strm, t.level, t.method, t.windowBits, t.memLevel, t.strategy);
 						if (r !== l) throw new Error(i[r]);
 						if (t.header && a.deflateSetHeader(this.strm, t.header), t.dictionary) {
-							var n;
-							if (n = "string" == typeof t.dictionary ? h.string2buf(t.dictionary) : "[object ArrayBuffer]" === u.call(t.dictionary) ? new Uint8Array(t.dictionary) : t.dictionary, (r = a.deflateSetDictionary(this.strm, n)) !== l) throw new Error(i[r]);
+							var n = "string" == typeof t.dictionary ? h.string2buf(t.dictionary) : "[object ArrayBuffer]" === u.call(t.dictionary) ? new Uint8Array(t.dictionary) : t.dictionary;
+							if ((r = a.deflateSetDictionary(this.strm, n)) !== l) throw new Error(i[r]);
 							this._dict_set = !0;
 						}
 					}
@@ -29808,8 +32152,8 @@ MAX: 9026 };
 							else for (var s = 0; s < n; s++) e[i + s] = t[r + s];
 						},
 						flattenChunks: function(e) {
-							var t, r, n, i, s, a;
-							for (t = n = 0, r = e.length; t < r; t++) n += e[t].length;
+							var t = n = 0, r = e.length, n, i, s, a;
+							for (; t < r; t++) n += e[t].length;
 							for (a = new Uint8Array(n), t = i = 0, r = e.length; t < r; t++) s = e[t], a.set(s, i), i += s.length;
 							return a;
 						}
@@ -29834,7 +32178,7 @@ MAX: 9026 };
 						i = !1;
 					}
 					try {
-						String.fromCharCode.apply(null, new Uint8Array(1));
+						String.fromCharCode.apply(null, /* @__PURE__ */ new Uint8Array(1));
 					} catch (e) {
 						s = !1;
 					}
@@ -30641,7 +32985,6 @@ while (n === a[++i] && n === a[++i] && n === a[++i] && n === a[++i] && n === a[+
 								x = -3;
 								break e;
 							case 31: return -4;
-							case 32:
 							default: return U;
 						}
 						return e.next_out = a, e.avail_out = h, e.next_in = s, e.avail_in = o, r.hold = u, r.bits = l, (r.wsize || c !== e.avail_out && r.mode < 30 && (r.mode < 27 || 4 !== t)) && Z(e, e.output, e.next_out, c - e.avail_out) ? (r.mode = 31, -4) : (f -= e.avail_in, c -= e.avail_out, e.total_in += f, e.total_out += c, r.total += c, r.wrap && c && (e.adler = r.check = r.flags ? B(r.check, i, c, e.next_out - c) : O(r.check, i, c, e.next_out - c)), e.data_type = r.bits + (r.last ? 64 : 0) + (12 === r.mode ? 128 : 0) + (20 === r.mode || 15 === r.mode ? 256 : 0), (0 == f && 0 === c || 4 === t) && x === N && (x = -5), x);
@@ -30987,8 +33330,8 @@ while (n === a[++i] && n === a[++i] && n === a[++i] && n === a[++i] && n === a[+
 						}
 					}
 					function W(e) {
-						var t;
-						for (t = 0; t < l; t++) e.dyn_ltree[2 * t] = 0;
+						var t = 0;
+						for (; t < l; t++) e.dyn_ltree[2 * t] = 0;
 						for (t = 0; t < f; t++) e.dyn_dtree[2 * t] = 0;
 						for (t = 0; t < c; t++) e.bl_tree[2 * t] = 0;
 						e.dyn_ltree[2 * m] = 1, e.opt_len = e.static_len = 0, e.last_lit = e.matches = 0;
@@ -31311,9 +33654,10 @@ while (n === a[++i] && n === a[++i] && n === a[++i] && n === a[++i] && n === a[+
 						isStringContent = false;
 						content.push("");
 						values.forEach(function(value) {
-							if (typeof value == "object") if (Object.keys(value)[0] == "_attr") get_attributes(value._attr);
-							else content.push(resolve(value, indent, indent_count + 1));
-							else {
+							if (typeof value == "object") {
+								if (Object.keys(value)[0] == "_attr") get_attributes(value._attr);
+								else content.push(resolve(value, indent, indent_count + 1));
+							} else {
 								content.pop();
 								isStringContent = true;
 								content.push(escapeForXML(value));
@@ -31529,12 +33873,79 @@ while (n === a[++i] && n === a[++i] && n === a[++i] && n === a[++i] && n === a[+
 		}
 	};
 	//#endregion
+	//#region src/export/packer/package-part-writer.ts
+	/**
+	* Writes the parts that something in a document adds to the package, such as charts, for the compiler and for
+	* `patchDocument`.
+	*
+	* @module
+	*/
+	var formatter$2 = new Formatter();
+	/**
+	* Formats a part's XML, with the relationships that anything in it that refers to other parts adds to.
+	*/
+	var xmlifyPart = (file, content, prettify, relationships, standalone = true) => (0, import_xml.default)(formatter$2.format(content, {
+		viewWrapper: {
+			View: content,
+			Relationships: relationships
+		},
+		file,
+		stack: []
+	}), {
+		indent: prettify,
+		declaration: standalone ? {
+			standalone: "yes",
+			encoding: "UTF-8"
+		} : { encoding: "UTF-8" }
+	});
+	var xmlifyPackagePart = (file, part, path, prettify) => {
+		const { content } = part.options;
+		if (content instanceof Uint8Array) return [{
+			data: content,
+			path: `word/${path}`
+		}];
+		if ("files" in content) {
+			const embedded = new import_jszip_min.default();
+			for (const { path: filePath, content: fileContent } of content.files) embedded.file(filePath, fileContent instanceof Uint8Array ? fileContent : encodeUtf8(xmlifyPart(file, fileContent, prettify, new Relationships())));
+			return [{
+				data: embedded.generateAsync({
+					type: "uint8array",
+					compression: "DEFLATE"
+				}),
+				path: `word/${path}`
+			}];
+		}
+		const relationships = file.PackageParts.createRelationships(path);
+		const data = xmlifyPart(file, content, prettify, relationships);
+		const folder = path.slice(0, path.lastIndexOf("/"));
+		const name = path.slice(path.lastIndexOf("/") + 1);
+		return [{
+			data,
+			path: `word/${path}`
+		}, ...relationships.RelationshipCount > 0 ? [{
+			data: xmlifyPart(file, relationships, prettify, relationships, false),
+			path: `word/${folder}/_rels/${name}.rels`
+		}] : []];
+	};
+	/**
+	* Writes the parts added to the package while the document's parts were written, such as charts. A part's XML can add
+	* parts of its own, such as a chart's embedded workbook, so the parts added meanwhile are written after.
+	*
+	* @param from - How many of the parts have been written
+	*/
+	var xmlifyPackageParts = (file, prettify, from = 0) => {
+		const parts = file.PackageParts.Array.slice(from);
+		if (parts.length === 0) return [];
+		return [...parts.flatMap(({ part, path }) => xmlifyPackagePart(file, part, path, prettify)), ...xmlifyPackageParts(file, prettify, from + parts.length)];
+	};
+	//#endregion
 	//#region src/export/packer/next-compiler.ts
 	/**
 	* Compiler module for converting File objects into OOXML ZIP archives.
 	*
 	* @module
 	*/
+	var _excluded = ["PackageParts"];
 	/**
 	* Compiles File objects into OOXML-compliant ZIP archives.
 	*
@@ -31579,10 +33990,11 @@ while (n === a[++i] && n === a[++i] && n === a[++i] && n === a[++i] && n === a[+
 		*/
 		compile(file, prettifyXml, overrides = []) {
 			const zip = new import_jszip_min.default();
-			const xmlifiedFileMapping = this.xmlifyFile(file, prettifyXml);
+			const _this$xmlifyFile = this.xmlifyFile(file, prettifyXml), { PackageParts: packageParts } = _this$xmlifyFile, xmlifiedFileMapping = _objectWithoutProperties(_this$xmlifyFile, _excluded);
 			const map = new Map(Object.entries(xmlifiedFileMapping));
 			for (const [, obj] of map) if (Array.isArray(obj)) for (const subFile of obj) zip.file(subFile.path, encodeUtf8(subFile.data));
 			else zip.file(obj.path, encodeUtf8(obj.data));
+			for (const { path, data } of packageParts) zip.file(path, typeof data === "string" ? encodeUtf8(data) : data);
 			for (const subFile of overrides) zip.file(subFile.path, encodeUtf8(subFile.data));
 			for (const data of file.Media.Array) if (data.type !== "svg") zip.file(`word/media/${data.fileName}`, data.data);
 			else {
@@ -31635,7 +34047,7 @@ while (n === a[++i] && n === a[++i] && n === a[++i] && n === a[++i] && n === a[+
 			const documentMediaDatas = this.imageReplacer.getMediaData(documentXmlData, file.Media);
 			const commentMediaDatas = this.imageReplacer.getMediaData(commentXmlData, file.Media);
 			const footnoteMediaDatas = this.imageReplacer.getMediaData(footnoteXmlData, file.Media);
-			return _objectSpread2(_objectSpread2(_objectSpread2({
+			return _objectSpread2(_objectSpread2(_objectSpread2(_objectSpread2({
 				Relationships: {
 					data: (() => {
 						documentMediaDatas.forEach((mediaData, i) => {
@@ -31796,17 +34208,6 @@ while (n === a[++i] && n === a[++i] && n === a[++i] && n === a[++i] && n === a[+
 						path: `word/footer${index + 1}.xml`
 					};
 				}),
-				ContentTypes: {
-					data: (0, import_xml.default)(this.formatter.format(file.ContentTypes, {
-						viewWrapper: file.Document,
-						file,
-						stack: []
-					}), {
-						indent: prettify,
-						declaration: { encoding: "UTF-8" }
-					}),
-					path: "[Content_Types].xml"
-				},
 				CustomProperties: {
 					data: (0, import_xml.default)(this.formatter.format(file.CustomProperties, {
 						viewWrapper: file.Document,
@@ -31893,7 +34294,8 @@ while (n === a[++i] && n === a[++i] && n === a[++i] && n === a[++i] && n === a[+
 						}
 					}),
 					path: "word/settings.xml"
-				},
+				}
+			}, file.Comments.IsEmpty ? {} : {
 				Comments: {
 					data: (() => {
 						const xmlData = this.imageReplacer.replace(commentXmlData, commentMediaDatas, commentRelationshipCount);
@@ -31920,7 +34322,7 @@ while (n === a[++i] && n === a[++i] && n === a[++i] && n === a[++i] && n === a[+
 					})(),
 					path: "word/_rels/comments.xml.rels"
 				}
-			}, file.CommentsExtended ? { CommentsExtended: {
+			}), file.CommentsExtended ? { CommentsExtended: {
 				data: (0, import_xml.default)(this.formatter.format(file.CommentsExtended, {
 					viewWrapper: {
 						View: file.CommentsExtended,
@@ -31977,12 +34379,38 @@ while (n === a[++i] && n === a[++i] && n === a[++i] && n === a[++i] && n === a[+
 						declaration: { encoding: "UTF-8" }
 					}))(),
 					path: "word/_rels/fontTable.xml.rels"
+				},
+				Theme: {
+					data: (0, import_xml.default)(this.formatter.format(file.Theme, {
+						viewWrapper: file.Document,
+						file,
+						stack: []
+					}), {
+						indent: prettify,
+						declaration: {
+							standalone: "yes",
+							encoding: "UTF-8"
+						}
+					}),
+					path: "word/theme/theme1.xml"
+				},
+				PackageParts: xmlifyPackageParts(file, prettify),
+				ContentTypes: {
+					data: (0, import_xml.default)(this.formatter.format(file.ContentTypes, {
+						viewWrapper: file.Document,
+						file,
+						stack: []
+					}), {
+						indent: prettify,
+						declaration: { encoding: "UTF-8" }
+					}),
+					path: "[Content_Types].xml"
 				}
 			});
 		}
 	};
 	//#endregion
-	//#region \0@oxc-project+runtime@0.133.0/helpers/esm/asyncToGenerator.js
+	//#region \0@oxc-project+runtime@0.150.0/helpers/esm/asyncToGenerator.js
 	function asyncGeneratorStep(n, t, e, r, o, a, c) {
 		try {
 			var i = n[a](c), u = i.value;
@@ -32220,7 +34648,7 @@ while (n === a[++i] && n === a[++i] && n === a[++i] && n === a[++i] && n === a[+
 	/**
 	* Retrieves first-level child elements by parent element name.
 	*
-	* Finds the first element with the specified name and returns its children.
+	* Finds the first element with the specified name and returns its children, which elements can be added to.
 	* Used to access collections like relationship elements or content type definitions.
 	*
 	* @param relationships - The parent XML element to search
@@ -32234,8 +34662,11 @@ while (n === a[++i] && n === a[++i] && n === a[++i] && n === a[++i] && n === a[+
 	* ```
 	*/
 	var getFirstLevelElements = (relationships, id) => {
-		var _relationships$elemen, _relationships$elemen2;
-		return (_relationships$elemen = (_relationships$elemen2 = relationships.elements) === null || _relationships$elemen2 === void 0 ? void 0 : _relationships$elemen2.filter((e) => e.name === id)[0].elements) !== null && _relationships$elemen !== void 0 ? _relationships$elemen : [];
+		var _relationships$elemen, _parent$elements;
+		const parent = (_relationships$elemen = relationships.elements) === null || _relationships$elemen === void 0 ? void 0 : _relationships$elemen.find((e) => e.name === id);
+		if (parent === void 0) return [];
+		(_parent$elements = parent.elements) !== null && _parent$elements !== void 0 || (parent.elements = []);
+		return parent.elements;
 	};
 	//#endregion
 	//#region src/patcher/content-types-manager.ts
@@ -32270,6 +34701,70 @@ while (n === a[++i] && n === a[++i] && n === a[++i] && n === a[++i] && n === a[+
 			name: "Default",
 			type: "element"
 		});
+	};
+	/**
+	* Appends a content type for one part of the package to the [Content_Types].xml structure, such as a chart a patch
+	* adds, unless the part already has one.
+	*
+	* @param element - The [Content_Types].xml root element
+	* @param contentType - The part's MIME type (e.g., "application/vnd.openxmlformats-officedocument.drawingml.chart+xml")
+	* @param partName - The part's path in the package (e.g., "/word/charts/chart1.xml")
+	*/
+	var appendContentTypeOverride = (element, contentType, partName) => {
+		const contentTypeElements = getFirstLevelElements(element, "Types");
+		if (contentTypeElements.some((el) => {
+			var _el$attributes3;
+			return el.type === "element" && el.name === "Override" && ((_el$attributes3 = el.attributes) === null || _el$attributes3 === void 0 ? void 0 : _el$attributes3.PartName) === partName;
+		})) return;
+		contentTypeElements.push({
+			attributes: {
+				ContentType: contentType,
+				PartName: partName
+			},
+			name: "Override",
+			type: "element"
+		});
+	};
+	/**
+	* Removes the content type of one part of the package from the [Content_Types].xml structure, such as a part a patch
+	* removes. Part names are compared without case.
+	*
+	* @param element - The [Content_Types].xml root element
+	* @param partName - The part's path in the package (e.g., "/word/embeddings/Microsoft_Excel_Worksheet1.xlsx")
+	*/
+	var removeContentTypeOverride = (element, partName) => {
+		var _element$elements;
+		const types = (_element$elements = element.elements) === null || _element$elements === void 0 ? void 0 : _element$elements.find((el) => el.name === "Types");
+		if ((types === null || types === void 0 ? void 0 : types.elements) === void 0) return;
+		types.elements = types.elements.filter((el) => {
+			var _el$attributes$PartNa, _el$attributes4;
+			return !(el.name === "Override" && String((_el$attributes$PartNa = (_el$attributes4 = el.attributes) === null || _el$attributes4 === void 0 ? void 0 : _el$attributes4.PartName) !== null && _el$attributes$PartNa !== void 0 ? _el$attributes$PartNa : "").toLowerCase() === partName.toLowerCase());
+		});
+	};
+	//#endregion
+	//#region src/patcher/patch-type.ts
+	/**
+	* The types of patch `patchDocument` applies.
+	*
+	* @module
+	*/
+	/**
+	* Patch type enumeration.
+	*
+	* Determines how the replacement content should be inserted into the document.
+	*
+	* @publicApi
+	*/
+	var PatchType = {
+		/** Replace entire file-level elements (e.g., whole paragraphs) */
+		DOCUMENT: "file",
+		/** Replace content within paragraphs (inline replacement) */
+		PARAGRAPH: "paragraph",
+		/**
+		* Change a drawing whose alt text holds the placeholder, and the parts it refers to, such as the data of a chart made
+		* in Word. See {@link DrawingPatch}
+		*/
+		DRAWING: "drawing"
 	};
 	//#endregion
 	//#region src/patcher/relationship-manager.ts
@@ -32340,6 +34835,243 @@ while (n === a[++i] && n === a[++i] && n === a[++i] && n === a[++i] && n === a[+
 			type: "element"
 		});
 		return relationshipElements;
+	};
+	/**
+	* Creates an empty relationships part, for a part that has none.
+	*/
+	var createRelationshipFile = () => ({
+		declaration: { attributes: {
+			version: "1.0",
+			encoding: "UTF-8",
+			standalone: "yes"
+		} },
+		elements: [{
+			type: "element",
+			name: "Relationships",
+			attributes: { xmlns: "http://schemas.openxmlformats.org/package/2006/relationships" },
+			elements: []
+		}]
+	});
+	//#endregion
+	//#region src/patcher/drawing-patch.ts
+	/**
+	* Patches for drawings in a template whose alt text holds a placeholder, such as a chart made in Word whose data a patch
+	* replaces, and the parts of the template's package they read and change.
+	*
+	* Reference: http://officeopenxml.com/anatomyofOOXML.php
+	*
+	* @module
+	*/
+	/**
+	* A patch for a drawing in a template whose alt text holds the placeholder, such as `{{sales}}`, rather than for the
+	* placeholder in text. It changes the drawing, and the parts it refers to, in place. `ChartDataPatch` from `docx/charts`
+	* is one: it replaces the data of a chart made in Word.
+	*
+	* A drawing's alt text is its description (`descr`) or title. A drawing patch leaves the placeholder in text as it is.
+	*
+	* @publicApi
+	*/
+	var DrawingPatch = class {
+		constructor() {
+			_defineProperty(this, "type", PatchType.DRAWING);
+		}
+	};
+	var DRAWING_PROPERTIES = /* @__PURE__ */ new Map([
+		["wp:inline", "wp:docPr"],
+		["wp:anchor", "wp:docPr"],
+		["wpg:graphicFrame", "wpg:cNvPr"],
+		["wpc:graphicFrame", "wpg:cNvPr"]
+	]);
+	/**
+	* Each drawing in an element, in document order, including drawings in text boxes and in both a choice and its
+	* fallback (`mc:AlternateContent`).
+	*/
+	var findDrawings = (element) => {
+		var _element$elements;
+		return ((_element$elements = element.elements) !== null && _element$elements !== void 0 ? _element$elements : []).flatMap((child) => {
+			var _child$elements;
+			const name = child.name === void 0 ? void 0 : DRAWING_PROPERTIES.get(child.name);
+			const properties = name === void 0 ? void 0 : (_child$elements = child.elements) === null || _child$elements === void 0 ? void 0 : _child$elements.find((e) => e.name === name);
+			return [...properties ? [{
+				element: child,
+				properties
+			}] : [], ...findDrawings(child)];
+		});
+	};
+	/**
+	* A drawing's alt text: its description, then its title.
+	*/
+	var altTextOf = (properties) => {
+		var _properties$attribute, _properties$attribute2;
+		return [(_properties$attribute = properties.attributes) === null || _properties$attribute === void 0 ? void 0 : _properties$attribute.descr, (_properties$attribute2 = properties.attributes) === null || _properties$attribute2 === void 0 ? void 0 : _properties$attribute2.title].flatMap((text) => text === void 0 ? [] : [String(text)]);
+	};
+	/**
+	* The path of a part's relationships part, such as word/_rels/document.xml.rels for word/document.xml.
+	*/
+	var relationshipsPathOf = (path) => {
+		const slash = path.lastIndexOf("/");
+		return `${path.slice(0, slash + 1)}_rels/${path.slice(slash + 1)}.rels`;
+	};
+	/**
+	* The part a relationships part belongs to, or "" for the package's own (_rels/.rels), whose targets are from its root.
+	*/
+	var sourceOfRelationships = (path) => path.replace(/(^|\/)_rels\/([^/]*)\.rels$/, "$1$2");
+	var folderOf = (path) => path.slice(0, path.lastIndexOf("/") + 1);
+	/**
+	* The path of the part a relationship's target refers to: relative to the folder of the part the relationship belongs
+	* to, or from the package's root if it starts with "/". Backslashes, which some applications write, are read as slashes.
+	*
+	* @param from - The path of the part the relationship belongs to
+	*/
+	var resolveTarget = (from, target) => {
+		const normalized = target.replace(/\\/g, "/");
+		return (normalized.startsWith("/") ? normalized : `${folderOf(from)}${normalized}`).split("/").reduce((segments, segment) => {
+			if (segment === "" || segment === ".") return segments;
+			return segment === ".." ? segments.slice(0, -1) : [...segments, segment];
+		}, []).join("/");
+	};
+	/**
+	* A relationship's target for a part, relative to the folder of the part the relationship belongs to, such as
+	* "../embeddings/Microsoft_Excel_Worksheet1.xlsx" from word/charts/chart1.xml.
+	*
+	* @param from - The path of the part the relationship belongs to
+	* @param to - The path of the part it refers to
+	*/
+	var relativeTarget = (from, to) => {
+		const folders = folderOf(from).split("/").filter(Boolean);
+		const segments = to.split("/");
+		const common = folders.findIndex((folder, index) => index >= segments.length - 1 || segments[index] !== folder);
+		const shared = common === -1 ? folders.length : common;
+		return [...folders.slice(shared).map(() => ".."), ...segments.slice(shared)].join("/");
+	};
+	var CONTENT_TYPES = "[Content_Types].xml";
+	/**
+	* A relationships part's relationships, which can be added to. A part without the `Relationships` element is given one.
+	*/
+	var relationshipsIn = (relationships) => {
+		var _relationships$elemen;
+		if (!((_relationships$elemen = relationships.elements) === null || _relationships$elemen === void 0 ? void 0 : _relationships$elemen.some((element) => element.name === "Relationships"))) {
+			var _relationships$elemen2;
+			relationships.elements = [...(_relationships$elemen2 = relationships.elements) !== null && _relationships$elemen2 !== void 0 ? _relationships$elemen2 : [], ...createRelationshipFile().elements];
+		}
+		return getFirstLevelElements(relationships, "Relationships");
+	};
+	/**
+	* The template's package, as a patch reads and changes it.
+	*
+	* @param parts - The template's XML parts, parsed, by their paths, which are changed in place
+	* @param binaryParts - The template's other parts, by their paths
+	* @param context - The context to format XML with
+	*/
+	var createTemplatePackage = (parts, binaryParts, file, context) => {
+		const formatter = new Formatter();
+		const has = (path) => parts.has(path) || binaryParts.has(path);
+		const findPath = (path) => {
+			if (has(path)) return path;
+			const decoded = (() => {
+				try {
+					return decodeURI(path);
+				} catch (_unused) {
+					return;
+				}
+			})();
+			if (decoded !== void 0 && has(decoded)) return decoded;
+			const lower = path.toLowerCase();
+			return [...parts.keys(), ...binaryParts.keys()].find((key) => key.toLowerCase() === lower);
+		};
+		const findRelationship = (from, id) => {
+			const relationships = parts.get(relationshipsPathOf(from));
+			return relationships === void 0 ? void 0 : getFirstLevelElements(relationships, "Relationships").find((relationship) => {
+				var _relationship$attribu;
+				return relationship.name === "Relationship" && ((_relationship$attribu = relationship.attributes) === null || _relationship$attribu === void 0 ? void 0 : _relationship$attribu.Id) === id;
+			});
+		};
+		const pathOf = (from, relationship) => {
+			var _relationship$attribu2, _relationship$attribu3;
+			const target = (_relationship$attribu2 = relationship.attributes) === null || _relationship$attribu2 === void 0 ? void 0 : _relationship$attribu2.Target;
+			return ((_relationship$attribu3 = relationship.attributes) === null || _relationship$attribu3 === void 0 ? void 0 : _relationship$attribu3.TargetMode) === "External" || target === void 0 ? void 0 : findPath(resolveTarget(from, String(target)));
+		};
+		const isReferenced = (path) => [...parts].some(([relationshipsPath, relationships]) => relationshipsPath.endsWith(".rels") && getFirstLevelElements(relationships, "Relationships").some((relationship) => pathOf(sourceOfRelationships(relationshipsPath), relationship) === path));
+		const removePart = (path) => {
+			parts.delete(path);
+			binaryParts.delete(path);
+			parts.delete(relationshipsPathOf(path));
+			const contentTypes = parts.get(CONTENT_TYPES);
+			if (contentTypes !== void 0) removeContentTypeOverride(contentTypes, `/${path}`);
+		};
+		return {
+			getRelatedPart: (from, relationshipId) => {
+				const relationship = findRelationship(from.path, relationshipId);
+				const path = relationship === void 0 ? void 0 : pathOf(from.path, relationship);
+				return path === void 0 ? void 0 : {
+					path,
+					xml: parts.get(path)
+				};
+			},
+			replaceRelatedPart: (from, relationshipId, part) => {
+				const path = `word/${file.PackageParts.add(part)}`;
+				const { relationshipType } = part.options;
+				const target = relativeTarget(from.path, path);
+				const relationship = relationshipId === void 0 ? void 0 : findRelationship(from.path, relationshipId);
+				if (relationship === void 0) {
+					var _parts$get;
+					const relationshipsPath = relationshipsPathOf(from.path);
+					const relationships = (_parts$get = parts.get(relationshipsPath)) !== null && _parts$get !== void 0 ? _parts$get : createRelationshipFile();
+					parts.set(relationshipsPath, relationships);
+					const id = relationshipId !== null && relationshipId !== void 0 ? relationshipId : `rId${getNextRelationshipIndex(relationships)}`;
+					relationshipsIn(relationships).push({
+						type: "element",
+						name: "Relationship",
+						attributes: {
+							Id: id,
+							Type: relationshipType,
+							Target: target
+						}
+					});
+					return id;
+				}
+				const previous = pathOf(from.path, relationship);
+				relationship.attributes = _objectSpread2(_objectSpread2({}, Object.fromEntries(Object.entries(relationship.attributes).filter(([name]) => name !== "TargetMode"))), {}, {
+					Type: relationshipType,
+					Target: target
+				});
+				if (previous !== void 0 && previous !== from.path && previous !== CONTENT_TYPES && !previous.endsWith(".rels") && !isReferenced(previous)) removePart(previous);
+				return String(relationship.attributes.Id);
+			},
+			format: (content) => toJson((0, import_xml.default)(formatter.format(content, context))).elements[0]
+		};
+	};
+	/**
+	* Applies the patches for drawings whose alt text holds their placeholder, such as charts. Every drawing is found
+	* before any is patched, so a patch only sees the template's own alt text.
+	*
+	* @param parts - The template's XML parts, parsed, by their paths, which are changed in place
+	* @param binaryParts - The template's other parts, by their paths, which parts can be removed from
+	* @param patches - Each drawing patch, by its key
+	* @param createContext - Creates the context to format XML for a part with
+	* @throws If a drawing's alt text holds the placeholders of more than one patch, or a patch throws
+	*/
+	var patchDrawings = ({ parts, binaryParts, file, patches, delimiters }, createContext) => {
+		const placeholders = patches.map(([key, patch]) => ({
+			placeholder: `${delimiters.start}${key}${delimiters.end}`,
+			patch
+		}));
+		const found = [...parts].filter(([path]) => path.startsWith("word/") && !path.endsWith(".rels")).flatMap(([path, xmlPart]) => findDrawings(xmlPart).flatMap((drawing) => {
+			const altText = altTextOf(drawing.properties);
+			const matches = placeholders.filter(({ placeholder }) => altText.some((text) => text.includes(placeholder)));
+			if (matches.length > 1) {
+				var _drawing$properties$a, _drawing$properties$a2;
+				throw new Error(`The drawing "${(_drawing$properties$a = (_drawing$properties$a2 = drawing.properties.attributes) === null || _drawing$properties$a2 === void 0 ? void 0 : _drawing$properties$a2.name) !== null && _drawing$properties$a !== void 0 ? _drawing$properties$a : ""}" in ${path} has the placeholders ${matches.map(({ placeholder }) => placeholder).join(" and ")} in its alt text. A drawing can only be patched once`);
+			}
+			return matches.map(({ placeholder, patch }) => ({
+				drawing: _objectSpread2(_objectSpread2({ placeholder }, drawing), {}, { part: {
+					path,
+					xml: xmlPart
+				} }),
+				patch
+			}));
+		}));
+		for (const { drawing, patch } of found) patch.patch(drawing, createTemplatePackage(parts, binaryParts, file, createContext(drawing.part.path)));
 	};
 	//#endregion
 	//#region src/patcher/paragraph-split-inject.ts
@@ -32442,6 +35174,7 @@ while (n === a[++i] && n === a[++i] && n === a[++i] && n === a[++i] && n === a[+
 	* @param renderedParagraph - Pre-rendered paragraph structure with text positions
 	* @param originalText - The token text to replace (e.g., "{{name}}")
 	* @param replacementText - The text to replace it with (often a split token)
+	* @param fromIndex - Where in the paragraph's text to start looking for the token (default: 0)
 	* @returns The modified paragraph element
 	*
 	* @example
@@ -32454,8 +35187,8 @@ while (n === a[++i] && n === a[++i] && n === a[++i] && n === a[++i] && n === a[+
 	* });
 	* ```
 	*/
-	var replaceTokenInParagraphElement = ({ paragraphElement, renderedParagraph, originalText, replacementText }) => {
-		const startIndex = renderedParagraph.text.indexOf(originalText);
+	var replaceTokenInParagraphElement = ({ paragraphElement, renderedParagraph, originalText, replacementText, fromIndex = 0 }) => {
+		const startIndex = renderedParagraph.text.indexOf(originalText, fromIndex);
 		const endIndex = startIndex + originalText.length - 1;
 		let replaceMode = ReplaceMode.START;
 		for (const run of renderedParagraph.runs) for (const { text, index, start, end } of run.parts) switch (replaceMode) {
@@ -32463,24 +35196,20 @@ while (n === a[++i] && n === a[++i] && n === a[++i] && n === a[++i] && n === a[+
 				if (startIndex >= start && startIndex <= end) {
 					const offsetStartIndex = startIndex - start;
 					const offsetEndIndex = Math.min(endIndex, end) - start;
-					const partToReplace = run.text.substring(offsetStartIndex, offsetEndIndex + 1);
-					if (partToReplace === "") continue;
-					const firstPart = text.replace(partToReplace, replacementText);
+					if (text.substring(offsetStartIndex, offsetEndIndex + 1) === "") continue;
+					const firstPart = text.substring(0, offsetStartIndex) + replacementText + text.substring(offsetEndIndex + 1);
 					patchTextElement(paragraphElement.elements[run.index].elements[index], firstPart);
 					replaceMode = ReplaceMode.MIDDLE;
 					continue;
 				}
 				break;
-			case ReplaceMode.MIDDLE:
-				if (endIndex <= end) {
-					const lastPart = text.substring(endIndex - start + 1);
-					patchTextElement(paragraphElement.elements[run.index].elements[index], lastPart);
-					const currentElement = paragraphElement.elements[run.index].elements[index];
-					paragraphElement.elements[run.index].elements[index] = patchSpaceAttribute(currentElement);
-					replaceMode = ReplaceMode.END;
-				} else patchTextElement(paragraphElement.elements[run.index].elements[index], "");
-				break;
-			default:
+			case ReplaceMode.MIDDLE: if (endIndex <= end) {
+				const lastPart = text.substring(endIndex - start + 1);
+				patchTextElement(paragraphElement.elements[run.index].elements[index], lastPart);
+				const currentElement = paragraphElement.elements[run.index].elements[index];
+				paragraphElement.elements[run.index].elements[index] = patchSpaceAttribute(currentElement);
+				replaceMode = ReplaceMode.END;
+			} else patchTextElement(paragraphElement.elements[run.index].elements[index], "");
 		}
 		return paragraphElement;
 	};
@@ -32543,23 +35272,23 @@ while (n === a[++i] && n === a[++i] && n === a[++i] && n === a[++i] && n === a[+
 		let currentTextStringIndex = currentRunStringIndex;
 		const parts = node.elements.map((element, i) => {
 			var _element$elements$0$t, _element$elements$0$t2;
-			return element.name === "w:t" && element.elements && element.elements.length > 0 ? {
-				text: (_element$elements$0$t = (_element$elements$0$t2 = element.elements[0].text) === null || _element$elements$0$t2 === void 0 ? void 0 : _element$elements$0$t2.toString()) !== null && _element$elements$0$t !== void 0 ? _element$elements$0$t : "",
+			if (element.name !== "w:t" || !element.elements || element.elements.length === 0) return;
+			const partText = (_element$elements$0$t = (_element$elements$0$t2 = element.elements[0].text) === null || _element$elements$0$t2 === void 0 ? void 0 : _element$elements$0$t2.toString()) !== null && _element$elements$0$t !== void 0 ? _element$elements$0$t : "";
+			const start = currentTextStringIndex;
+			currentTextStringIndex += partText.length;
+			return {
+				text: partText,
 				index: i,
-				start: currentTextStringIndex,
-				end: (() => {
-					var _element$elements$0$t3, _element$elements$0$t4;
-					currentTextStringIndex += ((_element$elements$0$t3 = (_element$elements$0$t4 = element.elements[0].text) === null || _element$elements$0$t4 === void 0 ? void 0 : _element$elements$0$t4.toString()) !== null && _element$elements$0$t3 !== void 0 ? _element$elements$0$t3 : "").length - 1;
-					return currentTextStringIndex;
-				})()
-			} : void 0;
+				start,
+				end: start + partText.length - 1
+			};
 		}).filter((e) => !!e).map((e) => e);
 		return {
 			text: parts.reduce((acc, curr) => acc + curr.text, ""),
 			parts,
 			index,
 			start: currentRunStringIndex,
-			end: currentTextStringIndex
+			end: parts.length > 0 ? parts[parts.length - 1].end : currentRunStringIndex
 		};
 	};
 	var buildNodePath = (node) => node.parent ? [...buildNodePath(node.parent), node.index] : [node.index];
@@ -32578,7 +35307,8 @@ while (n === a[++i] && n === a[++i] && n === a[++i] && n === a[++i] && n === a[+
 	*
 	* Uses breadth-first search to walk through the XML structure, identifying
 	* all paragraph elements (w:p) and rendering their text content along with
-	* positional information.
+	* positional information. The replacer relies on this order: shallower
+	* paragraphs come first, and at the same depth, earlier ones come first.
 	*
 	* @param node - The root XML element to traverse
 	* @returns Array of rendered paragraph nodes with text content and positions
@@ -32630,61 +35360,60 @@ while (n === a[++i] && n === a[++i] && n === a[++i] && n === a[++i] && n === a[+
 	* @module
 	*/
 	var formatter = new Formatter();
-	var SPLIT_TOKEN = "ɵ";
+	var SPLIT_TOKEN = "￿";
 	/**
 	* Replaces placeholder text in XML with new content from a patch.
 	*
 	* This function locates placeholder text within the XML structure and performs
 	* the appropriate replacement based on the patch type (document or paragraph level).
 	* It handles splitting runs, preserving styles, and injecting the new content.
+	* Content the patch inserts is never searched, so it can contain its own placeholder.
 	*
 	* @param json - The XML element structure to search
 	* @param patch - The patch definition containing replacement content
 	* @param patchText - The placeholder text to find (e.g., "{{name}}")
 	* @param context - The document context for formatting
 	* @param keepOriginalStyles - Whether to preserve original text formatting
+	* @param recursive - Whether to replace every occurrence in a paragraph, rather than only the first
 	* @returns Result containing the modified element and whether a replacement occurred
 	*/
-	var replacer = ({ json, patch, patchText, context, keepOriginalStyles = true }) => {
+	var replacer = ({ json, patch, patchText, context, keepOriginalStyles = true, recursive = true }) => {
 		const renderedParagraphs = findLocationOfText(json, patchText);
 		if (renderedParagraphs.length === 0) return {
 			element: json,
 			didFindOccurrence: false
 		};
-		for (const renderedParagraph of renderedParagraphs) {
-			const textJson = patch.children.map((c) => toJson((0, import_xml.default)(formatter.format(c, context)))).map((c) => c.elements[0]);
-			switch (patch.type) {
-				case PatchType.DOCUMENT: {
-					const parentElement = goToParentElementFromPath(json, renderedParagraph.pathToParagraph);
-					const elementIndex = getLastElementIndexFromPath(renderedParagraph.pathToParagraph);
-					parentElement.elements.splice(elementIndex, 1, ...textJson);
-					break;
-				}
-				case PatchType.PARAGRAPH:
-				default: {
-					const paragraphElement = goToElementFromPath(json, renderedParagraph.pathToParagraph);
-					replaceTokenInParagraphElement({
+		const paragraphsInPatchOrder = [...renderedParagraphs].reverse();
+		const paragraphsToPatch = patch.type === PatchType.DOCUMENT ? withoutNestedParagraphs(paragraphsInPatchOrder) : paragraphsInPatchOrder;
+		for (const renderedParagraph of paragraphsToPatch) switch (patch.type) {
+			case PatchType.DOCUMENT: {
+				const parentElement = goToParentElementFromPath(json, renderedParagraph.pathToParagraph);
+				const elementIndex = getLastElementIndexFromPath(renderedParagraph.pathToParagraph);
+				parentElement.elements.splice(elementIndex, 1, ...formatChildren(patch, context));
+				break;
+			}
+			case PatchType.PARAGRAPH:
+			default: {
+				const paragraphElement = goToElementFromPath(json, renderedParagraph.pathToParagraph);
+				let paragraph = renderedParagraph;
+				let fromIndex = 0;
+				do {
+					const nextRunIndex = replaceOccurrenceInParagraph({
 						paragraphElement,
-						renderedParagraph,
-						originalText: patchText,
-						replacementText: SPLIT_TOKEN
+						renderedParagraph: paragraph,
+						patchText,
+						fromIndex,
+						children: formatChildren(patch, context),
+						keepOriginalStyles
 					});
-					const index = findRunElementIndexWithToken(paragraphElement, SPLIT_TOKEN);
-					const runElementToBeReplaced = paragraphElement.elements[index];
-					const { left, right } = splitRunElement(runElementToBeReplaced, SPLIT_TOKEN);
-					let newRunElements = textJson;
-					let patchedRightElement = right;
-					if (keepOriginalStyles) {
-						const runElementNonTextualElements = runElementToBeReplaced.elements.filter((e) => e.type === "element" && e.name === "w:rPr");
-						newRunElements = textJson.map((e) => {
-							var _e$elements;
-							return _objectSpread2(_objectSpread2({}, e), {}, { elements: [...runElementNonTextualElements, ...(_e$elements = e.elements) !== null && _e$elements !== void 0 ? _e$elements : []] });
-						});
-						patchedRightElement = _objectSpread2(_objectSpread2({}, right), {}, { elements: [...runElementNonTextualElements, ...right.elements] });
-					}
-					paragraphElement.elements.splice(index, 1, left, ...newRunElements, patchedRightElement);
-					break;
-				}
+					paragraph = renderParagraphNode({
+						element: paragraphElement,
+						index: renderedParagraph.index,
+						parent: void 0
+					});
+					fromIndex = paragraph.runs.filter((run) => run.index < nextRunIndex).reduce((length, run) => length + run.text.length, 0);
+				} while (recursive && paragraph.text.includes(patchText, fromIndex));
+				break;
 			}
 		}
 		return {
@@ -32692,6 +35421,113 @@ while (n === a[++i] && n === a[++i] && n === a[++i] && n === a[++i] && n === a[+
 			didFindOccurrence: true
 		};
 	};
+	var formatChildren = (patch, context) => patch.children.flatMap((c) => {
+		var _c$writtenAs;
+		return (_c$writtenAs = c.writtenAs) !== null && _c$writtenAs !== void 0 ? _c$writtenAs : c;
+	}).map((c) => toJson((0, import_xml.default)(formatter.format(c, context)))).map((c) => c.elements[0]);
+	/**
+	* Replaces the first occurrence of the placeholder from `fromIndex` on, splitting the run it starts in.
+	*
+	* @returns The index of the run after the inserted content
+	*/
+	var replaceOccurrenceInParagraph = ({ paragraphElement, renderedParagraph, patchText, fromIndex, children, keepOriginalStyles }) => {
+		replaceTokenInParagraphElement({
+			paragraphElement,
+			renderedParagraph,
+			originalText: patchText,
+			replacementText: SPLIT_TOKEN,
+			fromIndex
+		});
+		const index = findRunElementIndexWithToken(paragraphElement, SPLIT_TOKEN);
+		const runElementToBeReplaced = paragraphElement.elements[index];
+		const { left, right } = splitRunElement(runElementToBeReplaced, SPLIT_TOKEN);
+		const runProperties = runElementToBeReplaced.elements.find((e) => e.type === "element" && e.name === "w:rPr");
+		const newRunElements = keepOriginalStyles && runProperties ? children.map((e) => e.name === "w:r" ? withRunProperties(e, runProperties) : e) : children;
+		const patchedRightElement = runProperties ? _objectSpread2(_objectSpread2({}, right), {}, { elements: [runProperties, ...right.elements] }) : right;
+		paragraphElement.elements.splice(index, 1, left, ...newRunElements, patchedRightElement);
+		return index + 1 + newRunElements.length;
+	};
+	/**
+	* Gives a run the placeholder's run properties. A run can only have one w:rPr, so properties the run
+	* sets itself are kept, and the placeholder's fill in the rest.
+	*/
+	var withRunProperties = (runElement, originalRunProperties) => {
+		const ownRunProperties = childElementsOf(runElement).find((e) => e.type === "element" && e.name === "w:rPr");
+		if (!ownRunProperties) return _objectSpread2(_objectSpread2({}, runElement), {}, { elements: [originalRunProperties, ...childElementsOf(runElement)] });
+		const ownPropertyNames = new Set(childElementsOf(ownRunProperties).map((e) => e.name));
+		const properties = [...childElementsOf(originalRunProperties).filter((e) => !ownPropertyNames.has(e.name)), ...childElementsOf(ownRunProperties)];
+		const mergedRunProperties = _objectSpread2(_objectSpread2({}, ownRunProperties), {}, { elements: [...properties].sort((a, b) => runPropertyRank(a) - runPropertyRank(b)) });
+		return _objectSpread2(_objectSpread2({}, runElement), {}, { elements: childElementsOf(runElement).map((e) => e === ownRunProperties ? mergedRunProperties : e) });
+	};
+	/**
+	* The order Office's schema puts a run's properties in: CT_RPr's elements, then Word 2010's text effects and
+	* OpenType features. ISO 29500 allows any order, but Office and the Open XML SDK validator don't.
+	*/
+	var RUN_PROPERTY_ORDER = [
+		"w:rStyle",
+		"w:rFonts",
+		"w:b",
+		"w:bCs",
+		"w:i",
+		"w:iCs",
+		"w:caps",
+		"w:smallCaps",
+		"w:strike",
+		"w:dstrike",
+		"w:outline",
+		"w:shadow",
+		"w:emboss",
+		"w:imprint",
+		"w:noProof",
+		"w:snapToGrid",
+		"w:vanish",
+		"w:webHidden",
+		"w:color",
+		"w:spacing",
+		"w:w",
+		"w:kern",
+		"w:position",
+		"w:sz",
+		"w:szCs",
+		"w:highlight",
+		"w:u",
+		"w:effect",
+		"w:bdr",
+		"w:shd",
+		"w:fitText",
+		"w:vertAlign",
+		"w:rtl",
+		"w:cs",
+		"w:em",
+		"w:lang",
+		"w:eastAsianLayout",
+		"w:specVanish",
+		"w:oMath",
+		"w14:glow",
+		"w14:shadow",
+		"w14:reflection",
+		"w14:textOutline",
+		"w14:textFill",
+		"w14:scene3d",
+		"w14:props3d",
+		"w14:ligatures",
+		"w14:numForm",
+		"w14:numSpacing",
+		"w14:stylisticSets",
+		"w14:cntxtAlts"
+	];
+	var runPropertyRank = (element) => {
+		var _element$name;
+		if (element.name === "w:rPrChange") return RUN_PROPERTY_ORDER.length + 1;
+		const index = RUN_PROPERTY_ORDER.indexOf((_element$name = element.name) !== null && _element$name !== void 0 ? _element$name : "");
+		return index === -1 ? RUN_PROPERTY_ORDER.length : index;
+	};
+	var childElementsOf = (element) => {
+		var _element$elements;
+		return (_element$elements = element.elements) !== null && _element$elements !== void 0 ? _element$elements : [];
+	};
+	var isInsideElementAtPath = (path, ancestorPath) => path.length > ancestorPath.length && ancestorPath.every((index, i) => path[i] === index);
+	var withoutNestedParagraphs = (paragraphs) => paragraphs.filter((paragraph) => !paragraphs.some((other) => isInsideElementAtPath(paragraph.pathToParagraph, other.pathToParagraph)));
 	var goToElementFromPath = (json, path) => {
 		let element = json;
 		for (let i = 1; i < path.length; i++) {
@@ -32703,6 +35539,94 @@ while (n === a[++i] && n === a[++i] && n === a[++i] && n === a[++i] && n === a[+
 	var goToParentElementFromPath = (json, path) => goToElementFromPath(json, path.slice(0, path.length - 1));
 	var getLastElementIndexFromPath = (path) => path[path.length - 1];
 	//#endregion
+	//#region src/patcher/theme-colors.ts
+	var THEME_RELATIONSHIP_TYPE = "http://schemas.openxmlformats.org/officeDocument/2006/relationships/theme";
+	var COLOR_NAMES = /* @__PURE__ */ new Map([
+		["dk1", "dark1"],
+		["lt1", "light1"],
+		["dk2", "dark2"],
+		["lt2", "light2"],
+		["accent1", "accent1"],
+		["accent2", "accent2"],
+		["accent3", "accent3"],
+		["accent4", "accent4"],
+		["accent5", "accent5"],
+		["accent6", "accent6"],
+		["hlink", "hyperlink"],
+		["folHlink", "followedHyperlink"]
+	]);
+	var localName = (element) => {
+		var _element$name;
+		return (_element$name = element.name) === null || _element$name === void 0 ? void 0 : _element$name.slice(element.name.indexOf(":") + 1);
+	};
+	var child = (element, name) => {
+		var _element$elements;
+		return element === null || element === void 0 || (_element$elements = element.elements) === null || _element$elements === void 0 ? void 0 : _element$elements.find((item) => localName(item) === name);
+	};
+	/**
+	* The hex value of a theme's color: an RGB color's value, or the last value of a system color, as Word writes them.
+	* Other kinds of color aren't read.
+	*/
+	var hexValue = (color) => {
+		var _color$elements;
+		const value = (_color$elements = color.elements) === null || _color$elements === void 0 ? void 0 : _color$elements.map((item) => {
+			var _item$attributes, _item$attributes2;
+			return localName(item) === "srgbClr" ? (_item$attributes = item.attributes) === null || _item$attributes === void 0 ? void 0 : _item$attributes.val : localName(item) === "sysClr" ? (_item$attributes2 = item.attributes) === null || _item$attributes2 === void 0 ? void 0 : _item$attributes2.lastClr : void 0;
+		}).find((item) => item !== void 0);
+		return typeof value === "string" && /^[0-9A-Fa-f]{6}$/.test(value) ? value.toUpperCase() : void 0;
+	};
+	var isUtf16 = (bytes) => bytes[0] === 255 && bytes[1] === 254 || bytes[0] === 254 && bytes[1] === 255;
+	var readPart = function() {
+		var _ref = _asyncToGenerator(function* (zip, path) {
+			const part = zip.file(path);
+			if (part === null) return;
+			return isUtf16(yield part.async("uint8array")) ? void 0 : toJson(yield part.async("text"));
+		});
+		return function readPart(_x, _x2) {
+			return _ref.apply(this, arguments);
+		};
+	}();
+	/**
+	* The document's theme part, found from the document's relationships.
+	*/
+	var readTheme = function() {
+		var _ref2 = _asyncToGenerator(function* (zip) {
+			var _child, _theme$attributes;
+			const theme = (_child = child(yield readPart(zip, "word/_rels/document.xml.rels"), "Relationships")) === null || _child === void 0 || (_child = _child.elements) === null || _child === void 0 ? void 0 : _child.find((item) => {
+				var _item$attributes3;
+				return ((_item$attributes3 = item.attributes) === null || _item$attributes3 === void 0 ? void 0 : _item$attributes3.Type) === THEME_RELATIONSHIP_TYPE;
+			});
+			const target = theme === null || theme === void 0 || (_theme$attributes = theme.attributes) === null || _theme$attributes === void 0 ? void 0 : _theme$attributes.Target;
+			return typeof target === "string" ? readPart(zip, target.startsWith("/") ? target.slice(1) : `word/${target}`) : void 0;
+		});
+		return function readTheme(_x3) {
+			return _ref2.apply(this, arguments);
+		};
+	}();
+	/**
+	* Reads the colors of the document's theme. Colors it doesn't give, or gives in a way that isn't read, are Office's.
+	*
+	* @returns The theme's colors, or `undefined` if the document has no theme that can be read
+	*/
+	var readThemeColors = function() {
+		var _ref3 = _asyncToGenerator(function* (zip) {
+			var _scheme$elements;
+			const theme = yield readTheme(zip);
+			if (theme === void 0) return;
+			const scheme = child(child(child(theme, "theme"), "themeElements"), "clrScheme");
+			const colors = ((_scheme$elements = scheme === null || scheme === void 0 ? void 0 : scheme.elements) !== null && _scheme$elements !== void 0 ? _scheme$elements : []).flatMap((color) => {
+				var _localName;
+				const name = COLOR_NAMES.get((_localName = localName(color)) !== null && _localName !== void 0 ? _localName : "");
+				const value = hexValue(color);
+				return name && value ? [[name, value]] : [];
+			});
+			return themeColorValues(Object.fromEntries(colors));
+		});
+		return function readThemeColors(_x4) {
+			return _ref3.apply(this, arguments);
+		};
+	}();
+	//#endregion
 	//#region src/patcher/from-docx.ts
 	/**
 	* Document patching module for modifying existing .docx files.
@@ -32712,19 +35636,6 @@ while (n === a[++i] && n === a[++i] && n === a[++i] && n === a[++i] && n === a[+
 	*
 	* @module
 	*/
-	/**
-	* Patch type enumeration.
-	*
-	* Determines how the replacement content should be inserted into the document.
-	*
-	* @publicApi
-	*/
-	var PatchType = {
-		/** Replace entire file-level elements (e.g., whole paragraphs) */
-		DOCUMENT: "file",
-		/** Replace content within paragraphs (inline replacement) */
-		PARAGRAPH: "paragraph"
-	};
 	var imageReplacer = new ImageReplacer();
 	var UTF16LE = new Uint8Array([255, 254]);
 	var UTF16BE = new Uint8Array([254, 255]);
@@ -32775,12 +35686,24 @@ while (n === a[++i] && n === a[++i] && n === a[++i] && n === a[++i] && n === a[+
 		}, recursive = true }) {
 			const zipContent = data instanceof import_jszip_min.default ? data : yield import_jszip_min.default.loadAsync(data);
 			const contexts = /* @__PURE__ */ new Map();
-			const file = { Media: new Media() };
+			const themeColors = yield readThemeColors(zipContent);
+			const contentTypeOverrides = [];
+			const file = {
+				Media: new Media(),
+				Theme: themeColors && { Colors: themeColors },
+				PackageParts: new PackageParts({ addOverride: (contentType, partName) => contentTypeOverrides.push({
+					contentType,
+					partName
+				}) }, new Set(Object.keys(zipContent.files).filter((path) => path.startsWith("word/")).map((path) => path.slice(5))))
+			};
 			const map = /* @__PURE__ */ new Map();
 			const imageRelationshipAdditions = [];
-			const hyperlinkRelationshipAdditions = [];
+			const relationshipAdditions = [];
 			let hasMedia = false;
 			const binaryContentMap = /* @__PURE__ */ new Map();
+			if (!(placeholderDelimiters === null || placeholderDelimiters === void 0 ? void 0 : placeholderDelimiters.start.trim()) || !(placeholderDelimiters === null || placeholderDelimiters === void 0 ? void 0 : placeholderDelimiters.end.trim())) throw new Error("Both start and end delimiters must be non-empty strings.");
+			const { start, end } = placeholderDelimiters;
+			for (const [key, patch] of Object.entries(patches)) if (!((patch === null || patch === void 0 ? void 0 : patch.type) === PatchType.DRAWING ? typeof patch.patch === "function" : Array.isArray(patch === null || patch === void 0 ? void 0 : patch.children))) throw new Error(`Invalid patch "${key}". Expected { type: PatchType.PARAGRAPH or PatchType.DOCUMENT, children: [...] }, or a drawing patch such as ChartDataPatch from docx/charts`);
 			for (const [key, value] of Object.entries(zipContent.files)) {
 				const binaryValue = yield value.async("uint8array");
 				const startBytes = binaryValue.slice(0, 2);
@@ -32807,62 +35730,71 @@ while (n === a[++i] && n === a[++i] && n === a[++i] && n === a[++i] && n === a[+
 						document.attributes["mc:Ignorable"] = `${document.attributes["mc:Ignorable"] || ""} w15`.trim();
 					}
 				}
-				if (key.startsWith("word/") && !key.endsWith(".xml.rels")) {
-					const context = {
-						file,
-						viewWrapper: { Relationships: { addRelationship: (linkId, _, target, __) => {
-							hyperlinkRelationshipAdditions.push({
-								key,
-								hyperlink: {
-									id: linkId,
-									link: target
-								}
-							});
-						} } },
-						stack: []
-					};
-					contexts.set(key, context);
-					if (!(placeholderDelimiters === null || placeholderDelimiters === void 0 ? void 0 : placeholderDelimiters.start.trim()) || !(placeholderDelimiters === null || placeholderDelimiters === void 0 ? void 0 : placeholderDelimiters.end.trim())) throw new Error("Both start and end delimiters must be non-empty strings.");
-					const { start, end } = placeholderDelimiters;
-					for (const [patchKey, patchValue] of Object.entries(patches)) {
-						const patchText = `${start}${patchKey}${end}`;
-						while (true) {
-							const { didFindOccurrence } = replacer({
-								json,
-								patch: _objectSpread2(_objectSpread2({}, patchValue), {}, { children: patchValue.children.map((element) => {
-									if (element instanceof ExternalHyperlink) {
-										const concreteHyperlink = new ConcreteHyperlink(element.options.children, uniqueId());
-										hyperlinkRelationshipAdditions.push({
-											key,
-											hyperlink: {
-												id: concreteHyperlink.linkId,
-												link: element.options.link
-											}
-										});
-										return concreteHyperlink;
-									} else return element;
-								}) }),
-								patchText,
-								context,
-								keepOriginalStyles
-							});
-							if (!recursive || !didFindOccurrence) break;
-						}
-					}
-					const mediaDatas = imageReplacer.getMediaData(JSON.stringify(json), context.file.Media);
-					if (mediaDatas.length > 0) {
-						hasMedia = true;
-						imageRelationshipAdditions.push({
-							key,
-							mediaDatas
-						});
-					}
-				}
 				map.set(key, json);
+			}
+			const createContext = (key) => ({
+				file,
+				viewWrapper: { Relationships: { addRelationship: (id, type, target, targetMode) => {
+					relationshipAdditions.push({
+						key,
+						id,
+						type,
+						target,
+						targetMode
+					});
+				} } },
+				stack: []
+			});
+			patchDrawings({
+				parts: map,
+				binaryParts: binaryContentMap,
+				file,
+				patches: Object.entries(patches).flatMap(([key, patch]) => patch.type === PatchType.DRAWING ? [[key, patch]] : []),
+				delimiters: {
+					start,
+					end
+				}
+			}, createContext);
+			for (const [key, json] of [...map]) {
+				if (!key.startsWith("word/") || key.endsWith(".xml.rels")) continue;
+				const context = createContext(key);
+				contexts.set(key, context);
+				for (const [patchKey, patchValue] of Object.entries(patches)) {
+					if (patchValue.type === PatchType.DRAWING) continue;
+					const patchText = `${start}${patchKey}${end}`;
+					replacer({
+						json,
+						patch: _objectSpread2(_objectSpread2({}, patchValue), {}, { children: patchValue.children.map((element) => {
+							if (element instanceof ExternalHyperlink) {
+								const concreteHyperlink = new ConcreteHyperlink(element.options.children, uniqueId());
+								relationshipAdditions.push({
+									key,
+									id: concreteHyperlink.linkId,
+									type: "http://schemas.openxmlformats.org/officeDocument/2006/relationships/hyperlink",
+									target: element.options.link,
+									targetMode: TargetModeType.EXTERNAL
+								});
+								return concreteHyperlink;
+							} else return element;
+						}) }),
+						patchText,
+						context,
+						keepOriginalStyles,
+						recursive
+					});
+				}
+				const mediaDatas = imageReplacer.getMediaData(JSON.stringify(json), context.file.Media);
+				if (mediaDatas.length > 0) {
+					hasMedia = true;
+					imageRelationshipAdditions.push({
+						key,
+						mediaDatas
+					});
+				}
 			}
 			for (const { key, mediaDatas } of imageRelationshipAdditions) {
 				var _map$get;
-				const relationshipKey = `word/_rels/${key.split("/").pop()}.rels`;
+				const relationshipKey = relationshipsPathOf(key);
 				const relationshipsJson = (_map$get = map.get(relationshipKey)) !== null && _map$get !== void 0 ? _map$get : createRelationshipFile();
 				map.set(relationshipKey, relationshipsJson);
 				const index = getNextRelationshipIndex(relationshipsJson);
@@ -32873,22 +35805,26 @@ while (n === a[++i] && n === a[++i] && n === a[++i] && n === a[++i] && n === a[+
 					appendRelationship(relationshipsJson, index + i, "http://schemas.openxmlformats.org/officeDocument/2006/relationships/image", `media/${fileName}`);
 				}
 			}
-			for (const { key, hyperlink } of hyperlinkRelationshipAdditions) {
+			for (const { key, id, type, target, targetMode } of relationshipAdditions) {
 				var _map$get2;
-				const relationshipKey = `word/_rels/${key.split("/").pop()}.rels`;
+				const relationshipKey = relationshipsPathOf(key);
 				const relationshipsJson = (_map$get2 = map.get(relationshipKey)) !== null && _map$get2 !== void 0 ? _map$get2 : createRelationshipFile();
 				map.set(relationshipKey, relationshipsJson);
-				appendRelationship(relationshipsJson, hyperlink.id, "http://schemas.openxmlformats.org/officeDocument/2006/relationships/hyperlink", hyperlink.link, TargetModeType.EXTERNAL);
+				appendRelationship(relationshipsJson, id, type, target, targetMode);
 			}
-			if (hasMedia) {
+			const packageParts = xmlifyPackageParts(file, void 0);
+			if (hasMedia || contentTypeOverrides.length > 0) {
 				const contentTypesJson = map.get("[Content_Types].xml");
 				if (!contentTypesJson) throw new Error("Could not find content types file");
-				appendContentType(contentTypesJson, "image/png", "png");
-				appendContentType(contentTypesJson, "image/jpeg", "jpeg");
-				appendContentType(contentTypesJson, "image/jpeg", "jpg");
-				appendContentType(contentTypesJson, "image/bmp", "bmp");
-				appendContentType(contentTypesJson, "image/gif", "gif");
-				appendContentType(contentTypesJson, "image/svg+xml", "svg");
+				if (hasMedia) {
+					appendContentType(contentTypesJson, "image/png", "png");
+					appendContentType(contentTypesJson, "image/jpeg", "jpeg");
+					appendContentType(contentTypesJson, "image/jpeg", "jpg");
+					appendContentType(contentTypesJson, "image/bmp", "bmp");
+					appendContentType(contentTypesJson, "image/gif", "gif");
+					appendContentType(contentTypesJson, "image/svg+xml", "svg");
+				}
+				for (const { contentType, partName } of contentTypeOverrides) appendContentTypeOverride(contentTypesJson, contentType, partName);
 			}
 			const zip = new import_jszip_min.default();
 			for (const [key, value] of map) {
@@ -32897,6 +35833,7 @@ while (n === a[++i] && n === a[++i] && n === a[++i] && n === a[++i] && n === a[+
 			}
 			for (const [key, value] of binaryContentMap) zip.file(key, value);
 			for (const { data: stream, fileName } of file.Media.Array) zip.file(`word/media/${fileName}`, stream);
+			for (const { path, data: partData } of packageParts) zip.file(path, typeof partData === "string" ? encodeUtf8(partData) : partData);
 			return zip.generateAsync({
 				type: outputType,
 				mimeType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
@@ -32907,22 +35844,14 @@ while (n === a[++i] && n === a[++i] && n === a[++i] && n === a[++i] && n === a[+
 			return _ref.apply(this, arguments);
 		};
 	}();
+	/**
+	* The element with an extra escape on each "&" in its text. xml-js reads "&amp;" in text as an "&" already escaped, and
+	* would write a text's literal "&amp;", such as in a document about HTML, as "&".
+	*/
+	var withAmpersandsEscaped = (element) => _objectSpread2(_objectSpread2({}, element), element.elements === void 0 ? {} : { elements: element.elements.map((child) => child.type === "text" ? _objectSpread2(_objectSpread2({}, child), {}, { text: String(child.text).replace(/&/g, "&amp;") }) : withAmpersandsEscaped(child)) });
 	var toXml = (jsonObj) => {
-		return (0, import_lib.js2xml)(jsonObj, { attributeValueFn: (str) => String(str).replace(/&(?!amp;|lt;|gt;|quot;|apos;)/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&apos;") });
+		return (0, import_lib.js2xml)(withAmpersandsEscaped(jsonObj), { attributeValueFn: (str) => String(str).replace(/&(?!amp;|lt;|gt;|quot;|apos;)/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&apos;") });
 	};
-	var createRelationshipFile = () => ({
-		declaration: { attributes: {
-			version: "1.0",
-			encoding: "UTF-8",
-			standalone: "yes"
-		} },
-		elements: [{
-			type: "element",
-			name: "Relationships",
-			attributes: { xmlns: "http://schemas.openxmlformats.org/package/2006/relationships" },
-			elements: []
-		}]
-	});
 	//#endregion
 	//#region src/patcher/patch-detector.ts
 	/**
@@ -32934,8 +35863,10 @@ while (n === a[++i] && n === a[++i] && n === a[++i] && n === a[++i] && n === a[+
 	* Detects all placeholders present in a document template.
 	*
 	* Scans through all XML content in a .docx file to find placeholder text
-	* enclosed in delimiters (default: {{placeholder}}). This is useful for
-	* discovering what patches a template expects before performing replacement.
+	* enclosed in delimiters (default: {{placeholder}}), and placeholders in the
+	* alt text of drawings, such as a chart for `docx/charts`' `ChartDataPatch`.
+	* This is useful for discovering what patches a template expects before
+	* performing replacement.
 	*
 	* @param options - Patch detector configuration
 	* @returns Array of placeholder keys found in the document
@@ -32961,7 +35892,10 @@ while (n === a[++i] && n === a[++i] && n === a[++i] && n === a[++i] && n === a[+
 			const patches = /* @__PURE__ */ new Set();
 			for (const [key, value] of Object.entries(zipContent.files)) {
 				if (!key.endsWith(".xml") && !key.endsWith(".rels")) continue;
-				if (key.startsWith("word/") && !key.endsWith(".xml.rels")) traverse(toJson(yield value.async("text"))).forEach((p) => findPatchKeys(p.text).forEach((patch) => patches.add(patch)));
+				if (key.startsWith("word/") && !key.endsWith(".xml.rels")) {
+					const json = toJson(yield value.async("text"));
+					[...traverse(json).map((p) => p.text), ...findDrawings(json).flatMap(({ properties }) => altTextOf(properties))].forEach((text) => findPatchKeys(text).forEach((patch) => patches.add(patch)));
+				}
 			}
 			return Array.from(patches);
 		});
@@ -32977,7 +35911,7 @@ while (n === a[++i] && n === a[++i] && n === a[++i] && n === a[++i] && n === a[+
 	*/
 	var findPatchKeys = (text) => {
 		var _text$match;
-		const pattern = /* @__PURE__ */ new RegExp("(?<=\\{\\{).+?(?=\\}\\})", "gs");
+		const pattern = new RegExp("(?<=\\{\\{).+?(?=\\}\\})", "gs");
 		return (_text$match = text.match(pattern)) !== null && _text$match !== void 0 ? _text$match : [];
 	};
 	//#endregion
@@ -33025,6 +35959,7 @@ while (n === a[++i] && n === a[++i] && n === a[++i] && n === a[++i] && n === a[+
 	exports.DocumentDefaults = DocumentDefaults;
 	exports.DocumentGridType = DocumentGridType;
 	exports.Drawing = Drawing;
+	exports.DrawingPatch = DrawingPatch;
 	exports.DropCapType = DropCapType;
 	exports.EMPTY_OBJECT = EMPTY_OBJECT;
 	exports.EmphasisMarkType = EmphasisMarkType;
@@ -33106,6 +36041,7 @@ while (n === a[++i] && n === a[++i] && n === a[++i] && n === a[++i] && n === a[+
 	exports.MonthShort = MonthShort;
 	exports.NextAttributeComponent = NextAttributeComponent;
 	exports.NoBreakHyphen = NoBreakHyphen;
+	exports.NonVisualDrawingProperties = NonVisualDrawingProperties;
 	exports.NumberFormat = NumberFormat;
 	exports.NumberProperties = NumberProperties;
 	exports.NumberValueElement = NumberValueElement;
@@ -33114,6 +36050,7 @@ while (n === a[++i] && n === a[++i] && n === a[++i] && n === a[++i] && n === a[+
 	exports.Numbering = Numbering;
 	exports.OnOffElement = OnOffElement;
 	exports.OverlapType = OverlapType;
+	exports.PackagePart = PackagePart;
 	exports.Packer = Packer;
 	exports.PageBorderDisplay = PageBorderDisplay;
 	exports.PageBorderOffsetFrom = PageBorderOffsetFrom;
@@ -33145,6 +36082,7 @@ while (n === a[++i] && n === a[++i] && n === a[++i] && n === a[++i] && n === a[+
 	exports.RunProperties = RunProperties;
 	exports.RunPropertiesChange = RunPropertiesChange;
 	exports.RunPropertiesDefaults = RunPropertiesDefaults;
+	exports.SchemeColor = SchemeColor;
 	exports.SectionProperties = SectionProperties;
 	exports.SectionPropertiesChange = SectionPropertiesChange;
 	exports.SectionType = SectionType;
@@ -33185,6 +36123,7 @@ while (n === a[++i] && n === a[++i] && n === a[++i] && n === a[++i] && n === a[+
 	exports.TextWrappingType = TextWrappingType;
 	exports.Textbox = Textbox;
 	exports.ThematicBreak = ThematicBreak;
+	exports.Theme = Theme;
 	exports.UnderlineType = UnderlineType;
 	exports.VerticalAlign = VerticalAlign;
 	exports.VerticalAlignSection = VerticalAlignSection;
@@ -33195,9 +36134,6 @@ while (n === a[++i] && n === a[++i] && n === a[++i] && n === a[++i] && n === a[+
 	exports.VerticalMergeType = VerticalMergeType;
 	exports.VerticalPositionAlign = VerticalPositionAlign;
 	exports.VerticalPositionRelativeFrom = VerticalPositionRelativeFrom;
-	exports.WORKAROUND2 = WORKAROUND2;
-	exports.WORKAROUND3 = WORKAROUND3;
-	exports.WORKAROUND4 = WORKAROUND4;
 	exports.WidthType = WidthType;
 	exports.WpgGroupRun = WpgGroupRun;
 	exports.WpsShapeRun = WpsShapeRun;
@@ -33206,6 +36142,7 @@ while (n === a[++i] && n === a[++i] && n === a[++i] && n === a[++i] && n === a[+
 	exports.YearLong = YearLong;
 	exports.YearShort = YearShort;
 	exports.abstractNumUniqueNumericIdGen = abstractNumUniqueNumericIdGen;
+	exports.bookmarkUniqueNumericId = bookmarkUniqueNumericId;
 	exports.bookmarkUniqueNumericIdGen = bookmarkUniqueNumericIdGen;
 	exports.commentIdToParaId = commentIdToParaId;
 	exports.concreteNumUniqueNumericIdGen = concreteNumUniqueNumericIdGen;
@@ -33256,12 +36193,15 @@ while (n === a[++i] && n === a[++i] && n === a[++i] && n === a[++i] && n === a[+
 	exports.createUnderline = createUnderline;
 	exports.createVerticalAlign = createVerticalAlign;
 	exports.createVerticalPosition = createVerticalPosition;
+	exports.createVmlShape = createVmlShape;
 	exports.createWrapNone = createWrapNone;
 	exports.createWrapSquare = createWrapSquare;
+	exports.createWrapThrough = createWrapThrough;
 	exports.createWrapTight = createWrapTight;
 	exports.createWrapTopAndBottom = createWrapTopAndBottom;
 	exports.dateTimeValue = dateTimeValue;
 	exports.decimalNumber = decimalNumber;
+	exports.docPropertiesUniqueNumericId = docPropertiesUniqueNumericId;
 	exports.docPropertiesUniqueNumericIdGen = docPropertiesUniqueNumericIdGen;
 	exports.eighthPointMeasureValue = eighthPointMeasureValue;
 	exports.encodeUtf8 = encodeUtf8;
@@ -33286,6 +36226,7 @@ while (n === a[++i] && n === a[++i] && n === a[++i] && n === a[++i] && n === a[+
 	exports.uniqueId = uniqueId;
 	exports.uniqueNumericIdCreator = uniqueNumericIdCreator;
 	exports.uniqueUuid = uniqueUuid;
+	exports.universalMeasureToTwips = universalMeasureToTwips;
 	exports.universalMeasureValue = universalMeasureValue;
 	exports.unsignedDecimalNumber = unsignedDecimalNumber;
 });
