@@ -33,7 +33,7 @@
 		enumerable: true
 	}) : target, mod));
 	//#endregion
-	//#region \0@oxc-project+runtime@0.150.0/helpers/esm/typeof.js
+	//#region \0@oxc-project+runtime@0.152.0/helpers/esm/typeof.js
 	function _typeof(o) {
 		"@babel/helpers - typeof";
 		return _typeof = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function(o) {
@@ -43,7 +43,7 @@
 		}, _typeof(o);
 	}
 	//#endregion
-	//#region \0@oxc-project+runtime@0.150.0/helpers/esm/toPrimitive.js
+	//#region \0@oxc-project+runtime@0.152.0/helpers/esm/toPrimitive.js
 	function toPrimitive(t, r) {
 		if ("object" != _typeof(t) || !t) return t;
 		var e = t[Symbol.toPrimitive];
@@ -55,13 +55,13 @@
 		return ("string" === r ? String : Number)(t);
 	}
 	//#endregion
-	//#region \0@oxc-project+runtime@0.150.0/helpers/esm/toPropertyKey.js
+	//#region \0@oxc-project+runtime@0.152.0/helpers/esm/toPropertyKey.js
 	function toPropertyKey(t) {
 		var i = toPrimitive(t, "string");
 		return "symbol" == _typeof(i) ? i : i + "";
 	}
 	//#endregion
-	//#region \0@oxc-project+runtime@0.150.0/helpers/esm/defineProperty.js
+	//#region \0@oxc-project+runtime@0.152.0/helpers/esm/defineProperty.js
 	function _defineProperty(e, r, t) {
 		return (r = toPropertyKey(r)) in e ? Object.defineProperty(e, r, {
 			value: t,
@@ -271,7 +271,7 @@
 		}
 	};
 	//#endregion
-	//#region \0@oxc-project+runtime@0.150.0/helpers/esm/objectSpread2.js
+	//#region \0@oxc-project+runtime@0.152.0/helpers/esm/objectSpread2.js
 	function ownKeys(e, r) {
 		var t = Object.keys(e);
 		if (Object.getOwnPropertySymbols) {
@@ -8953,11 +8953,11 @@
 	* @publicApi
 	*/
 	var AlignmentType = {
-		/** Align Start */
+		/** Align Start: the left in a left-to-right paragraph, and the right in a `bidirectional` (right-to-left) paragraph */
 		START: "start",
 		/** Align Center */
 		CENTER: "center",
-		/** End */
+		/** Align End: the right in a left-to-right paragraph, and the left in a `bidirectional` (right-to-left) paragraph */
 		END: "end",
 		/** Justified */
 		BOTH: "both",
@@ -8973,9 +8973,9 @@
 		LOW_KASHIDA: "lowKashida",
 		/** Thai Language Justification */
 		THAI_DISTRIBUTE: "thaiDistribute",
-		/** Align Left */
+		/** Align Left: a paragraph stays on the left of the page even when it is `bidirectional` (right-to-left) */
 		LEFT: "left",
-		/** Align Right */
+		/** Align Right: a paragraph stays on the right of the page even when it is `bidirectional` (right-to-left) */
 		RIGHT: "right",
 		/** Justified */
 		JUSTIFIED: "both"
@@ -9789,6 +9789,40 @@
 	* field instructions, an optional separate character, field result, and an end character.
 	*/
 	var createBegin = (dirty) => createFieldChar(FieldCharacterType.BEGIN, dirty);
+	/** The formatted begin characters of the fields that are dirty only when the document isn't given page numbers */
+	var dirtyWithoutPageNumbers = /* @__PURE__ */ new WeakSet();
+	/** The beginning of a field that is dirty, so Word updates it, unless the document is given page numbers */
+	var BeginDirtyWithoutPageNumbers = class extends BuilderElement {
+		constructor() {
+			super({
+				name: "w:fldChar",
+				attributes: {
+					type: {
+						key: "w:fldCharType",
+						value: FieldCharacterType.BEGIN
+					},
+					dirty: {
+						key: "w:dirty",
+						value: true
+					}
+				}
+			});
+		}
+		prepForXml(context) {
+			const xml = super.prepForXml(context);
+			dirtyWithoutPageNumbers.add(xml);
+			return xml;
+		}
+	};
+	/**
+	* Creates the beginning of a field whose result is written when the document is given page numbers, such as a page
+	* reference or a SEQ field. It is written dirty, so Word updates the field when it opens the document, and asks to. When
+	* the document is given page numbers, it is written clean (see {@link isDirtyWithoutPageNumbers}), so Word shows the
+	* number written, or nothing when none could be worked out, and doesn't ask.
+	*/
+	var createBeginDirtyWithoutPageNumbers = () => new BeginDirtyWithoutPageNumbers();
+	/** Whether a formatted field character is the beginning of a field that is dirty only without page numbers */
+	var isDirtyWithoutPageNumbers = (element) => typeof element === "object" && element !== null && dirtyWithoutPageNumbers.has(element);
 	/**
 	* Creates the separator between field code and field result in a complex field.
 	*
@@ -9959,7 +9993,8 @@
 		THAI_NUMBERS: "thaiNumbers",
 		THAI_COUNTING: "thaiCounting",
 		BAHT_TEXT: "bahtText",
-		DOLLAR_TEXT: "dollarText"
+		DOLLAR_TEXT: "dollarText",
+		CUSTOM: "custom"
 	};
 	//#endregion
 	//#region src/file/shared/space-type.ts
@@ -11301,13 +11336,8 @@ DOT: "dot" };
 	*/
 	var SymbolRun = class extends Run {
 		constructor(options) {
-			if (typeof options === "string") {
-				super({});
-				this.root.push(new Symbol$1(options));
-				return this;
-			}
-			super(options);
-			this.root.push(new Symbol$1(options.char, options.symbolfont));
+			super(typeof options === "string" ? {} : options);
+			this.root.push(typeof options === "string" ? new Symbol$1(options) : new Symbol$1(options.char, options.symbolfont));
 		}
 	};
 	//#endregion
@@ -14288,6 +14318,16 @@ DOT: "dot" };
 		}
 	};
 	/**
+	* Converts a crop percentage to thousandths of a percent.
+	*
+	* @throws If the percentage isn't a number from 0 to 100
+	*/
+	var cropValue = (value, edge) => {
+		if (value === void 0) return;
+		if (!(value >= 0 && value <= 100)) throw new Error(`Invalid crop ${edge} ${value}. Expected a number from 0 to 100`);
+		return Math.round(value * 1e3);
+	};
+	/**
 	* Represents a source rectangle for blip fills.
 	*
 	* This element specifies a portion of the blip (image) to use as the fill.
@@ -14314,10 +14354,10 @@ DOT: "dot" };
 		constructor(crop) {
 			super("a:srcRect");
 			if (crop) this.root.push(new SourceRectangleAttributes({
-				left: crop.left === void 0 ? void 0 : Math.round(crop.left * 1e3),
-				top: crop.top === void 0 ? void 0 : Math.round(crop.top * 1e3),
-				right: crop.right === void 0 ? void 0 : Math.round(crop.right * 1e3),
-				bottom: crop.bottom === void 0 ? void 0 : Math.round(crop.bottom * 1e3)
+				left: cropValue(crop.left, "left"),
+				top: cropValue(crop.top, "top"),
+				right: cropValue(crop.right, "right"),
+				bottom: cropValue(crop.bottom, "bottom")
 			}));
 		}
 	};
@@ -14671,7 +14711,9 @@ DOT: "dot" };
 				this.root.push(createHyperlinkClick(element.linkId, false));
 				break;
 			}
-			return super.prepForXml(context);
+			const result = super.prepForXml(context);
+			this.root.splice(1);
+			return result;
 		}
 	};
 	//#endregion
@@ -15618,6 +15660,18 @@ EXTERNAL: "External" };
 	* @module
 	*/
 	/**
+	* The largest width or height, in EMUs, Word opens a drawing at. The standard allows `ST_PositiveCoordinate` up to
+	* 27273042316900, but Word and PowerPoint restrict it to 2147483647 and won't open a document with a larger drawing.
+	*
+	* Reference: [MS-OI29500] Part 1 Section 20.1.10.42, ST_PositiveCoordinate
+	*/
+	var MAX_EXTENT = 2147483647;
+	var EMUS_PER_PIXEL = 9525;
+	var checkExtent = (dimension, value) => {
+		if (value !== void 0 && value > MAX_EXTENT) throw new Error(`Invalid drawing ${dimension} ${value} EMUs (${Math.round(value / EMUS_PER_PIXEL)} pixels). Word won't open a drawing with a ${dimension} over ${MAX_EXTENT} EMUs (${Math.floor(MAX_EXTENT / EMUS_PER_PIXEL)} pixels). Sizes such as an ImageRun's transformation are in pixels, not EMUs`);
+		return value;
+	};
+	/**
 	* Creates an extent element for inline drawings.
 	*
 	* This element specifies the extents of the parent DrawingML object within
@@ -15641,17 +15695,19 @@ EXTERNAL: "External" };
 	*   y: 914400
 	* });
 	* ```
+	*
+	* @throws Error if the width or height is over 2147483647 EMUs, which Word won't open
 	*/
 	var createExtent = ({ x, y }) => new BuilderElement({
 		name: "wp:extent",
 		attributes: {
 			x: {
 				key: "cx",
-				value: x
+				value: checkExtent("width", x)
 			},
 			y: {
 				key: "cy",
-				value: y
+				value: checkExtent("height", y)
 			}
 		}
 	});
@@ -16043,7 +16099,6 @@ EXTERNAL: "External" };
 	var ImageRun = class extends XmlComponent {
 		constructor(options) {
 			var _options$insertion;
-			var _super = (..._args) => (super(..._args), _defineProperty(this, "imageData", void 0), this);
 			const key = `${hashedId(options.data)}.${options.type}`;
 			const imageData = options.type === "svg" ? _objectSpread2(_objectSpread2({ type: options.type }, createImageData(options, key)), {}, { fallback: _objectSpread2({ type: options.fallback.type }, createImageData(_objectSpread2(_objectSpread2({}, options.fallback), {}, { transformation: options.transformation }), `${hashedId(options.fallback.data)}.${options.fallback.type}`)) }) : _objectSpread2({ type: options.type }, createImageData(options, key));
 			const drawing = new Drawing(imageData, {
@@ -16057,8 +16112,10 @@ EXTERNAL: "External" };
 			});
 			const properties = new RunProperties(options.run);
 			const revision = (_options$insertion = options.insertion) !== null && _options$insertion !== void 0 ? _options$insertion : options.deletion;
+			const rootName = options.insertion ? "w:ins" : options.deletion ? "w:del" : "w:r";
+			super(rootName);
+			_defineProperty(this, "imageData", void 0);
 			if (revision) {
-				_super(options.insertion ? "w:ins" : "w:del");
 				this.root.push(new ChangeAttributes({
 					id: revision.id,
 					author: revision.author,
@@ -16070,7 +16127,6 @@ EXTERNAL: "External" };
 				});
 				this.addChildElement(options.insertion && options.deletion ? createDeletion(options.deletion, run) : run);
 			} else {
-				_super("w:r");
 				this.root.push(properties);
 				this.root.push(drawing);
 			}
@@ -16223,6 +16279,10 @@ EXTERNAL: "External" };
 	* Each identifier maintains its own sequence, allowing you to have separate numbering
 	* for figures, tables, equations, etc.
 	*
+	* It is written dirty, so Word numbers it when it opens the document, after asking to update the fields. When the
+	* document is given `pageNumbers`, it is written clean, with its number counted as Word counts it, or blank where
+	* Word's count isn't known, and Word doesn't ask.
+	*
 	* Reference: http://officeopenxml.com/WPrun.php
 	*
 	* @publicApi
@@ -16251,7 +16311,7 @@ EXTERNAL: "External" };
 	var SequentialIdentifier = class extends Run {
 		constructor(identifier) {
 			super({});
-			this.root.push(createBegin(true));
+			this.root.push(createBeginDirtyWithoutPageNumbers());
 			this.root.push(new SequentialIdentifierInstruction(identifier));
 			this.root.push(createSeparate());
 			this.root.push(createEnd());
@@ -16276,7 +16336,10 @@ EXTERNAL: "External" };
 	var FldSimpleAttrs = class extends XmlAttributeComponent {
 		constructor(..._args) {
 			super(..._args);
-			_defineProperty(this, "xmlKeys", { instr: "w:instr" });
+			_defineProperty(this, "xmlKeys", {
+				instr: "w:instr",
+				fldLock: "w:fldLock"
+			});
 		}
 	};
 	/**
@@ -16309,12 +16372,18 @@ EXTERNAL: "External" };
 	*
 	* // Simple field with cached value
 	* new SimpleField("DATE", "2024-01-01");
+	*
+	* // Locked field, Word keeps the cached value when fields are updated
+	* new SimpleField("DATE", "2024-01-01", { locked: true });
 	* ```
 	*/
 	var SimpleField = class extends XmlComponent {
-		constructor(instruction, cachedValue) {
+		constructor(instruction, cachedValue, options = {}) {
 			super("w:fldSimple");
-			this.root.push(new FldSimpleAttrs({ instr: instruction }));
+			this.root.push(new FldSimpleAttrs({
+				instr: instruction,
+				fldLock: options.locked ? true : void 0
+			}));
 			if (cachedValue !== void 0) this.root.push(new TextRun(cachedValue));
 		}
 	};
@@ -16337,6 +16406,1035 @@ EXTERNAL: "External" };
 		constructor(fieldName) {
 			super(` MERGEFIELD ${fieldName} `, `«${fieldName}»`);
 		}
+	};
+	//#endregion
+	//#region src/file/document/body/field-number-formats.ts
+	var LARGEST_ROMAN = 32767;
+	var LARGEST_LETTERS = 780;
+	var ROMAN = [
+		[1e3, "M"],
+		[900, "CM"],
+		[500, "D"],
+		[400, "CD"],
+		[100, "C"],
+		[90, "XC"],
+		[50, "L"],
+		[40, "XL"],
+		[10, "X"],
+		[9, "IX"],
+		[5, "V"],
+		[4, "IV"],
+		[1, "I"]
+	];
+	var roman = (value) => value <= LARGEST_ROMAN ? ROMAN.reduce(({ rest, text }, [amount, numeral]) => ({
+		rest: rest % amount,
+		text: text + numeral.repeat(Math.floor(rest / amount))
+	}), {
+		rest: value,
+		text: ""
+	}).text : void 0;
+	var letters = (value) => value === 0 ? "" : value <= LARGEST_LETTERS ? String.fromCharCode(65 + (value - 1) % 26).repeat(Math.ceil(value / 26)) : void 0;
+	var ordinal = (value) => {
+		var _ref;
+		return `${value}${value % 100 >= 11 && value % 100 <= 13 ? "th" : (_ref = [
+			"th",
+			"st",
+			"nd",
+			"rd"
+		][value % 10]) !== null && _ref !== void 0 ? _ref : "th"}`;
+	};
+	/**
+	* The number formats of a field's `\*` switch that are written as Word writes them, by their names in any capitals.
+	* Word writes roman numerals and letters in small letters when the name starts with a small letter, as `roman`, and in
+	* capitals otherwise, as `Roman` and `ROMAN`
+	*/
+	var numberWriterOf = (format) => {
+		const small = format.charAt(0) !== format.charAt(0).toUpperCase();
+		const inCase = (write) => (value) => {
+			var _write;
+			return small ? (_write = write(value)) === null || _write === void 0 ? void 0 : _write.toLowerCase() : write(value);
+		};
+		switch (format.toLowerCase()) {
+			case "arabic": return String;
+			case "roman": return inCase(roman);
+			case "alphabetic": return inCase(letters);
+			case "ordinal": return (value) => value > 0 ? ordinal(value) : void 0;
+			case "arabicdash": return (value) => `- ${value} -`;
+			default: return;
+		}
+	};
+	var PLAIN_FORMATS = /* @__PURE__ */ new Set([
+		"mergeformat",
+		"charformat",
+		"mergeformatinet"
+	]);
+	var CASE_FORMATS = /* @__PURE__ */ new Set([
+		"upper",
+		"lower",
+		"firstcap",
+		"caps"
+	]);
+	/**
+	* Whether Word's text for a picture of a field's `\#` switch is known: one of digits (`0`), digits only where the number
+	* has them (`#`) and commas between thousands, as Word wrote `00`, `000`, `0`, `#` and `#,##0` for page numbers
+	* (`scripts/layout-probes/word-page-fields.ts` PF5 to PF7)
+	*/
+	var isNumberPicture = (picture) => /^[#0,]*[#0][#0,]*$/.test(picture);
+	/**
+	* A number with a picture: with as many digits as it has `0`s at least, which Word fills with 0s (5 is 05 with `00`), and
+	* its thousands between commas when it has one (1234 is 1,234 with `#,##0`). Undefined where a `#` has no digit of the
+	* number, which Word writes as a space, not yet seen
+	*/
+	var inNumberPicture = (value, picture) => {
+		const zeros = [...picture].filter((character) => character === "0").length;
+		const places = zeros + [...picture].filter((character) => character === "#").length;
+		const digits = String(value).padStart(zeros, "0");
+		if (digits.length < places || zeros === 0 && value === 0) return;
+		return picture.includes(",") ? digits.replace(/\B(?=(\d{3})+$)/g, ",") : digits;
+	};
+	/**
+	* Text in the capitals of a field's switch, applied after its number's format, as Word wrote `\* roman \* Upper` as V,
+	* `\* Ordinal \* Upper` as 5TH, and "above" with `\* Upper` as ABOVE (`word-page-fields.ts` PF3 and PF5)
+	*/
+	var inCapitals = (text, capitals) => {
+		switch (capitals) {
+			case "upper": return text.toUpperCase();
+			case "lower": return text.toLowerCase();
+			case "firstcap": return text.charAt(0).toUpperCase() + text.slice(1);
+			default: return text;
+		}
+	};
+	//#endregion
+	//#region src/file/document/body/page-number-fields.ts
+	/**
+	* Writes estimated page numbers into the fields of a tree of elements that show them: those docx formats to write a
+	* document, and those `patchDocument` parses from a template. Not part of the public API.
+	*
+	* A page reference is a PAGEREF field, and the numbers of pages of the document and of a section are NUMPAGES and
+	* SECTIONPAGES fields. Each field's result is written just after its `separate` field character, and any result it had
+	* is taken out.
+	*
+	* @module
+	*/
+	/** Reads a field that shows a page's number or a number of pages, or undefined for another field */
+	var numberFieldOf = (instruction) => {
+		var _match;
+		const field = new RegExp("^\\s*(PAGEREF|NUMPAGES|SECTIONPAGES)\\b(.*)$", "is").exec(instruction);
+		const reference = (field === null || field === void 0 ? void 0 : field[1].toUpperCase()) === "PAGEREF" ? new RegExp("^\\s*(\"?)([^\\s\"\\\\]+)\\1(.*)$", "s").exec(field[2]) : void 0;
+		if (!field || field[1].toUpperCase() === "PAGEREF" && !reference) return;
+		const parts = (_match = (reference ? reference[3] : field[2]).match(/"[^"]*"|\S+/g)) !== null && _match !== void 0 ? _match : [];
+		let numberFormat;
+		let picture;
+		const capitals = [];
+		let relative = false;
+		let written = true;
+		for (let index = 0; index < parts.length; index++) {
+			const part = parts[index];
+			const argument = () => {
+				var _parts$index;
+				return (part.length > 2 ? part.slice(2) : (_parts$index = parts[++index]) !== null && _parts$index !== void 0 ? _parts$index : "").replace(/^"(.*)"$/, "$1");
+			};
+			if (/^\\p$/i.test(part)) relative = true;
+			else if (part.startsWith("\\#")) {
+				var _picture;
+				const value = argument();
+				written && (written = picture === void 0 && isNumberPicture(value));
+				(_picture = picture) !== null && _picture !== void 0 || (picture = value);
+			} else if (part.startsWith("\\*")) {
+				const name = argument();
+				const lower = name.toLowerCase();
+				if (CASE_FORMATS.has(lower)) capitals.push(lower);
+				else if (name !== "" && !PLAIN_FORMATS.has(lower)) {
+					var _numberFormat;
+					written && (written = numberFormat === void 0 && numberWriterOf(name) !== void 0);
+					(_numberFormat = numberFormat) !== null && _numberFormat !== void 0 || (numberFormat = name);
+				}
+			}
+		}
+		const own = _objectSpread2(_objectSpread2(_objectSpread2(_objectSpread2({}, numberFormat === void 0 ? {} : { numberFormat }), picture === void 0 ? {} : { picture }), capitals.length === 0 ? {} : { capitals: capitals[0] }), {}, { written: written && capitals.length <= 1 && capitals[0] !== "caps" && (numberFormat === void 0 || picture === void 0) });
+		return reference ? _objectSpread2({
+			type: "pageReference",
+			bookmark: reference[2],
+			relative
+		}, own) : _objectSpread2({
+			type: "pageCount",
+			scope: field[1].toUpperCase() === "NUMPAGES" ? "document" : "section"
+		}, own);
+	};
+	/**
+	* Whether a field is a table of contents that writes the number of a SEQ field before each page number (`\s`), such as
+	* 2-5 for page 5 of chapter 2, which isn't written
+	*/
+	var prefixesPageNumbers = (instruction) => new RegExp("^\\s*TOC\\b.*\\\\s\\b", "is").test(instruction);
+	/**
+	* The result of a field that shows a page's number or a number of pages, or undefined to leave it as it is. A field
+	* the estimate has no number for is left as it is, or made blank, and so is a page number in a table of contents that
+	* writes a SEQ field's number before it.
+	*/
+	var resultFrom = (instruction, { enclosing, within, inTextBox }, { estimate, sectionPageCount, blank, relativeTo }) => {
+		const field = numberFieldOf(instruction);
+		if (field === void 0) return;
+		const { bookmarks, pageCount, bookmarkPageNumbers } = estimate;
+		const { numberFormat, picture, capitals, written } = field;
+		const writesNumber = numberFormat !== void 0 || picture !== void 0;
+		/** A number in the field's format of its own, or as it is */
+		const inFormat = (value) => value === void 0 ? void 0 : picture === void 0 ? numberWriterOf(numberFormat !== null && numberFormat !== void 0 ? numberFormat : "arabic")(value) : inNumberPicture(value, picture);
+		const position = field.type === "pageReference" && field.relative && within === "counted" && !inTextBox ? relativeTo === null || relativeTo === void 0 ? void 0 : relativeTo(field.bookmark) : void 0;
+		let result;
+		if (!written) result = void 0;
+		else if (field.type === "pageCount") result = inFormat(field.scope === "document" ? pageCount : sectionPageCount);
+		else if (enclosing.some(prefixesPageNumbers)) result = void 0;
+		else if (writesNumber) result = inFormat(bookmarkPageNumbers === null || bookmarkPageNumbers === void 0 ? void 0 : bookmarkPageNumbers.get(field.bookmark));
+		else result = field.relative ? position : bookmarks.get(field.bookmark);
+		return result === void 0 ? blank ? "" : void 0 : inCapitals(result, capitals);
+	};
+	/** Where the content of an element is: in what an application that doesn't read Word's own shows, or in deleted text */
+	var placeIn = (name, within) => name === "mc:Fallback" || within === "fallback" ? "fallback" : name === "w:del" || name === "w:moveFrom" ? "deleted" : within;
+	/**
+	* Writes the results the filling works out into the fields in the elements, in order.
+	*/
+	var fillFields = (tree, elements, open, filling, within = "counted", inTextBox = false) => {
+		for (let index = 0; index < elements.length; index++) {
+			const element = elements[index];
+			const name = tree.nameOf(element);
+			if (name === void 0) continue;
+			const current = open[open.length - 1];
+			if (name === "w:fldChar") {
+				const type = tree.attributeOf(element, "w:fldCharType");
+				if (type === "begin") open.push({
+					begin: element,
+					instruction: "",
+					inResult: false
+				});
+				else if (type === "separate" && current) {
+					tree.writeClean(current.begin, current.instruction);
+					current.inResult = true;
+					current.result = filling.resultOf(current.instruction, {
+						within,
+						enclosing: open.slice(0, -1).map((field) => field.instruction),
+						inTextBox
+					});
+					if (current.result !== void 0) {
+						elements.splice(index + 1, 0, tree.textElement(current.result));
+						index++;
+					}
+				} else if (type === "end") open.pop();
+			} else if (name === "w:instrText" && current && !current.inResult) current.instruction += tree.textOf(element);
+			else if ((name === "w:t" || name === "w:tab" || name === "w:br" || name === "w:cr") && (current === null || current === void 0 ? void 0 : current.result) !== void 0) {
+				elements.splice(index, 1);
+				index--;
+			} else if (name === "w:fldSimple") {
+				const result = filling.resultOf(String(tree.attributeOf(element, "w:instr")), {
+					within,
+					enclosing: open.map((field) => field.instruction),
+					inTextBox
+				});
+				if (result === void 0) {
+					var _tree$contentOf;
+					fillFields(tree, (_tree$contentOf = tree.contentOf(element)) !== null && _tree$contentOf !== void 0 ? _tree$contentOf : [], [], filling, within, inTextBox);
+				} else tree.setSimpleFieldResult(element, result);
+			} else {
+				var _tree$contentOf2;
+				if (name === "w:p") {
+					var _filling$beforeParagr;
+					(_filling$beforeParagr = filling.beforeParagraph) === null || _filling$beforeParagr === void 0 || _filling$beforeParagr.call(filling, element);
+				}
+				fillFields(tree, (_tree$contentOf2 = tree.contentOf(element)) !== null && _tree$contentOf2 !== void 0 ? _tree$contentOf2 : [], open, filling, placeIn(name, within), inTextBox || name === "w:txbxContent");
+				if (name === "w:p") filling.afterParagraph(element);
+			}
+		}
+	};
+	/** The section properties (`w:sectPr`) in the elements, in order: those of the paragraphs that end sections, and the last */
+	var sectionPropertiesIn = (tree, elements) => elements.flatMap((element) => {
+		var _tree$contentOf3;
+		const name = tree.nameOf(element);
+		if (name === void 0) return [];
+		return name === "w:sectPr" ? [element] : sectionPropertiesIn(tree, (_tree$contentOf3 = tree.contentOf(element)) !== null && _tree$contentOf3 !== void 0 ? _tree$contentOf3 : []);
+	});
+	/** Whether a paragraph ends a section: whether its properties have the section's */
+	var endsSection = (tree, paragraph) => {
+		var _tree$contentOf4;
+		return ((_tree$contentOf4 = tree.contentOf(paragraph)) !== null && _tree$contentOf4 !== void 0 ? _tree$contentOf4 : []).some((child) => {
+			var _tree$contentOf5;
+			return tree.nameOf(child) === "w:pPr" && ((_tree$contentOf5 = tree.contentOf(child)) !== null && _tree$contentOf5 !== void 0 ? _tree$contentOf5 : []).some((part) => tree.nameOf(part) === "w:sectPr");
+		});
+	};
+	/**
+	* The number of pages each header and footer shows in its SECTIONPAGES fields, by the id of the relationship to it:
+	* that of the sections whose pages it is on, when they all have the same. A section without a header or footer of a kind
+	* has the one of the section before, as Word lays them out.
+	*/
+	var partPageCountsOf = (tree, body, sectionPageCounts) => {
+		const countsOfParts = sectionPropertiesIn(tree, [body]).reduce((all, properties) => {
+			var _tree$contentOf6, _all;
+			const references = ((_tree$contentOf6 = tree.contentOf(properties)) !== null && _tree$contentOf6 !== void 0 ? _tree$contentOf6 : []).flatMap((child) => {
+				const name = tree.nameOf(child);
+				return name === "w:headerReference" || name === "w:footerReference" ? [[`${name} ${String(tree.attributeOf(child, "w:type"))}`, String(tree.attributeOf(child, "r:id"))]] : [];
+			});
+			return [...all, new Map([...(_all = all[all.length - 1]) !== null && _all !== void 0 ? _all : [], ...references])];
+		}, []).reduce((counts, parts, section) => {
+			for (const id of parts.values()) {
+				var _counts$get;
+				counts.set(id, [...(_counts$get = counts.get(id)) !== null && _counts$get !== void 0 ? _counts$get : [], sectionPageCounts[section]]);
+			}
+			return counts;
+		}, /* @__PURE__ */ new Map());
+		return new Map([...countsOfParts].flatMap(([id, [first, ...rest]]) => first !== void 0 && rest.every((count) => count === first) ? [[id, first]] : []));
+	};
+	/**
+	* Writes the estimated page numbers into the fields of a document's body that show them: its PAGEREF fields, in its
+	* tables of contents and elsewhere, and its NUMPAGES and SECTIONPAGES fields.
+	*
+	* @returns The number of pages each header and footer shows in its SECTIONPAGES fields, by the id of the relationship to it
+	*/
+	var fillBodyFields = (tree, body, estimate, { blank }) => {
+		const { sectionPageCounts = [], relativePositions } = estimate;
+		let section = 0;
+		const relativeCounts = /* @__PURE__ */ new Map();
+		const relativeTo = (bookmark) => {
+			var _relativeCounts$get, _relativePositions$ge;
+			const count = (_relativeCounts$get = relativeCounts.get(bookmark)) !== null && _relativeCounts$get !== void 0 ? _relativeCounts$get : 0;
+			relativeCounts.set(bookmark, count + 1);
+			return relativePositions === null || relativePositions === void 0 || (_relativePositions$ge = relativePositions.get(bookmark)) === null || _relativePositions$ge === void 0 ? void 0 : _relativePositions$ge[count];
+		};
+		fillFields(tree, [body], [], {
+			resultOf: (instruction, place) => resultFrom(instruction, place, {
+				estimate,
+				sectionPageCount: sectionPageCounts[section],
+				blank,
+				relativeTo
+			}),
+			afterParagraph: (paragraph) => {
+				section += endsSection(tree, paragraph) ? 1 : 0;
+			}
+		});
+		return partPageCountsOf(tree, body, sectionPageCounts);
+	};
+	/**
+	* Writes the estimated page numbers into the fields of a header, footer, footnote or endnote that show them, with the
+	* number of pages its SECTIONPAGES fields show, if it is known. A page reference with `\p` in a footnote or endnote
+	* (`notes`) writes "on page" and its bookmark's page, whatever page it is on, as Word writes it
+	* (`word-page-fields.docx` PF8f, PF8g)
+	*/
+	var fillPartFields = (tree, part, estimate, { blank, sectionPageCount, notes = false }) => {
+		const onPage = (bookmark) => {
+			const page = estimate.bookmarks.get(bookmark);
+			return page === void 0 ? void 0 : `on page ${page}`;
+		};
+		fillFields(tree, [part], [], {
+			resultOf: (instruction, place) => resultFrom(instruction, place, _objectSpread2({
+				estimate,
+				sectionPageCount,
+				blank
+			}, notes ? { relativeTo: onPage } : {})),
+			afterParagraph: () => void 0
+		});
+	};
+	/** Writes the numbers of the SEQ fields of a document's body into them */
+	var fillSequenceFields = (tree, body, { beforeParagraph, resultOf }) => fillFields(tree, [body], [], {
+		resultOf: (instruction, { within }) => resultOf(instruction, within),
+		beforeParagraph,
+		afterParagraph: () => void 0
+	});
+	//#endregion
+	//#region src/file/table-of-contents/field-instruction.ts
+	/**
+	* Field Instruction module for Table of Contents.
+	*
+	* This module handles the generation of TOC field instruction text
+	* that controls how the table of contents is built.
+	*
+	* Reference: http://officeopenxml.com/WPfieldInstructions.php
+	*
+	* @module
+	*/
+	/**
+	* Represents a field instruction for a Table of Contents.
+	*
+	* The FieldInstruction class generates the TOC field code string that Word uses
+	* to determine how to build the table of contents, including which headings to include,
+	* formatting options, and other TOC-specific settings.
+	*
+	* Reference: http://officeopenxml.com/WPfieldInstructions.php
+	*
+	* ## XSD Schema
+	* ```xml
+	* <xsd:element name="instrText" type="CT_Text"/>
+	* ```
+	*
+	* @example
+	* ```typescript
+	* // Basic TOC field instruction
+	* new FieldInstruction({ headingStyleRange: "1-3" });
+	*
+	* // TOC with hyperlinks and custom styles
+	* new FieldInstruction({
+	*   hyperlink: true,
+	*   headingStyleRange: "1-3",
+	*   stylesWithLevels: [new StyleLevel("CustomStyle", 2)],
+	* });
+	* ```
+	*/
+	var FieldInstruction = class extends XmlComponent {
+		constructor(properties = {}) {
+			super("w:instrText");
+			_defineProperty(this, "properties", void 0);
+			this.properties = properties;
+			this.root.push(new TextAttributes({ space: SpaceType.PRESERVE }));
+			let instruction = "TOC";
+			if (this.properties.captionLabel) instruction = `${instruction} \\a "${this.properties.captionLabel}"`;
+			if (this.properties.entriesFromBookmark) instruction = `${instruction} \\b "${this.properties.entriesFromBookmark}"`;
+			if (this.properties.captionLabelIncludingNumbers) instruction = `${instruction} \\c "${this.properties.captionLabelIncludingNumbers}"`;
+			if (this.properties.sequenceAndPageNumbersSeparator) instruction = `${instruction} \\d "${this.properties.sequenceAndPageNumbersSeparator}"`;
+			if (this.properties.tcFieldIdentifier) instruction = `${instruction} \\f "${this.properties.tcFieldIdentifier}"`;
+			if (this.properties.hyperlink) instruction = `${instruction} \\h`;
+			if (this.properties.tcFieldLevelRange) instruction = `${instruction} \\l "${this.properties.tcFieldLevelRange}"`;
+			if (this.properties.pageNumbersEntryLevelsRange) instruction = `${instruction} \\n "${this.properties.pageNumbersEntryLevelsRange}"`;
+			if (this.properties.headingStyleRange) instruction = `${instruction} \\o "${this.properties.headingStyleRange}"`;
+			if (this.properties.entryAndPageNumberSeparator) instruction = `${instruction} \\p "${this.properties.entryAndPageNumberSeparator}"`;
+			if (this.properties.seqFieldIdentifierForPrefix) instruction = `${instruction} \\s "${this.properties.seqFieldIdentifierForPrefix}"`;
+			if (this.properties.stylesWithLevels && this.properties.stylesWithLevels.length) {
+				const styles = this.properties.stylesWithLevels.map((sl) => `${sl.styleName},${sl.level}`).join(",");
+				instruction = `${instruction} \\t "${styles}"`;
+			}
+			if (this.properties.useAppliedParagraphOutlineLevel) instruction = `${instruction} \\u`;
+			if (this.properties.preserveTabInEntries) instruction = `${instruction} \\w`;
+			if (this.properties.preserveNewLineInEntries) instruction = `${instruction} \\x`;
+			if (this.properties.hideTabAndPageNumbersInWebView) instruction = `${instruction} \\z`;
+			this.root.push(instruction);
+		}
+	};
+	//#endregion
+	//#region src/file/table-of-contents/sdt-content.ts
+	/**
+	* Structured Document Tag Content module.
+	*
+	* This module represents the content container for structured document tags,
+	* including table of contents elements.
+	*
+	* Reference: http://officeopenxml.com/WPtableOfContents.php
+	*
+	* @module
+	*/
+	/**
+	* Represents the content portion of a Structured Document Tag.
+	*
+	* The StructuredDocumentTagContent contains the actual content elements
+	* (paragraphs, tables, etc.) within a structured document tag, such as
+	* the paragraphs that make up a table of contents.
+	*
+	* Reference: http://officeopenxml.com/WPtableOfContents.php
+	*
+	* ## XSD Schema
+	* ```xml
+	* <xsd:complexType name="CT_SdtContentBlock">
+	*   <xsd:group ref="EG_ContentBlockContent" minOccurs="0" maxOccurs="unbounded"/>
+	* </xsd:complexType>
+	* ```
+	*
+	* @example
+	* ```typescript
+	* const content = new StructuredDocumentTagContent();
+	* content.addChildElement(new Paragraph("Content"));
+	* ```
+	*/
+	var StructuredDocumentTagContent = class extends XmlComponent {
+		constructor() {
+			super("w:sdtContent");
+		}
+	};
+	//#endregion
+	//#region src/file/table-of-contents/heading-entries.ts
+	/**
+	* Entries written into a table of contents from the headings of the document.
+	*
+	* A table of contents is a TOC field. Word fills in its entries when it updates the field. Until then, and in
+	* applications that don't update it, such as LibreOffice, it shows the entries it was last filled in with, and without
+	* any it is empty. So once the body is written, each table of contents that wasn't given `cachedEntries` or
+	* `contentChildren` is filled in from the headings its switches include, the way Word fills it in: each heading is
+	* bookmarked, and its entry links to the bookmark and gives its page with a PAGEREF field. The page numbers are left
+	* empty, because they depend on how the document is laid out. Word fills them in when it updates the field, unless the
+	* document's `pageNumbers` writes them.
+	*
+	* @module
+	*/
+	/**
+	* The beginning of a table of contents' field: dirty or clean, as the caller set it, or else dirty unless the document
+	* is given page numbers
+	*/
+	var beginOf = (beginDirty) => beginDirty === void 0 ? createBeginDirtyWithoutPageNumbers() : createBegin(beginDirty);
+	/** The formatted tables of contents, with what each is filled in with, or undefined when it was given its content */
+	var writtenTables = /* @__PURE__ */ new WeakMap();
+	/**
+	* Records a formatted table of contents, so the paragraphs in it aren't taken for headings, with what to fill it in
+	* with from the headings once the body it is in is written. That is undefined when it was given its content.
+	*/
+	var recordTableOfContents = (table, fillWith) => {
+		writtenTables.set(table, fillWith);
+	};
+	/**
+	* The ids of the bookmarks on a body's headings: the first for its first bookmarked heading, and so on. Each is taken
+	* from the counter every bookmark shares, the first time it is needed, so a document packed again is written the same.
+	*/
+	var HeadingBookmarkIds = class {
+		constructor() {
+			_defineProperty(this, "ids", []);
+		}
+		get(index) {
+			var _this$ids, _this$ids$index;
+			(_this$ids$index = (_this$ids = this.ids)[index]) !== null && _this$ids$index !== void 0 || (_this$ids[index] = bookmarkUniqueNumericId());
+			return this.ids[index];
+		}
+	};
+	/** The name of a formatted element, or `_attr` for its parent's attributes */
+	var nameOf$2 = (element) => typeof element === "object" && element !== null ? Object.keys(element)[0] : void 0;
+	/** The children of a formatted element. An element with only attributes has them as its one child */
+	var childrenOf = (element) => {
+		const name = nameOf$2(element);
+		const content = name === void 0 ? void 0 : element[name];
+		return Array.isArray(content) ? content : content === void 0 ? [] : [content];
+	};
+	var childOf = (element, name) => childrenOf(element).find((child) => nameOf$2(child) === name);
+	var attributeOf = (element, attribute) => {
+		var _childOf;
+		return (_childOf = childOf(element, "_attr")) === null || _childOf === void 0 || (_childOf = _childOf._attr) === null || _childOf === void 0 ? void 0 : _childOf[attribute];
+	};
+	/** An attribute such as `w:val="2"` as a number. Imported XML gives it as a string */
+	var numberAttributeOf = (element, attribute) => {
+		const value = attributeOf(element, attribute);
+		return value === void 0 ? void 0 : Number(value);
+	};
+	/** The block-level containers of paragraphs: tables, their rows and cells, and content controls */
+	var BLOCK_CONTAINERS = /* @__PURE__ */ new Set([
+		"w:tbl",
+		"w:tr",
+		"w:tc",
+		"w:sdt",
+		"w:sdtContent",
+		"w:customXml"
+	]);
+	/**
+	* The paragraphs and the tables of contents, in the order they are in the body. A table of contents isn't looked into,
+	* so the paragraphs in it aren't taken for headings. Nor are paragraphs in text boxes, as in Word.
+	*/
+	var blocksOf = (elements) => elements.flatMap((element) => {
+		const name = nameOf$2(element);
+		if (name === "w:p" || writtenTables.has(element)) return [element];
+		return name !== void 0 && BLOCK_CONTAINERS.has(name) ? blocksOf(childrenOf(element)) : [];
+	});
+	/** The elements in a paragraph that its text is in. Deleted text, field instructions and drawings aren't */
+	var TEXT_CONTAINERS = /* @__PURE__ */ new Set([
+		"w:r",
+		"w:hyperlink",
+		"w:ins",
+		"w:moveTo",
+		"w:smartTag",
+		"w:customXml",
+		"w:sdt",
+		"w:sdtContent",
+		"w:fldSimple",
+		"w:dir",
+		"w:bdo"
+	]);
+	/** The text an element in a run stands for, such as `\t` for a tab. A page or column break isn't text */
+	var textOfRunContent = (element) => {
+		switch (nameOf$2(element)) {
+			case "w:t": return childrenOf(element).filter((child) => typeof child === "string").join("");
+			case "w:tab": return "	";
+			case "w:br": return [void 0, "textWrapping"].includes(attributeOf(element, "w:type")) ? "\n" : "";
+			case "w:cr": return "\n";
+			case "w:noBreakHyphen": return "-";
+			default: return "";
+		}
+	};
+	/** The text of a paragraph. Of a field, only its result is text, not its instruction */
+	var textOf = (paragraph) => {
+		const fields = [];
+		const read = (element) => {
+			const name = nameOf$2(element);
+			if (name !== void 0 && TEXT_CONTAINERS.has(name)) return childrenOf(element).map(read).join("");
+			if (name === "w:fldChar") {
+				const type = attributeOf(element, "w:fldCharType");
+				if (type === "begin") fields.push(false);
+				else if (type === "separate") fields[fields.length - 1] = true;
+				else fields.pop();
+				return "";
+			}
+			return fields.every(Boolean) ? textOfRunContent(element) : "";
+		};
+		return childrenOf(paragraph).map(read).join("");
+	};
+	/** The bookmarks started and ended in an element, in order */
+	var bookmarkMarksOf = (element) => {
+		const name = nameOf$2(element);
+		if (name === "w:bookmarkStart") return [{
+			start: true,
+			id: attributeOf(element, "w:id"),
+			name: attributeOf(element, "w:name")
+		}];
+		if (name === "w:bookmarkEnd") return [{
+			start: false,
+			id: attributeOf(element, "w:id")
+		}];
+		return name === void 0 || name === "_attr" ? [] : childrenOf(element).flatMap(bookmarkMarksOf);
+	};
+	/**
+	* The names of the bookmarks each paragraph is in, for the `\b` switch: those open where it starts, followed through the
+	* body, and those that start in it.
+	*/
+	var bookmarksOf = (paragraphs) => {
+		const open = /* @__PURE__ */ new Map();
+		return paragraphs.map((paragraph) => {
+			const marks = bookmarkMarksOf(paragraph);
+			const names = /* @__PURE__ */ new Set([...open.values(), ...marks.flatMap((mark) => mark.start ? [mark.name] : [])]);
+			for (const mark of marks) if (mark.start) open.set(mark.id, mark.name);
+			else open.delete(mark.id);
+			return names;
+		});
+	};
+	/** The details of each paragraph that could be a heading. The bookmarks it is in are only followed when needed */
+	var paragraphDetailsOf = (paragraphs, followBookmarks) => {
+		const bookmarks = followBookmarks ? bookmarksOf(paragraphs) : [];
+		return paragraphs.map((element, index) => {
+			var _bookmarks$index;
+			const properties = childOf(element, "w:pPr");
+			return {
+				element,
+				styleId: attributeOf(childOf(properties, "w:pStyle"), "w:val"),
+				outlineLevel: numberAttributeOf(childOf(properties, "w:outlineLvl"), "w:val"),
+				text: textOf(element),
+				bookmarks: (_bookmarks$index = bookmarks[index]) !== null && _bookmarks$index !== void 0 ? _bookmarks$index : /* @__PURE__ */ new Set()
+			};
+		});
+	};
+	/** The document's paragraph styles, by id, read from the styles as they are written */
+	var stylesOf = (context) => {
+		var _context$file;
+		const styles = (_context$file = context.file) === null || _context$file === void 0 || (_context$file = _context$file.Styles) === null || _context$file === void 0 ? void 0 : _context$file.prepForXml(context);
+		return new Map(childrenOf(styles).filter((style) => nameOf$2(style) === "w:style" && ["paragraph", void 0].includes(attributeOf(style, "w:type"))).map((style) => [attributeOf(style, "w:styleId"), {
+			name: attributeOf(childOf(style, "w:name"), "w:val"),
+			basedOn: attributeOf(childOf(style, "w:basedOn"), "w:val"),
+			outlineLevel: numberAttributeOf(childOf(childOf(style, "w:pPr"), "w:outlineLvl"), "w:val")
+		}]));
+	};
+	/** A range such as `1-3` */
+	var parseRange = (range) => {
+		const match = /^\s*(\d+)\s*-\s*(\d+)\s*$/.exec(range);
+		return match ? [Number(match[1]), Number(match[2])] : void 0;
+	};
+	var isWithin = (level, [from, to]) => level >= from && level <= to;
+	/** The level of a built-in heading style, Heading 1 to Heading 9, by its name, or by its id when it has no name */
+	var headingLevelOf = (styleId, styles) => {
+		var _styles$get$name, _styles$get;
+		if (styleId === void 0) return;
+		const match = /^heading ?([1-9])$/i.exec((_styles$get$name = (_styles$get = styles.get(styleId)) === null || _styles$get === void 0 ? void 0 : _styles$get.name) !== null && _styles$get$name !== void 0 ? _styles$get$name : styleId);
+		return match ? Number(match[1]) : void 0;
+	};
+	/**
+	* A style's outline level, from 0: its own, or else the one of the style it is based on. A built-in heading style has
+	* its heading's. Following the styles it is based on stops after as many as there are, in case they loop.
+	*/
+	var styleOutlineLevelOf = (styleId, styles, depth = 0) => {
+		var _style$outlineLevel;
+		if (styleId === void 0 || depth > styles.size) return;
+		const style = styles.get(styleId);
+		const heading = headingLevelOf(styleId, styles);
+		return (_style$outlineLevel = style === null || style === void 0 ? void 0 : style.outlineLevel) !== null && _style$outlineLevel !== void 0 ? _style$outlineLevel : heading === void 0 ? styleOutlineLevelOf(style === null || style === void 0 ? void 0 : style.basedOn, styles, depth + 1) : heading - 1;
+	};
+	/**
+	* Reads the heading level of the document's paragraphs, as the `\s` switch of a SEQ field follows it: the level of a
+	* paragraph in a built-in heading style, Heading 1 to Heading 9. A paragraph whose outline level is another, or that has
+	* one without a heading style, is `"unclear"`, as which of the two Word follows hasn't been checked. Other paragraphs
+	* are undefined.
+	*/
+	var headingLevels = (context) => {
+		const styles = stylesOf(context);
+		return (paragraph) => {
+			const properties = childOf(paragraph, "w:pPr");
+			const styleId = attributeOf(childOf(properties, "w:pStyle"), "w:val");
+			const heading = headingLevelOf(styleId, styles);
+			const outlineLevel = outlineLevelOf({
+				styleId,
+				outlineLevel: numberAttributeOf(childOf(properties, "w:outlineLvl"), "w:val")
+			}, styles);
+			const outline = outlineLevel === void 0 || outlineLevel >= 9 ? void 0 : outlineLevel + 1;
+			if (heading !== void 0 && (outline === void 0 || outline === heading)) return heading;
+			return outline === void 0 ? void 0 : "unclear";
+		};
+	};
+	/** A paragraph's outline level, from 0: its own, or else its style's */
+	var outlineLevelOf = (paragraph, styles) => {
+		var _paragraph$outlineLev;
+		return (_paragraph$outlineLev = paragraph.outlineLevel) !== null && _paragraph$outlineLev !== void 0 ? _paragraph$outlineLev : styleOutlineLevelOf(paragraph.styleId, styles);
+	};
+	/** The level a table of contents gives a paragraph, or undefined when it doesn't include it */
+	var levelIn = (properties, paragraph, styles) => {
+		var _styles$get2;
+		const { entriesFromBookmark, headingStyleRange, stylesWithLevels = [], useAppliedParagraphOutlineLevel } = properties;
+		if (paragraph.text.trim() === "" || entriesFromBookmark && !paragraph.bookmarks.has(entriesFromBookmark)) return;
+		const names = [paragraph.styleId, paragraph.styleId === void 0 ? void 0 : (_styles$get2 = styles.get(paragraph.styleId)) === null || _styles$get2 === void 0 ? void 0 : _styles$get2.name].filter((name) => name !== void 0).map((name) => name.toLowerCase());
+		const listed = stylesWithLevels.find((style) => names.includes(style.styleName.toLowerCase()));
+		if (listed) return listed.level;
+		const namesItsEntries = Boolean(headingStyleRange) || stylesWithLevels.length > 0 || Boolean(useAppliedParagraphOutlineLevel) || Boolean(properties.tcFieldIdentifier) || Boolean(properties.tcFieldLevelRange) || Boolean(properties.captionLabel) || Boolean(properties.captionLabelIncludingNumbers);
+		const headingRange = headingStyleRange ? parseRange(headingStyleRange) : namesItsEntries ? void 0 : [1, 9];
+		const heading = headingLevelOf(paragraph.styleId, styles);
+		if (headingRange && heading !== void 0 && isWithin(heading, headingRange)) return heading;
+		const outlineLevel = useAppliedParagraphOutlineLevel ? outlineLevelOf(paragraph, styles) : void 0;
+		return outlineLevel !== void 0 && isWithin(outlineLevel + 1, headingRange !== null && headingRange !== void 0 ? headingRange : [1, 9]) ? outlineLevel + 1 : void 0;
+	};
+	/** The runs of an entry's title. Tabs and line breaks are kept only when the table of contents keeps them (\w and \x) */
+	var titleRunsOf = (title, properties) => {
+		const text = properties.preserveTabInEntries ? title : title.replace(/\t/g, " ");
+		return (properties.preserveNewLineInEntries ? text.split("\n") : [text.replace(/\n/g, " ")]).map((line, index) => new TextRun({
+			break: index > 0 ? 1 : void 0,
+			children: line.split("	").flatMap((part, partIndex) => [...partIndex > 0 ? [new Tab()] : [], ...part === "" ? [] : [part]])
+		}));
+	};
+	/**
+	* The paragraph style of the entries at a level: the built-in TOC style, found by its name, "toc 1" to "toc 9". When
+	* the document doesn't have it, the entries are indented as Word's are, 220 twips a level.
+	*/
+	var entryStyleOf = (level, styles) => {
+		var _find;
+		const named = (_find = [...styles].find(([, style]) => {
+			var _style$name;
+			return ((_style$name = style.name) === null || _style$name === void 0 ? void 0 : _style$name.toLowerCase()) === `toc ${level}`;
+		})) === null || _find === void 0 ? void 0 : _find[0];
+		const id = named !== null && named !== void 0 ? named : `TOC${level}`;
+		return named !== void 0 || styles.has(id) || level === 1 ? { id } : {
+			id,
+			indent: (level - 1) * 220
+		};
+	};
+	/** The formatted content of a table of contents with its entries */
+	var contentOf = ({ properties, beginDirty, textWidth }, entries, styles, context) => {
+		var _parseRange;
+		const withoutPageNumbers = properties.pageNumbersEntryLevelsRange ? (_parseRange = parseRange(properties.pageNumbersEntryLevelsRange)) !== null && _parseRange !== void 0 ? _parseRange : [1, 9] : void 0;
+		const content = new StructuredDocumentTagContent();
+		entries.forEach((entry, index) => {
+			const hasPageNumber = withoutPageNumbers === void 0 || !isWithin(entry.level, withoutPageNumbers);
+			const children = [...titleRunsOf(entry.title, properties), ...hasPageNumber ? [new TextRun({ children: [properties.entryAndPageNumberSeparator || new Tab()] }), new PageReference(entry.bookmark, { hyperlink: properties.hyperlink })] : []];
+			const style = entryStyleOf(entry.level, styles);
+			content.addChildElement(new Paragraph({
+				style: style.id,
+				indent: style.indent === void 0 ? void 0 : { left: style.indent },
+				tabStops: [{
+					type: "right",
+					position: textWidth,
+					leader: "dot"
+				}],
+				children: [...index === 0 ? [new Run({ children: [
+					beginOf(beginDirty),
+					new FieldInstruction(properties),
+					createSeparate()
+				] })] : [], ...properties.hyperlink ? [new InternalHyperlink({
+					anchor: entry.bookmark,
+					children
+				})] : children]
+			}));
+		});
+		content.addChildElement(new Paragraph({ children: [new Run({ children: [createEnd()] })] }));
+		return content.prepForXml(context);
+	};
+	/** Puts a bookmark around the content of a formatted paragraph */
+	var bookmark = (paragraph, name, id, context) => {
+		const children = childrenOf(paragraph);
+		const start = children.findIndex((child) => nameOf$2(child) === "w:pPr") + 1;
+		paragraph["w:p"] = [
+			...children.slice(0, start),
+			new BookmarkStart(name, id).prepForXml(context),
+			...children.slice(start),
+			new BookmarkEnd(id).prepForXml(context)
+		];
+	};
+	/**
+	* Fills in the tables of contents in a formatted body from its headings, and bookmarks the headings they list. A
+	* table of contents that doesn't list any heading is left empty, for Word to fill in.
+	*/
+	var fillTablesOfContents = (body, context, bookmarkIds) => {
+		const blocks = blocksOf(childrenOf(body));
+		const tables = blocks.flatMap((block) => {
+			const options = writtenTables.get(block);
+			return options ? [[block, options]] : [];
+		});
+		if (tables.length === 0) return;
+		const styles = stylesOf(context);
+		const followBookmarks = tables.some(([, { properties }]) => Boolean(properties.entriesFromBookmark));
+		const headings = paragraphDetailsOf(blocks.filter((block) => nameOf$2(block) === "w:p"), followBookmarks).map((paragraph) => ({
+			paragraph,
+			levels: tables.map(([, { properties }]) => levelIn(properties, paragraph, styles))
+		})).filter(({ levels }) => levels.some((level) => level !== void 0)).map((heading, index) => _objectSpread2(_objectSpread2({}, heading), {}, { id: bookmarkIds.get(index) }));
+		for (const { paragraph, id } of headings) bookmark(paragraph.element, `_Toc${id}`, id, context);
+		tables.forEach(([table, options], index) => {
+			const entries = headings.flatMap(({ paragraph, levels, id }) => {
+				const level = levels[index];
+				return level === void 0 ? [] : [{
+					title: paragraph.text,
+					level,
+					bookmark: `_Toc${id}`
+				}];
+			});
+			if (entries.length === 0) return;
+			table["w:sdt"] = childrenOf(table).map((child) => nameOf$2(child) === "w:sdtContent" ? contentOf(options, entries, styles, context) : child);
+		});
+	};
+	//#endregion
+	//#region src/file/document/body/sequence-numbers.ts
+	/**
+	* Caption numbers written into the SEQ fields of a document, such as the 2 of "Figure 2", when the document is given page
+	* numbers.
+	*
+	* A SEQ field (`SequentialIdentifier`) shows how many SEQ fields of its identifier, such as "Figure", there are up to and
+	* including it, so the number doesn't depend on how the pages are laid out. Its switches change the count: `\r 5` starts
+	* it again from 5, `\c` repeats the number of the one before, `\s 1` starts it again after each Heading 1, `\h` hides the
+	* number, and `\* ROMAN` writes it in roman numerals. `docx` writes SEQ fields dirty, for Word to number when it opens the
+	* document, which makes Word ask to update the fields. When the document is given page numbers, each is written clean
+	* with its number, counted as Word counts it. What Word does was read from its PDF of `scripts/layout-probes/word-seq.ts`.
+	*
+	* Word counts the SEQ fields of the body, those in text boxes and hidden text too, in order, and counts an identifier in
+	* any capitals, or in quotes, as the same one. It writes the SEQ fields of headers, footers, footnotes and endnotes as an
+	* error, "Error! Main Document Only.", and doesn't count them with the body's.
+	*
+	* Where Word's count isn't known, the field is left blank rather than given a number that could be wrong: a switch it
+	* doesn't follow, a SEQ field in deleted text, and every SEQ field of an identifier that also has SEQ fields in a comment.
+	* The fields of its identifier after one whose number isn't known are left blank too, until one starts the count again
+	* with `\r`. A number in a format not followed is left blank, but the count goes on.
+	*
+	* @module
+	*/
+	var IDENTIFIER = new RegExp("^\\p{L}[\\p{L}\\p{N}_]*$", "u");
+	/** Reads the switches of a SEQ field, and a bookmark before them, or undefined when one of them isn't followed */
+	var sequenceOf = (switches) => {
+		var _step, _format;
+		let step;
+		let hidden = false;
+		let format;
+		let caseFormat = false;
+		let picture = false;
+		for (let index = 0; index < switches.length; index++) {
+			var _switches, _next;
+			const name = switches[index];
+			const argument = (_switches = switches[index + 1]) !== null && _switches !== void 0 ? _switches : "";
+			let next;
+			if (index === 0 && !name.startsWith("\\")) next = { type: "bookmark" };
+			else if (name === "\\c" || name === "\\n") next = { type: name === "\\c" ? "repeat" : "next" };
+			else if ((name === "\\r" || name === "\\s") && /^\d+$/.test(argument)) {
+				index++;
+				next = name === "\\r" ? {
+					type: "reset",
+					to: Number(argument)
+				} : {
+					type: "heading",
+					level: Number(argument)
+				};
+			} else if (name === "\\h") hidden = true;
+			else if (name === "\\#" && index + 1 < switches.length) {
+				index++;
+				picture = true;
+			} else if (name === "\\*" && index + 1 < switches.length) {
+				const value = switches[++index];
+				if (CASE_FORMATS.has(value.toLowerCase())) caseFormat = true;
+				else if (!PLAIN_FORMATS.has(value.toLowerCase())) {
+					if (format !== void 0) return;
+					format = value;
+				}
+			} else return;
+			if (next && step) return;
+			step = (_next = next) !== null && _next !== void 0 ? _next : step;
+		}
+		if ((step === null || step === void 0 ? void 0 : step.type) === "bookmark" && switches.length > 1) return;
+		const written = !picture && !(caseFormat && format !== void 0 && format.toLowerCase() !== "arabic");
+		return {
+			step: (_step = step) !== null && _step !== void 0 ? _step : { type: "next" },
+			hidden: hidden && format === void 0,
+			format: written ? (_format = format) !== null && _format !== void 0 ? _format : "ARABIC" : ""
+		};
+	};
+	/** Reads a SEQ field's instruction, or undefined when the field isn't a SEQ field */
+	var sequenceFieldOf = (instruction) => {
+		var _match$1$match;
+		const match = new RegExp("^\\s*SEQ\\b(.*)$", "is").exec(instruction);
+		if (!match) return;
+		const [written, ...switches] = (_match$1$match = match[1].match(/"[^"]*"|\S+/g)) !== null && _match$1$match !== void 0 ? _match$1$match : [];
+		if (written === void 0) return {};
+		const identifier = written.replace(/^"(.*)"$/, "$1");
+		return IDENTIFIER.test(identifier) ? {
+			identifier,
+			sequence: sequenceOf(switches)
+		} : { identifier };
+	};
+	/** Whether a field's instruction is that of a SEQ field */
+	var isSequenceField = (instruction) => sequenceFieldOf(instruction) !== void 0;
+	/** The identifier, in small letters, of each SEQ field in the formatted elements */
+	var identifiersIn = (element) => {
+		if (typeof element !== "object" || element === null) return [];
+		if (Array.isArray(element)) return element.flatMap(identifiersIn);
+		return Object.entries(element).flatMap(([name, content]) => {
+			return [...(name === "w:instrText" && Array.isArray(content) ? content : name === "_attr" ? [content["w:instr"]] : []).flatMap((instruction) => {
+				const field = typeof instruction === "string" ? sequenceFieldOf(instruction) : void 0;
+				return (field === null || field === void 0 ? void 0 : field.identifier) === void 0 ? [] : [field.identifier.toLowerCase()];
+			}), ...identifiersIn(content)];
+		});
+	};
+	/** The identifiers, in small letters, of the SEQ fields in the document's comments, whose count in Word isn't known */
+	var identifiersInCommentsOf = (context) => {
+		var _context$file;
+		const comments = (_context$file = context.file) === null || _context$file === void 0 ? void 0 : _context$file.Comments;
+		if (!comments) return /* @__PURE__ */ new Set();
+		const wrapper = {
+			View: comments,
+			Relationships: comments.Relationships
+		};
+		return new Set(identifiersIn(comments.prepForXml(_objectSpread2(_objectSpread2({}, context), {}, {
+			viewWrapper: wrapper,
+			stack: []
+		}))));
+	};
+	/** Counts the SEQ fields of a document's body, in order, as Word counts them */
+	var sequenceNumbering = (context) => {
+		const levelOf = headingLevels(context);
+		const numbers = /* @__PURE__ */ new Map();
+		const counted = /* @__PURE__ */ new Map();
+		const headingsAt = [];
+		let unclearAt = -1;
+		let paragraph = -1;
+		let unknown;
+		/**
+		* The number of a field that starts the count again after headings of a level or a higher one (`\s`): the number of
+		* fields of its identifier since the last of them, with it, as Word counts them. It isn't known when a paragraph
+		* whose level isn't clear came after that heading, or a field since it whose number didn't follow as the next one's
+		*/
+		const afterHeading = (key, level) => {
+			var _counted$get;
+			const headingAt = Math.max(-1, ...headingsAt.slice(1, level + 1).filter((at) => at !== void 0));
+			const since = ((_counted$get = counted.get(key)) !== null && _counted$get !== void 0 ? _counted$get : []).filter((field) => field.paragraph >= headingAt);
+			const followed = since.every(({ step }) => (step === null || step === void 0 ? void 0 : step.type) === "next" || (step === null || step === void 0 ? void 0 : step.type) === "heading" && step.level === level);
+			if (unclearAt > headingAt || !followed) return;
+			return since.length + 1;
+		};
+		return {
+			startParagraph: (element) => {
+				paragraph++;
+				const level = levelOf(element);
+				if (level === "unclear") unclearAt = paragraph;
+				else if (level !== void 0) headingsAt[level] = paragraph;
+			},
+			numberOf: (instruction, place) => {
+				var _unknown, _counted$get2, _numberWriterOf;
+				const { identifier, sequence } = sequenceFieldOf(instruction);
+				if (identifier === void 0 || place === "fallback") return;
+				(_unknown = unknown) !== null && _unknown !== void 0 || (unknown = identifiersInCommentsOf(context));
+				const key = identifier.toLowerCase();
+				if ((sequence === null || sequence === void 0 ? void 0 : sequence.step.type) === "bookmark" && place === "counted" && !unknown.has(key)) return;
+				const before = numbers.has(key) ? numbers.get(key) : 0;
+				const step = unknown.has(key) || place === "deleted" ? void 0 : sequence === null || sequence === void 0 ? void 0 : sequence.step;
+				const value = (step === null || step === void 0 ? void 0 : step.type) === "reset" ? step.to : (step === null || step === void 0 ? void 0 : step.type) === "repeat" ? before : (step === null || step === void 0 ? void 0 : step.type) === "heading" ? afterHeading(key, step.level) : (step === null || step === void 0 ? void 0 : step.type) === "next" && before !== void 0 ? before + 1 : void 0;
+				numbers.set(key, value);
+				counted.set(key, [...(_counted$get2 = counted.get(key)) !== null && _counted$get2 !== void 0 ? _counted$get2 : [], _objectSpread2({ paragraph }, value === void 0 ? {} : { step })]);
+				return value === void 0 || sequence === void 0 ? void 0 : sequence.hidden ? "" : (_numberWriterOf = numberWriterOf(sequence.format)) === null || _numberWriterOf === void 0 ? void 0 : _numberWriterOf(value);
+			}
+		};
+	};
+	//#endregion
+	//#region src/file/document/body/page-numbers.ts
+	/**
+	* Page numbers written into the fields of a document that show them, when it is written, from an estimate of its pages.
+	*
+	* A page reference is a PAGEREF field, such as the page number of an entry in a table of contents, and the numbers of
+	* pages of the document and of a section are NUMPAGES and SECTIONPAGES fields. Word works their results out when it
+	* updates the fields, or lays the pages out, and until then, and in applications that don't, the fields show the results
+	* they were written with. `docx` doesn't lay out pages, so it writes the results empty, unless the document is given a
+	* {@link PageNumberEstimator}, such as `estimatePageNumbers` from `docx/layout`. Then, once the body is written, each of
+	* those fields in the body, and then in the headers and footers, is given the number the estimator worked out.
+	*
+	* Page references and tables of contents are written dirty, so Word updates them when it opens the document, and asks
+	* "This document contains fields that may refer to other files. Do you want to update the fields in this document?".
+	* When the document is given page numbers, they are written clean, so Word shows them as they are and doesn't ask. A
+	* page number the estimator didn't work out is left blank, until the fields are updated. So are SEQ fields, the numbers
+	* of captions, which are given their numbers then too.
+	*
+	* @module
+	*/
+	var nameOf$1 = (element) => {
+		const name = typeof element === "object" && element !== null && !Array.isArray(element) ? Object.keys(element)[0] : void 0;
+		return name === "_attr" ? void 0 : name;
+	};
+	var textElement = (text) => ({ "w:t": [{ _attr: { "xml:space": "preserve" } }, text] });
+	/** The elements docx formats to write a document */
+	var FORMATTED = {
+		nameOf: nameOf$1,
+		contentOf: (element) => {
+			const content = element[nameOf$1(element)];
+			return Array.isArray(content) ? content : void 0;
+		},
+		attributeOf: (element, attribute) => {
+			var _holder$_attr;
+			const content = element[nameOf$1(element)];
+			const holder = Array.isArray(content) ? content.find((child) => typeof child === "object" && child !== null && "_attr" in child) : content;
+			return holder === null || holder === void 0 || (_holder$_attr = holder._attr) === null || _holder$_attr === void 0 ? void 0 : _holder$_attr[attribute];
+		},
+		textOf: (element) => FORMATTED.contentOf(element).filter((part) => typeof part === "string").join(""),
+		textElement,
+		writeClean: (begin) => {
+			if (isDirtyWithoutPageNumbers(begin)) {
+				const attributes = begin["w:fldChar"]._attr;
+				begin["w:fldChar"] = { _attr: Object.fromEntries(Object.entries(attributes).filter(([key]) => key !== "w:dirty")) };
+			}
+		},
+		setSimpleFieldResult: (element, text) => {
+			const content = element["w:fldSimple"];
+			element["w:fldSimple"] = [...(Array.isArray(content) ? content : [content]).filter((child) => typeof child === "object" && child !== null && "_attr" in child), { "w:r": [textElement(text)] }];
+		}
+	};
+	/** The estimate of each document's pages, and the numbers of pages its headers and footers show, once its body is written */
+	var estimates = /* @__PURE__ */ new WeakMap();
+	/**
+	* Writes the numbers of the SEQ fields of a formatted body into them, counted as Word counts them (see
+	* {@link sequenceNumbering}), and writes them clean, whether or not their numbers were worked out. It is done after its
+	* tables of contents are filled in from its headings, as Word leaves a heading's SEQ number out of its entry.
+	*/
+	var fillSequenceNumbers = (body, context) => {
+		const { startParagraph, numberOf } = sequenceNumbering(context);
+		fillSequenceFields(FORMATTED, body, {
+			beforeParagraph: (paragraph) => startParagraph(paragraph),
+			resultOf: (instruction, within) => isSequenceField(instruction) ? numberOf(instruction, within) : void 0
+		});
+	};
+	/**
+	* Writes the page numbers the estimator works out into the fields of a formatted body that show them: the PAGEREF fields
+	* in its tables of contents and elsewhere, those with `\p` and in number formats of their own, and its NUMPAGES and
+	* SECTIONPAGES fields. A field whose number the estimator didn't work out is left as it is. Page references and tables
+	* of contents are written clean, whether or not their numbers were worked out. The estimate is kept for the document's
+	* headers and footers.
+	*/
+	var fillPageNumbers = (body, context, estimator) => {
+		const estimate = estimator(body, context);
+		const partPageCounts = fillBodyFields(FORMATTED, body, estimate, { blank: false });
+		if (context.file) estimates.set(context.file, {
+			estimate,
+			partPageCounts
+		});
+	};
+	/**
+	* Writes the page numbers worked out for the document a header, footer, footnote, endnote or comment is in into the
+	* fields of the formatted part that show them, once the document's body is written. Its page references and SEQ fields
+	* are written clean, and its SEQ fields are left blank: Word writes them as an error, "Error! Main Document Only.".
+	*
+	* @param part - The formatted part, if it has anything to write
+	* @param context - The context it was formatted in, with the document it is in
+	* @param referenceId - The number of the relationship to a header or footer. The SECTIONPAGES fields of the other parts
+	* are left as they are
+	*/
+	var fillPartPageNumbers = (part, context, referenceId) => {
+		const written = context.file && estimates.get(context.file);
+		if (!part || !written) return;
+		const sectionPageCount = referenceId === void 0 ? void 0 : written.partPageCounts.get(`rId${referenceId}`);
+		const notes = "w:footnotes" in part || "w:endnotes" in part;
+		fillPartFields(FORMATTED, part, written.estimate, {
+			blank: false,
+			sectionPageCount,
+			notes
+		});
 	};
 	//#endregion
 	//#region src/file/relationships/attributes.ts
@@ -16388,7 +17486,7 @@ EXTERNAL: "External" };
 	* );
 	* ```
 	*/
-	var Relationships = class extends XmlComponent {
+	var Relationships = class Relationships extends XmlComponent {
 		constructor() {
 			super("Relationships");
 			this.root.push(new RelationshipsAttributes({ xmlns: "http://schemas.openxmlformats.org/package/2006/relationships" }));
@@ -16405,6 +17503,20 @@ EXTERNAL: "External" };
 			this.root.push(createRelationship(`rId${id}`, type, target, targetMode));
 		}
 		/**
+		* Creates a copy of the relationships given. Relationships added to the copy aren't added to them, so the compiler
+		* adds the ones it writes for a part, such as to its images, to a copy, and packing a document again doesn't add
+		* them a second time.
+		*
+		* Static, as `IContext` is public and has `Relationships`, so a new instance member would change the public API.
+		*
+		* @param relationships - The relationships to copy
+		*/
+		static copy(relationships) {
+			const copy = new Relationships();
+			copy.root.push(...relationships.root.slice(1));
+			return copy;
+		}
+		/**
 		* Gets the count of relationships in this collection.
 		* Excludes the attributes element from the count.
 		*/
@@ -16414,6 +17526,17 @@ EXTERNAL: "External" };
 	};
 	//#endregion
 	//#region src/file/paragraph/run/comment-run.ts
+	/**
+	* Comment module for WordprocessingML documents.
+	*
+	* This module provides support for comments (annotations) in documents. Comments
+	* consist of comment ranges (start/end markers), comment references, and the
+	* actual comment content.
+	*
+	* Reference: http://officeopenxml.com/WPrun.php
+	*
+	* @module
+	*/
 	/**
 	* @internal
 	*/
@@ -16444,6 +17567,7 @@ EXTERNAL: "External" };
 		constructor(..._args3) {
 			super(..._args3);
 			_defineProperty(this, "xmlKeys", {
+				"xmlns:wpc": "xmlns:wpc",
 				"xmlns:cx": "xmlns:cx",
 				"xmlns:cx1": "xmlns:cx1",
 				"xmlns:cx2": "xmlns:cx2",
@@ -16684,6 +17808,7 @@ EXTERNAL: "External" };
 			_defineProperty(this, "isEmpty", void 0);
 			this.isEmpty = children.length === 0;
 			this.root.push(new RootCommentsAttributes({
+				"xmlns:wpc": "http://schemas.microsoft.com/office/word/2010/wordprocessingCanvas",
 				"xmlns:cx": "http://schemas.microsoft.com/office/drawing/2014/chartex",
 				"xmlns:cx1": "http://schemas.microsoft.com/office/drawing/2015/9/8/chartex",
 				"xmlns:cx2": "http://schemas.microsoft.com/office/drawing/2015/10/21/chartex",
@@ -16751,6 +17876,15 @@ EXTERNAL: "External" };
 		/** Whether there are no comments, in which case the document has no comments.xml part. */
 		get IsEmpty() {
 			return this.isEmpty;
+		}
+		/**
+		* Formats the comments, with the page numbers worked out for their document written into their fields, when the
+		* document's body is written with an estimate of its pages.
+		*/
+		prepForXml(context) {
+			const xml = super.prepForXml(context);
+			fillPartPageNumbers(xml, context);
+			return xml;
 		}
 	};
 	//#endregion
@@ -18050,7 +19184,7 @@ MAX: 9026 };
 	* });
 	* ```
 	*/
-	var Bookmark = class {
+	var Bookmark = class Bookmark {
 		constructor(options) {
 			_defineProperty(this, "start", void 0);
 			_defineProperty(this, "children", void 0);
@@ -18060,12 +19194,29 @@ MAX: 9026 };
 			this.children = options.children;
 			this.end = new BookmarkEnd(linkId);
 		}
+		/**
+		* The components written in this bookmark's place: its start, its children and its end. A bookmark in its
+		* children is written the same way, so one bookmark can hold another.
+		*
+		* @internal
+		*/
+		get writtenAs() {
+			return [
+				this.start,
+				...this.children.flatMap((child) => child instanceof Bookmark ? child.writtenAs : [child]),
+				this.end
+			];
+		}
 	};
 	/**
 	* Represents the start marker of a bookmark range.
 	*
 	* This element marks the beginning of a bookmarked region in the document.
 	* It must be paired with a corresponding BookmarkEnd element with the same id.
+	*
+	* The id must be unique in the document. `Bookmark` takes its ids from
+	* `bookmarkUniqueNumericId`, so take this one from it too, or it can be the
+	* same as a `Bookmark`'s.
 	*
 	* Reference: http://officeopenxml.com/WPbookmark.php
 	*
@@ -18084,7 +19235,10 @@ MAX: 9026 };
 	*
 	* @example
 	* ```typescript
-	* new BookmarkStart("myBookmark", 1);
+	* // A bookmark across two paragraphs
+	* const id = bookmarkUniqueNumericId();
+	* new Paragraph({ children: [new BookmarkStart("myBookmark", id), new TextRun("First")] });
+	* new Paragraph({ children: [new TextRun("Last"), new BookmarkEnd(id)] });
 	* ```
 	*/
 	var BookmarkStart = class extends XmlComponent {
@@ -18101,7 +19255,8 @@ MAX: 9026 };
 	* Represents the end marker of a bookmark range.
 	*
 	* This element marks the end of a bookmarked region in the document.
-	* It must be paired with a corresponding BookmarkStart element with the same id.
+	* It must be paired with a corresponding BookmarkStart element with the same id,
+	* taken from `bookmarkUniqueNumericId` (see `BookmarkStart`).
 	*
 	* Reference: http://officeopenxml.com/WPbookmark.php
 	*
@@ -18120,7 +19275,9 @@ MAX: 9026 };
 	*
 	* @example
 	* ```typescript
-	* new BookmarkEnd(1);
+	* const id = bookmarkUniqueNumericId();
+	* new BookmarkStart("myBookmark", id);
+	* new BookmarkEnd(id);
 	* ```
 	*/
 	var BookmarkEnd = class extends XmlComponent {
@@ -18294,6 +19451,10 @@ MAX: 9026 };
 	* The PAGEREF field displays the page number of the page containing
 	* the specified bookmark, useful for cross-references like "see page 5".
 	*
+	* It is written dirty, so Word fills in the page number when it opens the document, after asking to. When the
+	* document is given `pageNumbers`, it is written clean, with the number they work out, or blank when they couldn't,
+	* and Word doesn't ask.
+	*
 	* @publicApi
 	*
 	* @example
@@ -18314,8 +19475,9 @@ MAX: 9026 };
 	var PageReference = class extends Run {
 		constructor(bookmarkId, options = {}) {
 			super({ children: [
-				createBegin(true),
+				createBeginDirtyWithoutPageNumbers(),
 				new PageReferenceFieldInstruction(bookmarkId, options),
+				createSeparate(),
 				createEnd()
 			] });
 		}
@@ -18830,17 +19992,18 @@ MAX: 9026 };
 	//#endregion
 	//#region src/file/paragraph/properties.ts
 	/**
-	* Paragraph properties module for WordprocessingML documents.
+	* The alignment to write for each side of the page in a right-to-left paragraph.
 	*
-	* This module provides the paragraph properties (pPr) element which specifies
-	* the formatting applied to a paragraph.
-	*
-	* Reference: http://officeopenxml.com/WPparagraphProperties.php
-	*
-	* @see https://c-rex.net/projects/samples/ooxml/e1/Part4/OOXML_P4_DOCX_suppressLineNumbers_topic_ID0ECJAO.html
-	*
-	* @module
+	* Word and LibreOffice read `w:jc` `left` and `right` as the start and end of the paragraph, the same as
+	* `start` and `end` (ISO/IEC 29500-4 maps the transitional `left` and `right` onto the strict `start` and `end`,
+	* and [MS-OE376] 2.3.1.13 notes the same for Word 2007). So in a `w:bidi` paragraph `left` lands on the right
+	* side of the page. Swapping keeps `AlignmentType.LEFT` and `AlignmentType.RIGHT` on the side of the page they name.
+	* `left` and `right` are written rather than `end` and `start` because Word 2007 does not know `start` and `end`.
 	*/
+	var RIGHT_TO_LEFT_ALIGNMENTS = {
+		left: "right",
+		right: "left"
+	};
 	/**
 	* Represents paragraph properties (pPr) in a WordprocessingML document.
 	*
@@ -19004,7 +20167,7 @@ MAX: 9026 };
 			if (options.spacing) this.push(createSpacing(options.spacing));
 			if (options.indent) this.push(createIndent(options.indent));
 			if (options.contextualSpacing !== void 0) this.push(new OnOffElement("w:contextualSpacing", options.contextualSpacing));
-			if (options.alignment) this.push(createAlignment(options.alignment));
+			if (options.alignment) this.push(createAlignment(options.bidirectional && RIGHT_TO_LEFT_ALIGNMENTS[options.alignment] || options.alignment));
 			if (options.outlineLevel !== void 0) this.push(createOutlineLevel(options.outlineLevel));
 			if (options.suppressLineNumbers !== void 0) this.push(new OnOffElement("w:suppressLineNumbers", options.suppressLineNumbers));
 			if (options.autoSpaceEastAsianText !== void 0) this.push(new OnOffElement("w:autoSpaceDN", options.autoSpaceEastAsianText));
@@ -19018,6 +20181,31 @@ MAX: 9026 };
 		*/
 		push(item) {
 			this.root.push(item);
+		}
+		/**
+		* Adds the section properties (`w:sectPr`) of the section this paragraph ends.
+		*
+		* They go after the paragraph's run properties and before its revision (`w:pPrChange`),
+		* the order CT_PPr gives them.
+		*
+		* @param sectionProperties - The properties of the section the paragraph ends
+		*/
+		addSectionProperties(sectionProperties) {
+			const revisionIndex = this.root.findIndex((item) => item instanceof ParagraphPropertiesChange);
+			if (revisionIndex === -1) {
+				this.root.push(sectionProperties);
+				return;
+			}
+			this.root.splice(revisionIndex, 0, sectionProperties);
+		}
+		/**
+		* Removes the section properties added with {@link addSectionProperties}.
+		*
+		* @param sectionProperties - The properties of the section to remove
+		*/
+		removeSectionProperties(sectionProperties) {
+			const index = this.root.indexOf(sectionProperties);
+			if (index !== -1) this.root.splice(index, 1);
 		}
 		/**
 		* Prepares the paragraph properties for XML serialization.
@@ -19046,13 +20234,6 @@ MAX: 9026 };
 	};
 	//#endregion
 	//#region src/file/paragraph/paragraph.ts
-	/**
-	* Paragraph module for WordprocessingML documents.
-	*
-	* Reference: http://officeopenxml.com/WPparagraph.php
-	*
-	* @module
-	*/
 	/**
 	* Represents a paragraph in a WordprocessingML document.
 	*
@@ -19105,9 +20286,7 @@ MAX: 9026 };
 			if (options.text) this.root.push(new TextRun(options.text));
 			if (options.children) for (const child of options.children) {
 				if (child instanceof Bookmark) {
-					this.root.push(child.start);
-					for (const textRun of child.children) this.root.push(textRun);
-					this.root.push(child.end);
+					this.root.push(...child.writtenAs);
 					continue;
 				}
 				this.root.push(child);
@@ -19121,6 +20300,28 @@ MAX: 9026 };
 				this.root[index] = concreteHyperlink;
 			}
 			return super.prepForXml(context);
+		}
+		/**
+		* Ends a section at this paragraph by adding the section's properties to the paragraph's properties,
+		* as Word does with the last paragraph of each section but the last.
+		*
+		* The body adds them only while it is written and removes them afterwards with
+		* {@link removeSectionProperties}, so the same paragraph can be used in other documents.
+		*
+		* @internal
+		* @param sectionProperties - The properties of the section the paragraph ends
+		*/
+		addSectionProperties(sectionProperties) {
+			this.properties.addSectionProperties(sectionProperties);
+		}
+		/**
+		* Removes the section properties added with {@link addSectionProperties}.
+		*
+		* @internal
+		* @param sectionProperties - The properties of the section to remove
+		*/
+		removeSectionProperties(sectionProperties) {
+			this.properties.removeSectionProperties(sectionProperties);
 		}
 		addRunToFront(run) {
 			this.root.splice(1, 0, run);
@@ -19214,7 +20415,7 @@ MAX: 9026 };
 		}
 	};
 	//#endregion
-	//#region \0@oxc-project+runtime@0.150.0/helpers/esm/objectWithoutPropertiesLoose.js
+	//#region \0@oxc-project+runtime@0.152.0/helpers/esm/objectWithoutPropertiesLoose.js
 	function _objectWithoutPropertiesLoose(r, e) {
 		if (null == r) return {};
 		var t = {};
@@ -19225,7 +20426,7 @@ MAX: 9026 };
 		return t;
 	}
 	//#endregion
-	//#region \0@oxc-project+runtime@0.150.0/helpers/esm/objectWithoutProperties.js
+	//#region \0@oxc-project+runtime@0.152.0/helpers/esm/objectWithoutProperties.js
 	function _objectWithoutProperties(e, t) {
 		if (null == e) return {};
 		var o, r, i = _objectWithoutPropertiesLoose(e, t);
@@ -21178,6 +22379,168 @@ MAX: 9026 };
 		}
 	});
 	//#endregion
+	//#region src/file/document/body/section-properties/properties/note-properties.ts
+	/**
+	* Where the footnotes of a section are placed.
+	*
+	* ## XSD Schema
+	* ```xml
+	* <xsd:simpleType name="ST_FtnPos">
+	*   <xsd:restriction base="xsd:string">
+	*     <xsd:enumeration value="pageBottom"/>
+	*     <xsd:enumeration value="beneathText"/>
+	*     <xsd:enumeration value="sectEnd"/>
+	*     <xsd:enumeration value="docEnd"/>
+	*   </xsd:restriction>
+	* </xsd:simpleType>
+	* ```
+	*
+	* @publicApi
+	*/
+	var FootnotePosition = {
+		/** At the bottom of each page */
+		PAGE_BOTTOM: "pageBottom",
+		/** Directly below the text on each page */
+		BENEATH_TEXT: "beneathText",
+		/** At the end of the section */
+		SECTION_END: "sectEnd",
+		/** At the end of the document */
+		DOCUMENT_END: "docEnd"
+	};
+	/**
+	* Where the endnotes of a section are placed.
+	*
+	* ## XSD Schema
+	* ```xml
+	* <xsd:simpleType name="ST_EdnPos">
+	*   <xsd:restriction base="xsd:string">
+	*     <xsd:enumeration value="sectEnd"/>
+	*     <xsd:enumeration value="docEnd"/>
+	*   </xsd:restriction>
+	* </xsd:simpleType>
+	* ```
+	*
+	* @publicApi
+	*/
+	var EndnotePosition = {
+		/** At the end of the section */
+		SECTION_END: "sectEnd",
+		/** At the end of the document */
+		DOCUMENT_END: "docEnd"
+	};
+	/**
+	* When the footnote or endnote numbering restarts.
+	*
+	* ## XSD Schema
+	* ```xml
+	* <xsd:simpleType name="ST_RestartNumber">
+	*   <xsd:restriction base="xsd:string">
+	*     <xsd:enumeration value="continuous"/>
+	*     <xsd:enumeration value="eachSect"/>
+	*     <xsd:enumeration value="eachPage"/>
+	*   </xsd:restriction>
+	* </xsd:simpleType>
+	* ```
+	*
+	* @publicApi
+	*/
+	var NoteNumberRestart = {
+		/** Numbering never restarts */
+		CONTINUOUS: "continuous",
+		/** Numbering restarts in each section */
+		EACH_SECTION: "eachSect",
+		/** Numbering restarts on each page */
+		EACH_PAGE: "eachPage"
+	};
+	var createNoteProperties = ({ name, position, numberFormat, start, restart }) => new BuilderElement({
+		name,
+		children: [
+			...position === void 0 ? [] : [new BuilderElement({
+				name: "w:pos",
+				attributes: { val: {
+					key: "w:val",
+					value: position
+				} }
+			})],
+			...numberFormat ? [new BuilderElement({
+				name: "w:numFmt",
+				attributes: {
+					val: {
+						key: "w:val",
+						value: numberFormat.type
+					},
+					format: {
+						key: "w:format",
+						value: numberFormat.format
+					}
+				}
+			})] : [],
+			...start === void 0 ? [] : [new BuilderElement({
+				name: "w:numStart",
+				attributes: { val: {
+					key: "w:val",
+					value: decimalNumber(start)
+				} }
+			})],
+			...restart === void 0 ? [] : [new BuilderElement({
+				name: "w:numRestart",
+				attributes: { val: {
+					key: "w:val",
+					value: restart
+				} }
+			})]
+		]
+	});
+	/**
+	* Creates the footnote properties (footnotePr) of a section.
+	*
+	* ## XSD Schema
+	* ```xml
+	* <xsd:complexType name="CT_FtnProps">
+	*   <xsd:sequence>
+	*     <xsd:element name="pos" type="CT_FtnPos" minOccurs="0"/>
+	*     <xsd:element name="numFmt" type="CT_NumFmt" minOccurs="0"/>
+	*     <xsd:group ref="EG_FtnEdnNumProps" minOccurs="0"/>
+	*   </xsd:sequence>
+	* </xsd:complexType>
+	* ```
+	*
+	* @example
+	* ```typescript
+	* // Footnotes at the end of the section, numbered a, b, c and restarting in each section
+	* createFootnoteProperties({
+	*   position: FootnotePosition.SECTION_END,
+	*   numberFormat: { type: NumberFormat.LOWER_LETTER },
+	*   restart: NoteNumberRestart.EACH_SECTION,
+	* });
+	* ```
+	*/
+	var createFootnoteProperties = (options) => createNoteProperties(_objectSpread2({ name: "w:footnotePr" }, options));
+	/**
+	* Creates the endnote properties (endnotePr) of a section.
+	*
+	* ## XSD Schema
+	* ```xml
+	* <xsd:complexType name="CT_EdnProps">
+	*   <xsd:sequence>
+	*     <xsd:element name="pos" type="CT_EdnPos" minOccurs="0"/>
+	*     <xsd:element name="numFmt" type="CT_NumFmt" minOccurs="0"/>
+	*     <xsd:group ref="EG_FtnEdnNumProps" minOccurs="0"/>
+	*   </xsd:sequence>
+	* </xsd:complexType>
+	* ```
+	*
+	* @example
+	* ```typescript
+	* // Endnotes at the end of the document, numbered 001, 002, 003
+	* createEndnoteProperties({
+	*   position: EndnotePosition.DOCUMENT_END,
+	*   numberFormat: { type: NumberFormat.CUSTOM, format: "001" },
+	* });
+	* ```
+	*/
+	var createEndnoteProperties = (options) => createNoteProperties(_objectSpread2({ name: "w:endnotePr" }, options));
+	//#endregion
 	//#region src/file/document/body/section-properties/properties/page-borders.ts
 	/**
 	* Page borders module for WordprocessingML section properties.
@@ -21417,7 +22780,7 @@ MAX: 9026 };
 		COLON: "colon",
 		/** Em dash separator (—) */
 		EM_DASH: "emDash",
-		/** En dash separator (–) */
+		/** En dash separator (–), written as `enDash` */
 		EN_DASH: "endash"
 	};
 	/**
@@ -21447,7 +22810,7 @@ MAX: 9026 };
 	* });
 	* ```
 	*/
-	var createPageNumberType = ({ start, formatType, separator }) => new BuilderElement({
+	var createPageNumberType = ({ start, formatType, separator, chapterHeadingLevel }) => new BuilderElement({
 		name: "w:pgNumType",
 		attributes: {
 			start: {
@@ -21460,7 +22823,11 @@ MAX: 9026 };
 			},
 			separator: {
 				key: "w:chapSep",
-				value: separator
+				value: separator === PageNumberSeparator.EN_DASH ? "enDash" : separator
+			},
+			chapterHeadingLevel: {
+				key: "w:chapStyle",
+				value: chapterHeadingLevel === void 0 ? void 0 : decimalNumber(chapterHeadingLevel)
 			}
 		}
 	});
@@ -21764,7 +23131,7 @@ MAX: 9026 };
 	* ```
 	*/
 	var SectionProperties = class SectionProperties extends XmlComponent {
-		constructor({ page: { size: { width = sectionPageSizeDefaults.WIDTH, height = sectionPageSizeDefaults.HEIGHT, orientation = sectionPageSizeDefaults.ORIENTATION, code } = {}, margin: { top = sectionMarginDefaults.TOP, right = sectionMarginDefaults.RIGHT, bottom = sectionMarginDefaults.BOTTOM, left = sectionMarginDefaults.LEFT, header = sectionMarginDefaults.HEADER, footer = sectionMarginDefaults.FOOTER, gutter = sectionMarginDefaults.GUTTER } = {}, pageNumbers = {}, borders, textDirection } = {}, grid: { linePitch = 360, charSpace, type: gridType } = {}, headerWrapperGroup = {}, footerWrapperGroup = {}, lineNumbers, titlePage, verticalAlign, column, type, revision } = {}) {
+		constructor({ page: { size: { width = sectionPageSizeDefaults.WIDTH, height = sectionPageSizeDefaults.HEIGHT, orientation = sectionPageSizeDefaults.ORIENTATION, code } = {}, margin: { top = sectionMarginDefaults.TOP, right = sectionMarginDefaults.RIGHT, bottom = sectionMarginDefaults.BOTTOM, left = sectionMarginDefaults.LEFT, header = sectionMarginDefaults.HEADER, footer = sectionMarginDefaults.FOOTER, gutter = sectionMarginDefaults.GUTTER } = {}, pageNumbers = {}, borders, textDirection } = {}, grid: { linePitch = 360, charSpace, type: gridType } = {}, headerWrapperGroup = {}, footerWrapperGroup = {}, lineNumbers, titlePage, verticalAlign, column, type, footnoteProperties, endnoteProperties, revision } = {}) {
 			super("w:sectPr");
 			_defineProperty(
 				this,
@@ -21787,6 +23154,8 @@ MAX: 9026 };
 			});
 			this.addHeaderFooterGroup(HeaderFooterType.HEADER, headerWrapperGroup);
 			this.addHeaderFooterGroup(HeaderFooterType.FOOTER, footerWrapperGroup);
+			if (footnoteProperties) this.root.push(createFootnoteProperties(footnoteProperties));
+			if (endnoteProperties) this.root.push(createEndnoteProperties(endnoteProperties));
 			if (type) this.root.push(createSectionType(type));
 			this.root.push(createPageSize({
 				width,
@@ -21911,7 +23280,7 @@ MAX: 9026 };
 	* ```
 	*/
 	var Body = class extends XmlComponent {
-		constructor() {
+		constructor({ pageNumbers } = {}) {
 			super("w:body");
 			_defineProperty(this, "sections", []);
 			_defineProperty(
@@ -21919,11 +23288,15 @@ MAX: 9026 };
 				/**
 				* Section properties that were moved into a paragraph at the end of their section
 				* by {@link addSection}, keyed by that paragraph. Used to find the section that
-				* governs a given child of the body.
+				* governs a given child of the body, and to write each section's properties into
+				* its paragraph while the body is written.
 				*/
 				"sectionParagraphs",
 				/* @__PURE__ */ new Map()
 			);
+			_defineProperty(this, "headingBookmarkIds", new HeadingBookmarkIds());
+			_defineProperty(this, "pageNumbers", void 0);
+			this.pageNumbers = pageNumbers;
 		}
 		/**
 		* Finds the section properties that govern a top-level child of the body.
@@ -21938,7 +23311,7 @@ MAX: 9026 };
 		* @returns The governing section properties, or undefined if the body has no sections
 		*/
 		getSectionPropertiesFor(child) {
-			const start = child ? this.root.indexOf(child) + 1 : 0;
+			const start = child ? Math.max(this.root.indexOf(child), 0) : 0;
 			for (let i = start; i < this.root.length; i++) {
 				const component = this.root[i];
 				if (component instanceof SectionProperties) return component;
@@ -21950,8 +23323,10 @@ MAX: 9026 };
 		/**
 		* Adds new section properties to the document body.
 		*
-		* Creates a new section by moving the previous section's properties into a paragraph
-		* at the end of that section, and then adding the new section as the current section.
+		* Creates a new section by moving the previous section's properties into the last
+		* paragraph of that section, and then adding the new section as the current section.
+		* When that section doesn't end with a paragraph of its own (it ends with a table, or
+		* it is empty), an empty paragraph is added to hold its properties.
 		*
 		* According to the OOXML specification:
 		* - Section properties for all sections except the last must be stored in a paragraph's
@@ -21962,16 +23337,24 @@ MAX: 9026 };
 		*/
 		addSection(options) {
 			const currentSection = this.sections.pop();
-			const sectionParagraph = this.createSectionParagraph(currentSection);
-			this.root.push(sectionParagraph);
-			if (currentSection) this.sectionParagraphs.set(sectionParagraph, currentSection);
+			const lastParagraph = this.lastParagraphOfSection();
+			if (currentSection && lastParagraph) this.sectionParagraphs.set(lastParagraph, currentSection);
+			else {
+				const sectionParagraph = this.createSectionParagraph();
+				this.root.push(sectionParagraph);
+				if (currentSection) this.sectionParagraphs.set(sectionParagraph, currentSection);
+			}
 			this.sections.push(new SectionProperties(options));
 		}
 		/**
 		* Prepares the body element for XML serialization.
 		*
 		* Ensures that the last section's properties are placed as a direct child of the body
-		* element, as required by the OOXML specification.
+		* element, as required by the OOXML specification. Once the body is written, its tables
+		* of contents are filled in from its headings, and, when the body has a page number
+		* estimator, its page references are given their page numbers. Its SEQ fields are given
+		* their numbers after the tables of contents are filled in, as Word leaves a heading's SEQ
+		* number out of its entry.
 		*
 		* @param context - The XML serialization context
 		* @returns The prepared XML object or undefined
@@ -21981,7 +23364,19 @@ MAX: 9026 };
 				this.root.splice(0, 1);
 				this.root.push(this.sections.pop());
 			}
-			return super.prepForXml(context);
+			for (const [paragraph, section] of this.sectionParagraphs) paragraph.addSectionProperties(section);
+			let xml;
+			try {
+				xml = super.prepForXml(context);
+			} finally {
+				for (const [paragraph, section] of this.sectionParagraphs) paragraph.removeSectionProperties(section);
+			}
+			fillTablesOfContents(xml, context, this.headingBookmarkIds);
+			if (this.pageNumbers) {
+				fillSequenceNumbers(xml, context);
+				fillPageNumbers(xml, context, this.pageNumbers);
+			}
+			return xml;
 		}
 		/**
 		* Adds a block-level component to the body.
@@ -21992,14 +23387,32 @@ MAX: 9026 };
 		* @param component - The XML component to add (paragraph, table, etc.)
 		*/
 		push(component) {
+			const section = component instanceof Paragraph ? this.sectionParagraphs.get(component) : void 0;
+			if (section) {
+				const sectionParagraph = this.createSectionParagraph();
+				this.root.splice(this.root.indexOf(component) + 1, 0, sectionParagraph);
+				this.sectionParagraphs.delete(component);
+				this.sectionParagraphs.set(sectionParagraph, section);
+			}
 			this.root.push(component);
 		}
-		createSectionParagraph(section) {
-			const paragraph = new Paragraph({});
-			const properties = new ParagraphProperties({});
-			properties.push(section);
-			paragraph.addChildElement(properties);
-			return paragraph;
+		/**
+		* The paragraph the current section ends with, which can hold its properties.
+		*
+		* There is none when the section ends with something other than a paragraph, or is empty:
+		* its last child is then the placeholder at the start of the body (removed when the body is
+		* written) or the paragraph that ends the section before, which has properties of its own.
+		*/
+		lastParagraphOfSection() {
+			const last = this.root[this.root.length - 1];
+			return last instanceof Paragraph && last !== this.root[0] && !this.sectionParagraphs.has(last) && this.root.indexOf(last) === this.root.length - 1 ? last : void 0;
+		}
+		/**
+		* An empty paragraph to end a section that has no paragraph of its own to end it. The section's
+		* properties are written into it with the others, when the body is written.
+		*/
+		createSectionParagraph() {
+			return new Paragraph({});
 		}
 	};
 	//#endregion
@@ -23111,6 +24524,9 @@ MAX: 9026 };
 	var TableCellProperties = class extends IgnoreIfEmptyXmlComponent {
 		constructor(options) {
 			super("w:tcPr", options.includeIfEmpty);
+			_defineProperty(this, "hasWidth", void 0);
+			_defineProperty(this, "hasColumnWidth", false);
+			this.hasWidth = options.width !== void 0;
 			if (options.width) this.root.push(createTableWidthElement("w:tcW", options.width));
 			if (options.columnSpan) this.root.push(new GridSpan(options.columnSpan));
 			if (options.verticalMerge) this.root.push(new VerticalMerge(options.verticalMerge));
@@ -23127,6 +24543,19 @@ MAX: 9026 };
 			if (options.deletion) this.root.push(new DeletedTableCell(options.deletion));
 			if (options.cellMerge) this.root.push(new CellMerge(options.cellMerge));
 			if (options.revision) this.root.push(new TableCellPropertiesChange(options.revision));
+		}
+		/**
+		* Gives a cell without a width of its own the width of the table's columns it spans, in twips.
+		*
+		* @internal
+		*/
+		setColumnWidth(twips) {
+			if (this.hasWidth) return;
+			this.root.splice(0, this.hasColumnWidth ? 1 : 0, createTableWidthElement("w:tcW", {
+				size: twips,
+				type: WidthType.DXA
+			}));
+			this.hasColumnWidth = true;
 		}
 	};
 	var TableCellPropertiesChange = class extends XmlComponent {
@@ -23186,9 +24615,19 @@ MAX: 9026 };
 				"options",
 				void 0
 			);
+			_defineProperty(this, "properties", void 0);
 			this.options = options;
-			this.root.push(new TableCellProperties(options));
+			this.properties = new TableCellProperties(options);
+			this.root.push(this.properties);
 			for (const child of options.children) this.root.push(child);
+		}
+		/**
+		* Gives the cell, unless it has a width of its own, the width of the table's columns it spans, in twips.
+		*
+		* @internal
+		*/
+		setColumnWidth(twips) {
+			this.properties.setColumnWidth(twips);
 		}
 		prepForXml(context) {
 			if (!(this.root[this.root.length - 1] instanceof Paragraph)) this.root.push(new Paragraph({}));
@@ -24053,6 +25492,7 @@ MAX: 9026 };
 					columnIndex += cell.options.columnSpan || 1;
 				});
 			});
+			this.setCellWidths(DEFAULT_AVAILABLE_WIDTH);
 			this.resolvedColumnWidths = columnWidths !== null && columnWidths !== void 0 ? columnWidths : resolveColumnWidths({
 				rows,
 				width: this.width,
@@ -24109,6 +25549,7 @@ MAX: 9026 };
 		* serializing.
 		*/
 		prepForXml(context) {
+			this.setCellWidths(this.resolveAvailableWidth(context));
 			if (this.columnWidths === void 0) {
 				this.resolvedColumnWidths = resolveColumnWidths({
 					rows: this.rows,
@@ -24119,6 +25560,29 @@ MAX: 9026 };
 				this.root[gridIndex] = new TableGrid(this.resolvedColumnWidths, this.columnWidthsRevision);
 			}
 			return super.prepForXml(context);
+		}
+		/**
+		* Gives each cell without a width of its own the width of the `columnWidths` it spans, as Word sizes the columns of
+		* cells without a width to their content, whatever the grid says. When the table's width is wider than the columns
+		* add up to, they are scaled up to fill it, as Word and LibreOffice lay them out, so columns given as proportions
+		* keep them.
+		*/
+		setCellWidths(availableWidth) {
+			var _resolvePreferredWidt;
+			if (this.columnWidths === void 0) return;
+			const total = this.columnWidths.reduce((sum, columnWidth) => sum + columnWidth, 0);
+			const tableWidth = (_resolvePreferredWidt = resolvePreferredWidth(this.width, availableWidth)) !== null && _resolvePreferredWidt !== void 0 ? _resolvePreferredWidt : 0;
+			const scale = total > 0 && tableWidth > total ? tableWidth / total : 1;
+			for (const row of this.rows) {
+				let column = 0;
+				for (const cell of row.cells) {
+					const span = cell.options.columnSpan || 1;
+					const spanned = this.columnWidths.slice(column, column + span);
+					const cellWidth = Math.round(spanned.reduce((sum, columnWidth) => sum + columnWidth, 0) * scale);
+					if (spanned.length === span && cellWidth > 0) cell.setColumnWidth(cellWidth);
+					column += span;
+				}
+			}
 		}
 		/**
 		* Finds the width in twips available to this table from the serialization context:
@@ -24733,7 +26197,7 @@ MAX: 9026 };
 			for (const property of properties) this.addCustomProperty(property);
 		}
 		prepForXml(context) {
-			this.properties.forEach((x) => this.root.push(x));
+			this.root.splice(1, this.root.length - 1, ...this.properties);
 			return super.prepForXml(context);
 		}
 		addCustomProperty(property) {
@@ -24995,7 +26459,7 @@ MAX: 9026 };
 				"w16sdtdh",
 				"w16se"
 			], "w14 w15 wp14"));
-			this.body = new Body();
+			this.body = new Body({ pageNumbers: options.pageNumbers });
 			if (options.background) this.root.push(new DocumentBackground(options.background));
 			this.root.push(this.body);
 		}
@@ -25293,6 +26757,15 @@ MAX: 9026 };
 			});
 			this.root.push(endnote);
 		}
+		/**
+		* Formats the endnotes, with the page numbers worked out for their document written into their fields, when the
+		* document's body is written with an estimate of its pages.
+		*/
+		prepForXml(context) {
+			const xml = super.prepForXml(context);
+			fillPartPageNumbers(xml, context);
+			return xml;
+		}
 	};
 	//#endregion
 	//#region src/file/endnotes-wrapper.ts
@@ -25433,6 +26906,15 @@ MAX: 9026 };
 		}
 		add(item) {
 			this.root.push(item);
+		}
+		/**
+		* Formats the footer, with the page numbers worked out for its document written into its fields, when the document's
+		* body is written with an estimate of its pages.
+		*/
+		prepForXml(context) {
+			const xml = super.prepForXml(context);
+			fillPartPageNumbers(xml, context, this.refId);
+			return xml;
 		}
 	};
 	//#endregion
@@ -25784,6 +27266,15 @@ MAX: 9026 };
 			});
 			this.root.push(footnote);
 		}
+		/**
+		* Formats the footnotes, with the page numbers worked out for their document written into their fields, when the
+		* document's body is written with an estimate of its pages.
+		*/
+		prepForXml(context) {
+			const xml = super.prepForXml(context);
+			fillPartPageNumbers(xml, context);
+			return xml;
+		}
 	};
 	//#endregion
 	//#region src/file/footnotes-wrapper.ts
@@ -25956,6 +27447,15 @@ MAX: 9026 };
 		}
 		add(item) {
 			this.root.push(item);
+		}
+		/**
+		* Formats the header, with the page numbers worked out for its document written into its fields, when the document's
+		* body is written with an estimate of its pages.
+		*/
+		prepForXml(context) {
+			const xml = super.prepForXml(context);
+			fillPartPageNumbers(xml, context, this.refId);
+			return xml;
 		}
 	};
 	//#endregion
@@ -26961,8 +28461,7 @@ MAX: 9026 };
 		* @returns The prepared XML object
 		*/
 		prepForXml(context) {
-			for (const numbering of this.abstractNumberingMap.values()) this.root.push(numbering);
-			for (const numbering of this.concreteNumberingMap.values()) this.root.push(numbering);
+			this.root.splice(1, this.root.length - 1, ...this.abstractNumberingMap.values(), ...this.concreteNumberingMap.values());
 			return super.prepForXml(context);
 		}
 		/**
@@ -27016,6 +28515,7 @@ MAX: 9026 };
 	};
 	//#endregion
 	//#region src/file/package-part/package-part.ts
+	var PATH_PART = /^[\w-]+$/;
 	var RESERVED_FOLDERS = /* @__PURE__ */ new Set([
 		"_rels",
 		"fonts",
@@ -27054,6 +28554,7 @@ MAX: 9026 };
 	var PackagePart = class {
 		/**
 		* @throws If the folder isn't a single folder name, or is one of the folders docx writes parts of its own in
+		* @throws If the name or the extension isn't a single part of a file name, which could lead out of the folder
 		*/
 		constructor(options) {
 			_defineProperty(this, "options", void 0);
@@ -27066,7 +28567,9 @@ MAX: 9026 };
 			);
 			_defineProperty(this, "addedTo", /* @__PURE__ */ new WeakSet());
 			this.options = options;
-			if (!/^[\w-]+$/.test(options.folder) || RESERVED_FOLDERS.has(options.folder)) throw new Error(`Invalid package part folder "${options.folder}". Expected a folder name docx doesn't use, such as "charts"`);
+			if (!PATH_PART.test(options.folder) || RESERVED_FOLDERS.has(options.folder)) throw new Error(`Invalid package part folder "${options.folder}". Expected a folder name docx doesn't use, such as "charts"`);
+			if (!PATH_PART.test(options.name)) throw new Error(`Invalid package part name "${options.name}". Expected letters, digits, "_" and "-", such as "chart"`);
+			if (!PATH_PART.test(options.extension)) throw new Error(`Invalid package part extension "${options.extension}". Expected letters, digits, "_" and "-", such as "xml"`);
 		}
 		/**
 		* Adds the part to the package being written, once, and a relationship to it from the part being written.
@@ -27088,7 +28591,7 @@ MAX: 9026 };
 		/**
 		* @param contentTypes - Where each part's content type is added
 		* @param existingPaths - The paths under word/ of the parts the package already has, such as a template's charts,
-		* which new parts are numbered after
+		* which new parts don't take
 		*/
 		constructor(contentTypes, existingPaths = /* @__PURE__ */ new Set()) {
 			_defineProperty(this, "contentTypes", void 0);
@@ -27387,6 +28890,7 @@ MAX: 9026 };
 	* ```xml
 	* <xsd:complexType name="CT_Settings">
 	*   <xsd:sequence>
+	*     <xsd:element name="embedTrueTypeFonts" type="CT_OnOff" minOccurs="0"/>
 	*     <xsd:element name="trackRevisions" type="CT_OnOff" minOccurs="0"/>
 	*     <xsd:element name="defaultTabStop" type="CT_TwipsMeasure" minOccurs="0"/>
 	*     <xsd:element name="autoHyphenation" type="CT_OnOff" minOccurs="0"/>
@@ -27445,6 +28949,7 @@ MAX: 9026 };
 				Ignorable: "w14 w15 wp14"
 			}));
 			this.root.push(new OnOffElement("w:displayBackgroundShape", true));
+			if (options.embedFonts !== void 0) this.root.push(new OnOffElement("w:embedTrueTypeFonts", options.embedFonts));
 			if (options.trackRevisions !== void 0) this.root.push(new OnOffElement("w:trackRevisions", options.trackRevisions));
 			if (options.defaultTabStop !== void 0) this.root.push(new NumberValueElement("w:defaultTabStop", options.defaultTabStop));
 			if (((_options$hyphenation = options.hyphenation) === null || _options$hyphenation === void 0 ? void 0 : _options$hyphenation.autoHyphenation) !== void 0) this.root.push(new OnOffElement("w:autoHyphenation", options.hyphenation.autoHyphenation));
@@ -28033,6 +29538,39 @@ MAX: 9026 };
 			}, options));
 		}
 	};
+	/**
+	* Represents the Normal Table style, the default style of tables.
+	*
+	* It gives cells the margins Word gives the tables it makes: 108 twips (0.075 inches) on the left and right. Without a
+	* default table style, Word gives cells no margins, so their text touches the borders, where LibreOffice and other
+	* applications use these margins.
+	*/
+	var NormalTableStyle = class extends Style {
+		constructor() {
+			super({
+				type: "table",
+				styleId: "TableNormal",
+				default: true
+			}, {
+				name: "Normal Table",
+				uiPriority: 99,
+				semiHidden: true,
+				unhideWhenUsed: true
+			});
+			this.root.push(new TableProperties({
+				indent: {
+					size: 0,
+					type: WidthType.DXA
+				},
+				cellMargin: {
+					top: 0,
+					left: 108,
+					bottom: 0,
+					right: 108
+				}
+			}));
+		}
+	};
 	//#endregion
 	//#region src/file/styles/styles.ts
 	/** The name of a formatted element, such as `w:style`, or `_attr` for its parent's attributes */
@@ -28325,6 +29863,7 @@ MAX: 9026 };
 				name: "Normal",
 				quickFormat: true
 			}),
+			normalTable: new NormalTableStyle(),
 			document: new DocumentDefaults((_options$document = options.document) !== null && _options$document !== void 0 ? _options$document : {}),
 			title: new TitleStyle(_objectSpread2({ run: { size: 56 } }, options.title)),
 			heading1: new Heading1Style(_objectSpread2({ run: {
@@ -28999,7 +30538,7 @@ MAX: 9026 };
 	*/
 	var File = class {
 		constructor(options) {
-			var _options$creator, _options$revision, _options$lastModified, _options$comments, _options$customProper, _options$features, _options$features2, _options$hyphenation, _options$hyphenation2, _options$hyphenation3, _options$hyphenation4, _options$fonts;
+			var _options$creator, _options$revision, _options$lastModified, _options$comments, _options$customProper, _options$features, _options$features2, _options$fonts, _options$hyphenation, _options$hyphenation2, _options$hyphenation3, _options$hyphenation4, _options$fonts2;
 			_defineProperty(this, "currentRelationshipId", 1);
 			_defineProperty(this, "documentWrapper", void 0);
 			_defineProperty(this, "headers", []);
@@ -29047,13 +30586,17 @@ MAX: 9026 };
 			this.endnotesWrapper = new EndnotesWrapper();
 			this.contentTypes = new ContentTypes();
 			this.packageParts = new PackageParts(this.contentTypes);
-			this.documentWrapper = new DocumentWrapper({ background: options.background });
+			this.documentWrapper = new DocumentWrapper({
+				background: options.background,
+				pageNumbers: options.pageNumbers
+			});
 			this.settings = new Settings({
 				compatibilityModeVersion: options.compatabilityModeVersion,
 				compatibility: options.compatibility,
 				evenAndOddHeaders: options.evenAndOddHeaderAndFooters ? true : false,
 				trackRevisions: (_options$features = options.features) === null || _options$features === void 0 ? void 0 : _options$features.trackRevisions,
 				updateFields: (_options$features2 = options.features) === null || _options$features2 === void 0 ? void 0 : _options$features2.updateFields,
+				embedFonts: ((_options$fonts = options.fonts) === null || _options$fonts === void 0 ? void 0 : _options$fonts.length) ? true : void 0,
 				defaultTabStop: options.defaultTabStop,
 				hyphenation: {
 					autoHyphenation: (_options$hyphenation = options.hyphenation) === null || _options$hyphenation === void 0 ? void 0 : _options$hyphenation.autoHyphenation,
@@ -29064,16 +30607,20 @@ MAX: 9026 };
 			});
 			this.media = new Media();
 			if (options.externalStyles !== void 0) {
-				var _options$styles$defau, _options$styles;
+				var _options$styles$defau, _options$styles, _options$styles2, _options$styles3;
 				const given = (_options$styles$defau = (_options$styles = options.styles) === null || _options$styles === void 0 ? void 0 : _options$styles.default) !== null && _options$styles$defau !== void 0 ? _options$styles$defau : {};
 				const defaultStyles = Object.entries(createDefaultStyles(given));
 				const isGiven = ([key]) => given[key] !== void 0;
 				const externalStyles = new ExternalStylesFactory().newInstance(options.externalStyles);
-				this.styles = new Styles(_objectSpread2(_objectSpread2({}, externalStyles), {}, { importedStyles: [
-					...defaultStyles.filter((entry) => !isGiven(entry)).map(([, style]) => style),
-					...externalStyles.importedStyles,
-					...defaultStyles.filter(isGiven).map(([, style]) => style)
-				] }));
+				this.styles = new Styles(_objectSpread2(_objectSpread2({}, externalStyles), {}, {
+					paragraphStyles: (_options$styles2 = options.styles) === null || _options$styles2 === void 0 ? void 0 : _options$styles2.paragraphStyles,
+					characterStyles: (_options$styles3 = options.styles) === null || _options$styles3 === void 0 ? void 0 : _options$styles3.characterStyles,
+					importedStyles: [
+						...defaultStyles.filter((entry) => !isGiven(entry)).map(([, style]) => style),
+						...externalStyles.importedStyles,
+						...defaultStyles.filter(isGiven).map(([, style]) => style)
+					]
+				}));
 			} else if (options.styles) {
 				const defaultStyles = new DefaultStylesFactory().newInstance(options.styles.default);
 				this.styles = new Styles(_objectSpread2(_objectSpread2({}, defaultStyles), options.styles));
@@ -29085,7 +30632,7 @@ MAX: 9026 };
 			for (const section of options.sections) this.addSection(section);
 			if (options.footnotes) for (const key in options.footnotes) this.footnotesWrapper.View.createFootNote(parseFloat(key), options.footnotes[key].children);
 			if (options.endnotes) for (const key in options.endnotes) this.endnotesWrapper.View.createEndnote(parseFloat(key), options.endnotes[key].children);
-			this.fontWrapper = new FontWrapper((_options$fonts = options.fonts) !== null && _options$fonts !== void 0 ? _options$fonts : []);
+			this.fontWrapper = new FontWrapper((_options$fonts2 = options.fonts) !== null && _options$fonts2 !== void 0 ? _options$fonts2 : []);
 			this.theme = new Theme(options.theme);
 			this.documentWrapper.Relationships.addRelationship(this.currentRelationshipId++, "http://schemas.openxmlformats.org/officeDocument/2006/relationships/theme", "theme/theme1.xml");
 		}
@@ -29221,113 +30768,6 @@ MAX: 9026 };
 		}
 	};
 	//#endregion
-	//#region src/file/table-of-contents/field-instruction.ts
-	/**
-	* Field Instruction module for Table of Contents.
-	*
-	* This module handles the generation of TOC field instruction text
-	* that controls how the table of contents is built.
-	*
-	* Reference: http://officeopenxml.com/WPfieldInstructions.php
-	*
-	* @module
-	*/
-	/**
-	* Represents a field instruction for a Table of Contents.
-	*
-	* The FieldInstruction class generates the TOC field code string that Word uses
-	* to determine how to build the table of contents, including which headings to include,
-	* formatting options, and other TOC-specific settings.
-	*
-	* Reference: http://officeopenxml.com/WPfieldInstructions.php
-	*
-	* ## XSD Schema
-	* ```xml
-	* <xsd:element name="instrText" type="CT_Text"/>
-	* ```
-	*
-	* @example
-	* ```typescript
-	* // Basic TOC field instruction
-	* new FieldInstruction({ headingStyleRange: "1-3" });
-	*
-	* // TOC with hyperlinks and custom styles
-	* new FieldInstruction({
-	*   hyperlink: true,
-	*   headingStyleRange: "1-3",
-	*   stylesWithLevels: [new StyleLevel("CustomStyle", 2)],
-	* });
-	* ```
-	*/
-	var FieldInstruction = class extends XmlComponent {
-		constructor(properties = {}) {
-			super("w:instrText");
-			_defineProperty(this, "properties", void 0);
-			this.properties = properties;
-			this.root.push(new TextAttributes({ space: SpaceType.PRESERVE }));
-			let instruction = "TOC";
-			if (this.properties.captionLabel) instruction = `${instruction} \\a "${this.properties.captionLabel}"`;
-			if (this.properties.entriesFromBookmark) instruction = `${instruction} \\b "${this.properties.entriesFromBookmark}"`;
-			if (this.properties.captionLabelIncludingNumbers) instruction = `${instruction} \\c "${this.properties.captionLabelIncludingNumbers}"`;
-			if (this.properties.sequenceAndPageNumbersSeparator) instruction = `${instruction} \\d "${this.properties.sequenceAndPageNumbersSeparator}"`;
-			if (this.properties.tcFieldIdentifier) instruction = `${instruction} \\f "${this.properties.tcFieldIdentifier}"`;
-			if (this.properties.hyperlink) instruction = `${instruction} \\h`;
-			if (this.properties.tcFieldLevelRange) instruction = `${instruction} \\l "${this.properties.tcFieldLevelRange}"`;
-			if (this.properties.pageNumbersEntryLevelsRange) instruction = `${instruction} \\n "${this.properties.pageNumbersEntryLevelsRange}"`;
-			if (this.properties.headingStyleRange) instruction = `${instruction} \\o "${this.properties.headingStyleRange}"`;
-			if (this.properties.entryAndPageNumberSeparator) instruction = `${instruction} \\p "${this.properties.entryAndPageNumberSeparator}"`;
-			if (this.properties.seqFieldIdentifierForPrefix) instruction = `${instruction} \\s "${this.properties.seqFieldIdentifierForPrefix}"`;
-			if (this.properties.stylesWithLevels && this.properties.stylesWithLevels.length) {
-				const styles = this.properties.stylesWithLevels.map((sl) => `${sl.styleName},${sl.level}`).join(",");
-				instruction = `${instruction} \\t "${styles}"`;
-			}
-			if (this.properties.useAppliedParagraphOutlineLevel) instruction = `${instruction} \\u`;
-			if (this.properties.preserveTabInEntries) instruction = `${instruction} \\w`;
-			if (this.properties.preserveNewLineInEntries) instruction = `${instruction} \\x`;
-			if (this.properties.hideTabAndPageNumbersInWebView) instruction = `${instruction} \\z`;
-			this.root.push(instruction);
-		}
-	};
-	//#endregion
-	//#region src/file/table-of-contents/sdt-content.ts
-	/**
-	* Structured Document Tag Content module.
-	*
-	* This module represents the content container for structured document tags,
-	* including table of contents elements.
-	*
-	* Reference: http://officeopenxml.com/WPtableOfContents.php
-	*
-	* @module
-	*/
-	/**
-	* Represents the content portion of a Structured Document Tag.
-	*
-	* The StructuredDocumentTagContent contains the actual content elements
-	* (paragraphs, tables, etc.) within a structured document tag, such as
-	* the paragraphs that make up a table of contents.
-	*
-	* Reference: http://officeopenxml.com/WPtableOfContents.php
-	*
-	* ## XSD Schema
-	* ```xml
-	* <xsd:complexType name="CT_SdtContentBlock">
-	*   <xsd:group ref="EG_ContentBlockContent" minOccurs="0" maxOccurs="unbounded"/>
-	* </xsd:complexType>
-	* ```
-	*
-	* @example
-	* ```typescript
-	* const content = new StructuredDocumentTagContent();
-	* content.addChildElement(new Paragraph("Content"));
-	* ```
-	*/
-	var StructuredDocumentTagContent = class extends XmlComponent {
-		constructor() {
-			super("w:sdtContent");
-		}
-	};
-	//#endregion
 	//#region src/file/table-of-contents/sdt-properties.ts
 	/**
 	* Structured Document Tag Properties module.
@@ -29407,6 +30847,12 @@ MAX: 9026 };
 	* TableOfContents creates an auto-generated list of document headings
 	* with page numbers. It uses a TOC field code to generate entries.
 	*
+	* Unless it is given `cachedEntries` or `contentChildren`, it is written with an
+	* entry for each heading its options include, linked to a bookmark on the heading,
+	* so it isn't empty before Word updates it or in applications that don't update it.
+	* The page numbers are left for Word to fill in when it updates the field, unless the document's `pageNumbers`
+	* writes them.
+	*
 	* Reference: http://officeopenxml.com/WPtableOfContents.php
 	*
 	* @publicApi
@@ -29432,12 +30878,18 @@ MAX: 9026 };
 	*/
 	var TableOfContents = class extends FileChild {
 		constructor(alias = "Table of Contents", _ref = {}) {
-			let { contentChildren = [], cachedEntries = [], beginDirty = true } = _ref, properties = _objectWithoutProperties(_ref, _excluded$2);
+			let { contentChildren = [], cachedEntries = [], beginDirty } = _ref, properties = _objectWithoutProperties(_ref, _excluded$2);
 			super("w:sdt");
+			_defineProperty(
+				this,
+				/** What it is filled in with from the headings, when it isn't given its content */
+				"fromHeadings",
+				void 0
+			);
 			this.root.push(new StructuredDocumentTagProperties(alias));
 			const content = new StructuredDocumentTagContent();
 			const beginParagraphMandatoryChildren = [new Run({ children: [
-				createBegin(beginDirty),
+				beginOf(beginDirty),
 				new FieldInstruction(properties),
 				createSeparate()
 			] })];
@@ -29464,8 +30916,26 @@ MAX: 9026 };
 				for (const child of contentChildren) content.addChildElement(child);
 				const endParagraph = new Paragraph({ children: endParagraphMandatoryChildren });
 				content.addChildElement(endParagraph);
+				if (contentChildren.length === 0) this.fromHeadings = {
+					properties,
+					beginDirty
+				};
 			}
 			this.root.push(content);
+		}
+		/**
+		* Written empty, and filled in from the headings once the body it is in is written, unless it was given its content.
+		* The page numbers are aligned to the right of the text in its section.
+		*/
+		prepForXml(context) {
+			const xml = super.prepForXml(context);
+			recordTableOfContents(xml, this.fromHeadings && _objectSpread2(_objectSpread2({}, this.fromHeadings), {}, { textWidth: this.textWidthIn(context) }));
+			return xml;
+		}
+		/** The width of the text in the section it is in */
+		textWidthIn(context) {
+			var _context$file$Documen, _context$file;
+			return (_context$file$Documen = (_context$file = context.file) === null || _context$file === void 0 || (_context$file = _context$file.Document) === null || _context$file === void 0 || (_context$file = _context$file.View.Body.getSectionPropertiesFor(this)) === null || _context$file === void 0 ? void 0 : _context$file.AvailableTextWidth) !== null && _context$file$Documen !== void 0 ? _context$file$Documen : DEFAULT_AVAILABLE_WIDTH;
 		}
 		getTabStopsForLevel(level, pageWidth = 9025) {
 			return [{
@@ -33880,11 +35350,11 @@ while (n === a[++i] && n === a[++i] && n === a[++i] && n === a[++i] && n === a[+
 	*
 	* @module
 	*/
-	var formatter$2 = new Formatter();
+	var formatter$3 = new Formatter();
 	/**
 	* Formats a part's XML, with the relationships that anything in it that refers to other parts adds to.
 	*/
-	var xmlifyPart = (file, content, prettify, relationships, standalone = true) => (0, import_xml.default)(formatter$2.format(content, {
+	var xmlifyPart = (file, content, prettify, relationships, standalone = true) => (0, import_xml.default)(formatter$3.format(content, {
 		viewWrapper: {
 			View: content,
 			Relationships: relationships
@@ -34005,7 +35475,6 @@ while (n === a[++i] && n === a[++i] && n === a[++i] && n === a[++i] && n === a[+
 			return zip;
 		}
 		xmlifyFile(file, prettify) {
-			const documentRelationshipCount = file.Document.Relationships.RelationshipCount + 1;
 			const documentXmlData = (0, import_xml.default)(this.formatter.format(file.Document.View, {
 				viewWrapper: file.Document,
 				file,
@@ -34017,7 +35486,6 @@ while (n === a[++i] && n === a[++i] && n === a[++i] && n === a[++i] && n === a[+
 					encoding: "UTF-8"
 				}
 			});
-			const commentRelationshipCount = file.Comments.Relationships.RelationshipCount + 1;
 			const commentXmlData = (0, import_xml.default)(this.formatter.format(file.Comments, {
 				viewWrapper: {
 					View: file.Comments,
@@ -34032,7 +35500,6 @@ while (n === a[++i] && n === a[++i] && n === a[++i] && n === a[++i] && n === a[+
 					encoding: "UTF-8"
 				}
 			});
-			const footnoteRelationshipCount = file.FootNotes.Relationships.RelationshipCount + 1;
 			const footnoteXmlData = (0, import_xml.default)(this.formatter.format(file.FootNotes.View, {
 				viewWrapper: file.FootNotes,
 				file,
@@ -34044,17 +35511,31 @@ while (n === a[++i] && n === a[++i] && n === a[++i] && n === a[++i] && n === a[+
 					encoding: "UTF-8"
 				}
 			});
+			const endnoteXmlData = (0, import_xml.default)(this.formatter.format(file.Endnotes.View, {
+				viewWrapper: file.Endnotes,
+				file,
+				stack: []
+			}), {
+				indent: prettify,
+				declaration: { encoding: "UTF-8" }
+			});
+			const documentRelationshipCount = file.Document.Relationships.RelationshipCount + 1;
+			const commentRelationshipCount = file.Comments.Relationships.RelationshipCount + 1;
+			const footnoteRelationshipCount = file.FootNotes.Relationships.RelationshipCount + 1;
+			const endnoteRelationshipCount = file.Endnotes.Relationships.RelationshipCount + 1;
 			const documentMediaDatas = this.imageReplacer.getMediaData(documentXmlData, file.Media);
 			const commentMediaDatas = this.imageReplacer.getMediaData(commentXmlData, file.Media);
 			const footnoteMediaDatas = this.imageReplacer.getMediaData(footnoteXmlData, file.Media);
+			const endnoteMediaDatas = this.imageReplacer.getMediaData(endnoteXmlData, file.Media);
 			return _objectSpread2(_objectSpread2(_objectSpread2(_objectSpread2({
 				Relationships: {
 					data: (() => {
+						const relationships = Relationships.copy(file.Document.Relationships);
 						documentMediaDatas.forEach((mediaData, i) => {
-							file.Document.Relationships.addRelationship(documentRelationshipCount + i, "http://schemas.openxmlformats.org/officeDocument/2006/relationships/image", `media/${mediaData.fileName}`);
+							relationships.addRelationship(documentRelationshipCount + i, "http://schemas.openxmlformats.org/officeDocument/2006/relationships/image", `media/${mediaData.fileName}`);
 						});
-						file.Document.Relationships.addRelationship(file.Document.Relationships.RelationshipCount + 1, "http://schemas.openxmlformats.org/officeDocument/2006/relationships/fontTable", "fontTable.xml");
-						return (0, import_xml.default)(this.formatter.format(file.Document.Relationships, {
+						relationships.addRelationship(relationships.RelationshipCount + 1, "http://schemas.openxmlformats.org/officeDocument/2006/relationships/fontTable", "fontTable.xml");
+						return (0, import_xml.default)(this.formatter.format(relationships, {
 							viewWrapper: file.Document,
 							file,
 							stack: []
@@ -34103,20 +35584,6 @@ while (n === a[++i] && n === a[++i] && n === a[++i] && n === a[++i] && n === a[+
 					}),
 					path: "docProps/core.xml"
 				},
-				Numbering: {
-					data: (0, import_xml.default)(this.formatter.format(file.Numbering, {
-						viewWrapper: file.Document,
-						file,
-						stack: []
-					}), {
-						indent: prettify,
-						declaration: {
-							standalone: "yes",
-							encoding: "UTF-8"
-						}
-					}),
-					path: "word/numbering.xml"
-				},
 				FileRelationships: {
 					data: (0, import_xml.default)(this.formatter.format(file.FileRelationships, {
 						viewWrapper: file.Document,
@@ -34137,11 +35604,13 @@ while (n === a[++i] && n === a[++i] && n === a[++i] && n === a[++i] && n === a[+
 						indent: prettify,
 						declaration: { encoding: "UTF-8" }
 					});
-					this.imageReplacer.getMediaData(xmlData, file.Media).forEach((mediaData, i) => {
-						headerWrapper.Relationships.addRelationship(i, "http://schemas.openxmlformats.org/officeDocument/2006/relationships/image", `media/${mediaData.fileName}`);
+					const mediaDatas = this.imageReplacer.getMediaData(xmlData, file.Media);
+					const relationships = Relationships.copy(headerWrapper.Relationships);
+					mediaDatas.forEach((mediaData, i) => {
+						relationships.addRelationship(i, "http://schemas.openxmlformats.org/officeDocument/2006/relationships/image", `media/${mediaData.fileName}`);
 					});
 					return {
-						data: (0, import_xml.default)(this.formatter.format(headerWrapper.Relationships, {
+						data: (0, import_xml.default)(this.formatter.format(relationships, {
 							viewWrapper: headerWrapper,
 							file,
 							stack: []
@@ -34161,11 +35630,13 @@ while (n === a[++i] && n === a[++i] && n === a[++i] && n === a[++i] && n === a[+
 						indent: prettify,
 						declaration: { encoding: "UTF-8" }
 					});
-					this.imageReplacer.getMediaData(xmlData, file.Media).forEach((mediaData, i) => {
-						footerWrapper.Relationships.addRelationship(i, "http://schemas.openxmlformats.org/officeDocument/2006/relationships/image", `media/${mediaData.fileName}`);
+					const mediaDatas = this.imageReplacer.getMediaData(xmlData, file.Media);
+					const relationships = Relationships.copy(footerWrapper.Relationships);
+					mediaDatas.forEach((mediaData, i) => {
+						relationships.addRelationship(i, "http://schemas.openxmlformats.org/officeDocument/2006/relationships/image", `media/${mediaData.fileName}`);
 					});
 					return {
-						data: (0, import_xml.default)(this.formatter.format(footerWrapper.Relationships, {
+						data: (0, import_xml.default)(this.formatter.format(relationships, {
 							viewWrapper: footerWrapper,
 							file,
 							stack: []
@@ -34245,10 +35716,11 @@ while (n === a[++i] && n === a[++i] && n === a[++i] && n === a[++i] && n === a[+
 				},
 				FootNotesRelationships: {
 					data: (() => {
+						const relationships = Relationships.copy(file.FootNotes.Relationships);
 						footnoteMediaDatas.forEach((mediaData, i) => {
-							file.FootNotes.Relationships.addRelationship(footnoteRelationshipCount + i, "http://schemas.openxmlformats.org/officeDocument/2006/relationships/image", `media/${mediaData.fileName}`);
+							relationships.addRelationship(footnoteRelationshipCount + i, "http://schemas.openxmlformats.org/officeDocument/2006/relationships/image", `media/${mediaData.fileName}`);
 						});
-						return (0, import_xml.default)(this.formatter.format(file.FootNotes.Relationships, {
+						return (0, import_xml.default)(this.formatter.format(relationships, {
 							viewWrapper: file.FootNotes,
 							file,
 							stack: []
@@ -34260,25 +35732,27 @@ while (n === a[++i] && n === a[++i] && n === a[++i] && n === a[++i] && n === a[+
 					path: "word/_rels/footnotes.xml.rels"
 				},
 				Endnotes: {
-					data: (0, import_xml.default)(this.formatter.format(file.Endnotes.View, {
-						viewWrapper: file.Endnotes,
-						file,
-						stack: []
-					}), {
-						indent: prettify,
-						declaration: { encoding: "UTF-8" }
-					}),
+					data: (() => {
+						const xmlData = this.imageReplacer.replace(endnoteXmlData, endnoteMediaDatas, endnoteRelationshipCount);
+						return this.numberingReplacer.replace(xmlData, file.Numbering.ConcreteNumbering);
+					})(),
 					path: "word/endnotes.xml"
 				},
 				EndnotesRelationships: {
-					data: (0, import_xml.default)(this.formatter.format(file.Endnotes.Relationships, {
-						viewWrapper: file.Endnotes,
-						file,
-						stack: []
-					}), {
-						indent: prettify,
-						declaration: { encoding: "UTF-8" }
-					}),
+					data: (() => {
+						const relationships = Relationships.copy(file.Endnotes.Relationships);
+						endnoteMediaDatas.forEach((mediaData, i) => {
+							relationships.addRelationship(endnoteRelationshipCount + i, "http://schemas.openxmlformats.org/officeDocument/2006/relationships/image", `media/${mediaData.fileName}`);
+						});
+						return (0, import_xml.default)(this.formatter.format(relationships, {
+							viewWrapper: file.Endnotes,
+							file,
+							stack: []
+						}), {
+							indent: prettify,
+							declaration: { encoding: "UTF-8" }
+						});
+					})(),
 					path: "word/_rels/endnotes.xml.rels"
 				},
 				Settings: {
@@ -34305,10 +35779,11 @@ while (n === a[++i] && n === a[++i] && n === a[++i] && n === a[++i] && n === a[+
 				},
 				CommentsRelationships: {
 					data: (() => {
+						const relationships = Relationships.copy(file.Comments.Relationships);
 						commentMediaDatas.forEach((mediaData, i) => {
-							file.Comments.Relationships.addRelationship(commentRelationshipCount + i, "http://schemas.openxmlformats.org/officeDocument/2006/relationships/image", `media/${mediaData.fileName}`);
+							relationships.addRelationship(commentRelationshipCount + i, "http://schemas.openxmlformats.org/officeDocument/2006/relationships/image", `media/${mediaData.fileName}`);
 						});
-						return (0, import_xml.default)(this.formatter.format(file.Comments.Relationships, {
+						return (0, import_xml.default)(this.formatter.format(relationships, {
 							viewWrapper: {
 								View: file.Comments,
 								Relationships: file.Comments.Relationships
@@ -34395,6 +35870,20 @@ while (n === a[++i] && n === a[++i] && n === a[++i] && n === a[++i] && n === a[+
 					path: "word/theme/theme1.xml"
 				},
 				PackageParts: xmlifyPackageParts(file, prettify),
+				Numbering: {
+					data: (0, import_xml.default)(this.formatter.format(file.Numbering, {
+						viewWrapper: file.Document,
+						file,
+						stack: []
+					}), {
+						indent: prettify,
+						declaration: {
+							standalone: "yes",
+							encoding: "UTF-8"
+						}
+					}),
+					path: "word/numbering.xml"
+				},
 				ContentTypes: {
 					data: (0, import_xml.default)(this.formatter.format(file.ContentTypes, {
 						viewWrapper: file.Document,
@@ -34410,7 +35899,7 @@ while (n === a[++i] && n === a[++i] && n === a[++i] && n === a[++i] && n === a[+
 		}
 	};
 	//#endregion
-	//#region \0@oxc-project+runtime@0.150.0/helpers/esm/asyncToGenerator.js
+	//#region \0@oxc-project+runtime@0.152.0/helpers/esm/asyncToGenerator.js
 	function asyncGeneratorStep(n, t, e, r, o, a, c) {
 		try {
 			var i = n[a](c), u = i.value;
@@ -34580,13 +36069,62 @@ while (n === a[++i] && n === a[++i] && n === a[++i] && n === a[++i] && n === a[+
 	};
 	_defineProperty(Packer, "compiler", new Compiler());
 	//#endregion
+	//#region src/patcher/bookmark-ids.ts
+	var bookmarkIdOf = (element) => {
+		var _element$attributes;
+		if (element.name !== "w:bookmarkStart" && element.name !== "w:bookmarkEnd") return;
+		const id = Number((_element$attributes = element.attributes) === null || _element$attributes === void 0 ? void 0 : _element$attributes["w:id"]);
+		return Number.isInteger(id) ? id : void 0;
+	};
+	/**
+	* Finds the id of every bookmark in an element, at any depth.
+	*
+	* @param element - The element to search, such as a part's root
+	* @returns The ids, once for each bookmarkStart and bookmarkEnd
+	*/
+	var findBookmarkIds = (element) => {
+		var _element$elements;
+		const id = bookmarkIdOf(element);
+		return [...id === void 0 ? [] : [id], ...((_element$elements = element.elements) !== null && _element$elements !== void 0 ? _element$elements : []).flatMap(findBookmarkIds)];
+	};
+	/**
+	* Creates a function that renumbers the bookmarks in content being inserted, so none takes an id the document
+	* already uses. Bookmark ids must be unique within a document, but a bookmark's id is chosen when it is created,
+	* without knowing which ids the template has.
+	*
+	* A bookmark keeps its id if nothing in the document uses it yet, and otherwise gets the next unused one. An id is
+	* renumbered the same way each time, so a bookmark's start and end still share one, even in separate patches.
+	*
+	* @param idsInDocument - The ids of the bookmarks already in the document
+	* @returns A function that returns the elements with their bookmarks renumbered
+	*/
+	var renumberBookmarksAvoiding = (idsInDocument) => {
+		const usedIds = new Set(idsInDocument);
+		const newIds = /* @__PURE__ */ new Map();
+		let highestId = idsInDocument.reduce((highest, id) => Math.max(highest, id), 0);
+		const newIdFor = (id) => {
+			const knownId = newIds.get(id);
+			if (knownId !== void 0) return knownId;
+			const newId = usedIds.has(id) ? highestId + 1 : id;
+			highestId = Math.max(highestId, newId);
+			usedIds.add(newId);
+			newIds.set(id, newId);
+			return newId;
+		};
+		const renumber = (element) => {
+			const id = bookmarkIdOf(element);
+			return _objectSpread2(_objectSpread2(_objectSpread2({}, element), id === void 0 ? {} : { attributes: _objectSpread2(_objectSpread2({}, element.attributes), {}, { "w:id": String(newIdFor(id)) }) }), element.elements === void 0 ? {} : { elements: element.elements.map(renumber) });
+		};
+		return (elements) => elements.map(renumber);
+	};
+	//#endregion
 	//#region src/patcher/util.ts
 	/**
 	* Utility functions for XML manipulation in document patching.
 	*
 	* @module
 	*/
-	var formatter$1 = new Formatter();
+	var formatter$2 = new Formatter();
 	/**
 	* Converts XML string to JSON element structure.
 	*
@@ -34626,7 +36164,7 @@ while (n === a[++i] && n === a[++i] && n === a[++i] && n === a[++i] && n === a[+
 	*/
 	var createTextElementContents = (text) => {
 		var _textJson$elements$0$;
-		return (_textJson$elements$0$ = toJson((0, import_xml.default)(formatter$1.format(new Text({ text })))).elements[0].elements) !== null && _textJson$elements$0$ !== void 0 ? _textJson$elements$0$ : [];
+		return (_textJson$elements$0$ = toJson((0, import_xml.default)(formatter$2.format(new Text({ text })))).elements[0].elements) !== null && _textJson$elements$0$ !== void 0 ? _textJson$elements$0$ : [];
 	};
 	/**
 	* Adds xml:space="preserve" attribute to an element.
@@ -34760,6 +36298,11 @@ while (n === a[++i] && n === a[++i] && n === a[++i] && n === a[++i] && n === a[+
 		DOCUMENT: "file",
 		/** Replace content within paragraphs (inline replacement) */
 		PARAGRAPH: "paragraph",
+		/**
+		* Repeat the rows of a table that hold the placeholder's fields, such as `{{items.name}}`, once for each row of
+		* data. See {@link TableRowsPatch}
+		*/
+		TABLE_ROWS: "tableRows",
 		/**
 		* Change a drawing whose alt text holds the placeholder, and the parts it refers to, such as the data of a chart made
 		* in Word. See {@link DrawingPatch}
@@ -35074,6 +36617,291 @@ while (n === a[++i] && n === a[++i] && n === a[++i] && n === a[++i] && n === a[+
 		for (const { drawing, patch } of found) patch.patch(drawing, createTemplatePackage(parts, binaryParts, file, createContext(drawing.part.path)));
 	};
 	//#endregion
+	//#region src/patcher/notes.ts
+	/**
+	* Footnotes and endnotes for content inserted into an existing document.
+	*
+	* @module
+	*/
+	var formatter$1 = new Formatter();
+	var DOCUMENT_PATH = "word/document.xml";
+	var FOOTNOTES = {
+		path: "word/footnotes.xml",
+		rootName: "w:footnotes",
+		noteName: "w:footnote",
+		referenceName: "w:footnoteReference",
+		contentType: "application/vnd.openxmlformats-officedocument.wordprocessingml.footnotes+xml",
+		relationshipType: "http://schemas.openxmlformats.org/officeDocument/2006/relationships/footnotes",
+		create: {
+			part: () => new FootNotes(),
+			mark: () => new FootnoteRefRun(),
+			styles: () => [
+				new FootnoteText({}),
+				new FootnoteTextChar({}),
+				new FootnoteReferenceStyle({})
+			]
+		}
+	};
+	var ENDNOTES = {
+		path: "word/endnotes.xml",
+		rootName: "w:endnotes",
+		noteName: "w:endnote",
+		referenceName: "w:endnoteReference",
+		contentType: "application/vnd.openxmlformats-officedocument.wordprocessingml.endnotes+xml",
+		relationshipType: "http://schemas.openxmlformats.org/officeDocument/2006/relationships/endnotes",
+		create: {
+			part: () => new Endnotes(),
+			mark: () => new EndnoteRefRun(),
+			styles: () => [
+				new EndnoteText({}),
+				new EndnoteTextChar({}),
+				new EndnoteReferenceStyle({})
+			]
+		}
+	};
+	var formatElement = (component, context) => toJson((0, import_xml.default)(formatter$1.format(component, context))).elements[0];
+	var findIds = (element, names) => {
+		var _element$name, _element$attributes, _element$elements;
+		const id = names.includes((_element$name = element.name) !== null && _element$name !== void 0 ? _element$name : "") ? Number((_element$attributes = element.attributes) === null || _element$attributes === void 0 ? void 0 : _element$attributes["w:id"]) : NaN;
+		return [...Number.isInteger(id) ? [id] : [], ...((_element$elements = element.elements) !== null && _element$elements !== void 0 ? _element$elements : []).flatMap((child) => findIds(child, names))];
+	};
+	var withMark = (paragraph, mark) => {
+		var _paragraph$elements, _elements$;
+		const elements = (_paragraph$elements = paragraph.elements) !== null && _paragraph$elements !== void 0 ? _paragraph$elements : [];
+		const index = ((_elements$ = elements[0]) === null || _elements$ === void 0 ? void 0 : _elements$.name) === "w:pPr" ? 1 : 0;
+		return _objectSpread2(_objectSpread2({}, paragraph), {}, { elements: [
+			...elements.slice(0, index),
+			mark,
+			...elements.slice(index)
+		] });
+	};
+	var patchNotesOfKind = (kind, notes, parts, { createContext, addContentTypeOverride, renumberBookmarks }) => {
+		const givenNotes = new Map(Object.entries(notes).map(([id, note]) => [Number(id), note]));
+		const noteOfId = /* @__PURE__ */ new Map();
+		let highestId;
+		const renumber = (element) => {
+			var _element$attributes2, _highestId;
+			const note = element.name === kind.referenceName ? givenNotes.get(Number((_element$attributes2 = element.attributes) === null || _element$attributes2 === void 0 ? void 0 : _element$attributes2["w:id"])) : void 0;
+			if (note === void 0) return element.elements === void 0 ? element : _objectSpread2(_objectSpread2({}, element), {}, { elements: element.elements.map(renumber) });
+			highestId = ((_highestId = highestId) !== null && _highestId !== void 0 ? _highestId : [...parts.values()].flatMap((part) => findIds(part, [kind.noteName, kind.referenceName])).reduce((highest, id) => Math.max(highest, id), 0)) + 1;
+			noteOfId.set(highestId, note);
+			return _objectSpread2(_objectSpread2({}, element), {}, { attributes: _objectSpread2(_objectSpread2({}, element.attributes), {}, { "w:id": String(highestId) }) });
+		};
+		const findOrAddPart = () => {
+			var _parts$get;
+			const relationship = getFirstLevelElements((_parts$get = parts.get(relationshipsPathOf(DOCUMENT_PATH))) !== null && _parts$get !== void 0 ? _parts$get : {}, "Relationships").find((element) => {
+				var _element$attributes3;
+				return ((_element$attributes3 = element.attributes) === null || _element$attributes3 === void 0 ? void 0 : _element$attributes3.Type) === kind.relationshipType;
+			});
+			const path = relationship ? resolveTarget(DOCUMENT_PATH, String(relationship.attributes.Target)) : kind.path;
+			if (!parts.has(path)) {
+				parts.set(path, {
+					declaration: { attributes: {
+						version: "1.0",
+						encoding: "UTF-8",
+						standalone: "yes"
+					} },
+					elements: [formatElement(kind.create.part(), createContext(path))]
+				});
+				addContentTypeOverride(kind.contentType, `/${path}`);
+			}
+			if (!relationship) createContext(DOCUMENT_PATH).viewWrapper.Relationships.addRelationship(uniqueId(), kind.relationshipType, relativeTarget(DOCUMENT_PATH, path));
+			return path;
+		};
+		const write = () => {
+			if (noteOfId.size === 0) return;
+			const path = findOrAddPart();
+			const context = createContext(path);
+			const contentOfNote = new Map([...new Set(noteOfId.values())].map((note) => {
+				const mark = formatElement(kind.create.mark(), context);
+				return [note, renumberBookmarks(note.children.map((paragraph) => formatElement(paragraph, context)).map((paragraph, index) => index === 0 ? withMark(paragraph, mark) : paragraph))];
+			}));
+			getFirstLevelElements(parts.get(path), kind.rootName).push(...[...noteOfId].map(([id, note]) => ({
+				type: "element",
+				name: kind.noteName,
+				attributes: { "w:id": String(id) },
+				elements: [...contentOfNote.get(note)]
+			})));
+			const stylesPart = parts.get("word/styles.xml");
+			if (stylesPart) {
+				const styles = getFirstLevelElements(stylesPart, "w:styles");
+				const styleIds = new Set(styles.map((style) => {
+					var _style$attributes;
+					return (_style$attributes = style.attributes) === null || _style$attributes === void 0 ? void 0 : _style$attributes["w:styleId"];
+				}));
+				styles.push(...kind.create.styles().map((style) => formatElement(style, context)).filter((style) => {
+					var _style$attributes2;
+					return !styleIds.has((_style$attributes2 = style.attributes) === null || _style$attributes2 === void 0 ? void 0 : _style$attributes2["w:styleId"]);
+				}));
+			}
+		};
+		return {
+			renumber: (elements) => elements.map(renumber),
+			write
+		};
+	};
+	/**
+	* Creates the writer of the footnotes and endnotes that patches refer to.
+	*
+	* A patch refers to a note with a reference run, such as `new FootnoteReferenceRun(1)`, whose id is the note's in
+	* `footnotes`. Only references to the given notes are renumbered, and only the notes that are referred to are written.
+	*
+	* @param notes - The footnotes and endnotes, by the id the patches' reference runs are given
+	* @param parts - The document's XML parts, parsed, by their paths, which the notes are written to
+	* @param helpers - The patcher's helpers for what the notes refer to
+	*/
+	var patchNotes = ({ footnotes = {}, endnotes = {} }, parts, helpers) => {
+		const patchers = [patchNotesOfKind(FOOTNOTES, footnotes, parts, helpers), patchNotesOfKind(ENDNOTES, endnotes, parts, helpers)];
+		return {
+			renumber: (elements) => patchers.reduce((renumbered, patcher) => patcher.renumber(renumbered), elements),
+			write: () => {
+				for (const patcher of patchers) patcher.write();
+			}
+		};
+	};
+	//#endregion
+	//#region src/patcher/page-numbers.ts
+	/**
+	* Page numbers written into a template's fields once `patchDocument` has patched it, from an estimate of its pages, as
+	* a document's are when it is written with `pageNumbers`.
+	*
+	* @module
+	*/
+	/** The elements of a template, as xml-js parses them */
+	var PARSED = {
+		nameOf: (element) => element.type === "element" ? element.name : void 0,
+		contentOf: (element) => element.elements,
+		attributeOf: (element, attribute) => {
+			var _element$attributes;
+			return (_element$attributes = element.attributes) === null || _element$attributes === void 0 ? void 0 : _element$attributes[attribute];
+		},
+		textOf: (element) => {
+			var _element$elements;
+			return ((_element$elements = element.elements) !== null && _element$elements !== void 0 ? _element$elements : []).filter(({ type }) => type === "text").map(({ text }) => String(text)).join("");
+		},
+		textElement: (text) => ({
+			type: "element",
+			name: "w:t",
+			attributes: { "xml:space": "preserve" },
+			elements: [{
+				type: "text",
+				text
+			}]
+		}),
+		writeClean: (begin, instruction) => {
+			var _begin$attributes;
+			if (/^\s*(PAGEREF|TOC)\b/i.test(instruction) && ((_begin$attributes = begin.attributes) === null || _begin$attributes === void 0 ? void 0 : _begin$attributes["w:dirty"]) !== void 0) begin.attributes = Object.fromEntries(Object.entries(begin.attributes).filter(([key]) => key !== "w:dirty"));
+		},
+		setSimpleFieldResult: (element, text) => {
+			element.elements = [{
+				type: "element",
+				name: "w:r",
+				elements: [PARSED.textElement(text)]
+			}];
+		}
+	};
+	var DOCUMENT = "word/document.xml";
+	var IMPORT = "http://schemas.openxmlformats.org/officeDocument/2006/relationships/aFChunk";
+	var ZIP = [
+		80,
+		75,
+		3,
+		4
+	];
+	/** A package's parts, from a zip file: its XML parts parsed, as patchDocument parses a template's, and the rest as bytes */
+	var readPackage = function() {
+		var _ref = _asyncToGenerator(function* (data) {
+			if (!ZIP.every((byte, index) => data[index] === byte)) return;
+			try {
+				const zip = yield import_jszip_min.default.loadAsync(data);
+				const parts = /* @__PURE__ */ new Map();
+				const binaryParts = /* @__PURE__ */ new Map();
+				for (const [path, file] of Object.entries(zip.files)) {
+					if (file.dir) continue;
+					if (/\.(xml|rels)$/.test(path)) parts.set(path, toJson(yield file.async("text")));
+					else binaryParts.set(path, yield file.async("uint8array"));
+				}
+				const importedDocuments = yield readImportedDocuments(parts, binaryParts);
+				return _objectSpread2({
+					parts,
+					binaryParts
+				}, importedDocuments.size > 0 ? { importedDocuments } : {});
+			} catch (_unused) {
+				return;
+			}
+		});
+		return function readPackage(_x) {
+			return _ref.apply(this, arguments);
+		};
+	}();
+	/**
+	* Each .docx the parts of a package import (`w:altChunk`), by its path: the parts the relationships of each part refer to
+	* as imported, which are zip files that can be read. Those in other formats, such as HTML, are left to the layout.
+	*/
+	var readImportedDocuments = function() {
+		var _ref2 = _asyncToGenerator(function* (parts, binaryParts) {
+			const imported = /* @__PURE__ */ new Map();
+			for (const [path, relationships] of parts) {
+				var _rootOf$elements, _rootOf;
+				if (!path.endsWith(".rels")) continue;
+				for (const { attributes = {} } of (_rootOf$elements = (_rootOf = rootOf(relationships)) === null || _rootOf === void 0 ? void 0 : _rootOf.elements) !== null && _rootOf$elements !== void 0 ? _rootOf$elements : []) {
+					const target = resolveTarget(sourceOfRelationships(path), String(attributes.Target));
+					const data = binaryParts.get(target);
+					const read = attributes.Type === IMPORT && attributes.TargetMode !== "External" && data ? yield readPackage(data) : void 0;
+					if (read) imported.set(target, read);
+				}
+			}
+			return imported;
+		});
+		return function readImportedDocuments(_x2, _x3) {
+			return _ref2.apply(this, arguments);
+		};
+	}();
+	/** The root element of a part, such as `w:document` */
+	var rootOf = (part) => {
+		var _part$elements;
+		return part === null || part === void 0 || (_part$elements = part.elements) === null || _part$elements === void 0 ? void 0 : _part$elements.find(({ type }) => type === "element");
+	};
+	/**
+	* Writes the page numbers the estimator works out for a patched template into the fields of its body, headers and
+	* footers that show them: its PAGEREF fields, in its tables of contents and elsewhere, and its NUMPAGES and SECTIONPAGES
+	* fields. The results a field was written with are those of the template before it was patched, so a field whose number
+	* the estimator doesn't work out is left blank, as it is in a document written with `pageNumbers`. Page references and
+	* tables of contents are written clean, as they are in a document written with `pageNumbers`, so Word shows their numbers
+	* as they are and doesn't ask to update the fields.
+	*
+	* The documents it imports (`w:altChunk`) as .docx files are unzipped for the estimator to read, as Word turns them into
+	* paragraphs and tables of the template's own when it opens it.
+	*
+	* @param parts - The template's XML parts, parsed, by their paths, which are changed in place
+	* @param binaryParts - Its other parts, by their paths, for the estimator to read the fonts it embeds and the documents
+	* it imports
+	*/
+	var fillTemplatePageNumbers = function() {
+		var _ref3 = _asyncToGenerator(function* (parts, estimator, binaryParts = /* @__PURE__ */ new Map()) {
+			var _rootOf$elements2, _rootOf2;
+			const document = rootOf(parts.get(DOCUMENT));
+			if (!document) return;
+			const importedDocuments = yield readImportedDocuments(parts, binaryParts);
+			const estimate = estimator(_objectSpread2({
+				parts,
+				binaryParts
+			}, importedDocuments.size > 0 ? { importedDocuments } : {}));
+			const partPageCounts = fillBodyFields(PARSED, document, estimate, { blank: true });
+			const relationships = (_rootOf$elements2 = (_rootOf2 = rootOf(parts.get(relationshipsPathOf(DOCUMENT)))) === null || _rootOf2 === void 0 ? void 0 : _rootOf2.elements) !== null && _rootOf$elements2 !== void 0 ? _rootOf$elements2 : [];
+			for (const { attributes = {} } of relationships) {
+				const part = /\/(header|footer)$/.test(String(attributes.Type)) ? rootOf(parts.get(resolveTarget(DOCUMENT, String(attributes.Target)))) : void 0;
+				if (part) fillPartFields(PARSED, part, estimate, {
+					blank: true,
+					sectionPageCount: partPageCounts.get(String(attributes.Id))
+				});
+			}
+		});
+		return function fillTemplatePageNumbers(_x4, _x5) {
+			return _ref3.apply(this, arguments);
+		};
+	}();
+	//#endregion
 	//#region src/patcher/paragraph-split-inject.ts
 	var TokenNotFoundError = class extends Error {
 		constructor(token) {
@@ -35375,9 +37203,11 @@ while (n === a[++i] && n === a[++i] && n === a[++i] && n === a[++i] && n === a[+
 	* @param context - The document context for formatting
 	* @param keepOriginalStyles - Whether to preserve original text formatting
 	* @param recursive - Whether to replace every occurrence in a paragraph, rather than only the first
+	* @param renumberIds - Renumbers the bookmarks and note references the patch inserts, so they don't take an id the
+	* document uses
 	* @returns Result containing the modified element and whether a replacement occurred
 	*/
-	var replacer = ({ json, patch, patchText, context, keepOriginalStyles = true, recursive = true }) => {
+	var replacer = ({ json, patch, patchText, context, keepOriginalStyles = true, recursive = true, renumberIds = (elements) => elements }) => {
 		const renderedParagraphs = findLocationOfText(json, patchText);
 		if (renderedParagraphs.length === 0) return {
 			element: json,
@@ -35387,9 +37217,15 @@ while (n === a[++i] && n === a[++i] && n === a[++i] && n === a[++i] && n === a[+
 		const paragraphsToPatch = patch.type === PatchType.DOCUMENT ? withoutNestedParagraphs(paragraphsInPatchOrder) : paragraphsInPatchOrder;
 		for (const renderedParagraph of paragraphsToPatch) switch (patch.type) {
 			case PatchType.DOCUMENT: {
+				var _children;
 				const parentElement = goToParentElementFromPath(json, renderedParagraph.pathToParagraph);
 				const elementIndex = getLastElementIndexFromPath(renderedParagraph.pathToParagraph);
-				parentElement.elements.splice(elementIndex, 1, ...formatChildren(patch, context));
+				const children = formatChildren(patch, context, renumberIds);
+				const endParagraph = parentElement.name === "w:tc" && elementIndex === parentElement.elements.length - 1 && ((_children = children[children.length - 1]) === null || _children === void 0 ? void 0 : _children.name) !== "w:p" ? [{
+					type: "element",
+					name: "w:p"
+				}] : [];
+				parentElement.elements.splice(elementIndex, 1, ...children, ...endParagraph);
 				break;
 			}
 			case PatchType.PARAGRAPH:
@@ -35403,7 +37239,7 @@ while (n === a[++i] && n === a[++i] && n === a[++i] && n === a[++i] && n === a[+
 						renderedParagraph: paragraph,
 						patchText,
 						fromIndex,
-						children: formatChildren(patch, context),
+						children: formatChildren(patch, context, renumberIds),
 						keepOriginalStyles
 					});
 					paragraph = renderParagraphNode({
@@ -35421,10 +37257,10 @@ while (n === a[++i] && n === a[++i] && n === a[++i] && n === a[++i] && n === a[+
 			didFindOccurrence: true
 		};
 	};
-	var formatChildren = (patch, context) => patch.children.flatMap((c) => {
+	var formatChildren = (patch, context, renumberIds) => renumberIds(patch.children.flatMap((c) => {
 		var _c$writtenAs;
 		return (_c$writtenAs = c.writtenAs) !== null && _c$writtenAs !== void 0 ? _c$writtenAs : c;
-	}).map((c) => toJson((0, import_xml.default)(formatter.format(c, context)))).map((c) => c.elements[0]);
+	}).map((c) => toJson((0, import_xml.default)(formatter.format(c, context)))).map((c) => c.elements[0]));
 	/**
 	* Replaces the first occurrence of the placeholder from `fromIndex` on, splitting the run it starts in.
 	*
@@ -35442,10 +37278,19 @@ while (n === a[++i] && n === a[++i] && n === a[++i] && n === a[++i] && n === a[+
 		const runElementToBeReplaced = paragraphElement.elements[index];
 		const { left, right } = splitRunElement(runElementToBeReplaced, SPLIT_TOKEN);
 		const runProperties = runElementToBeReplaced.elements.find((e) => e.type === "element" && e.name === "w:rPr");
-		const newRunElements = keepOriginalStyles && runProperties ? children.map((e) => e.name === "w:r" ? withRunProperties(e, runProperties) : e) : children;
+		const newRunElements = keepOriginalStyles && runProperties ? children.map((e) => withRunPropertiesOnRuns(e, runProperties)) : children;
 		const patchedRightElement = runProperties ? _objectSpread2(_objectSpread2({}, right), {}, { elements: [runProperties, ...right.elements] }) : right;
 		paragraphElement.elements.splice(index, 1, left, ...newRunElements, patchedRightElement);
 		return index + 1 + newRunElements.length;
+	};
+	/**
+	* Gives the runs of inserted content the placeholder's run properties. Content such as a hyperlink can't take run
+	* properties itself, so its runs take them, and its text is formatted as the text around it is. Runs inside a run, such
+	* as in its text box, are that content's own, and are left alone.
+	*/
+	var withRunPropertiesOnRuns = (element, originalRunProperties) => {
+		if (element.name === "w:r") return withRunProperties(element, originalRunProperties);
+		return element.elements ? _objectSpread2(_objectSpread2({}, element), {}, { elements: element.elements.map((e) => withRunPropertiesOnRuns(e, originalRunProperties)) }) : element;
 	};
 	/**
 	* Gives a run the placeholder's run properties. A run can only have one w:rPr, so properties the run
@@ -35539,6 +37384,118 @@ while (n === a[++i] && n === a[++i] && n === a[++i] && n === a[++i] && n === a[+
 	var goToParentElementFromPath = (json, path) => goToElementFromPath(json, path.slice(0, path.length - 1));
 	var getLastElementIndexFromPath = (path) => path[path.length - 1];
 	//#endregion
+	//#region src/patcher/table-rows.ts
+	var EMPTY = {
+		type: PatchType.PARAGRAPH,
+		children: []
+	};
+	/**
+	* Repeats the rows of the tables in an element that hold the patch's fields, such as `{{items.name}}` for the key
+	* "items", once for each of the patch's rows, and patches the fields in each copy with the row's patches.
+	*
+	* @param json - The element to patch, such as a part's root
+	* @param key - The patch's key, such as "items"
+	* @param patch - The rows of data
+	* @param delimiters - The placeholders' delimiters
+	* @param patchPlaceholder - Patches a field in a copy of the rows, as `patchDocument` patches a placeholder
+	*/
+	var patchTableRows = ({ json, key, patch, delimiters: { start, end }, patchPlaceholder }) => {
+		const fieldStart = `${start}${key}.`;
+		for (const rows of findRowsToRepeat(json, fieldStart)) {
+			const fields = fieldsIn(rows.elements, fieldStart, end);
+			const copies = patch.rows.flatMap((row, index) => {
+				const copy = {
+					type: "element",
+					name: "w:tbl",
+					elements: [...index === 0 ? rows.elements.map(copyOf) : withoutIds(rows.elements)]
+				};
+				const fieldPatches = new Map(Object.entries(row).flatMap(([field, p]) => p === void 0 ? [] : [[field, p]]));
+				for (const [field, fieldPatch] of fieldPatches) patchPlaceholder(copy, `${key}.${field}`, fieldPatch);
+				for (const field of fields.filter((f) => !fieldPatches.has(f))) patchPlaceholder(copy, `${key}.${field}`, EMPTY);
+				return copy.elements;
+			});
+			rows.parent.elements.splice(rows.parent.elements.indexOf(rows.elements[0]), rows.elements.length, ...copies);
+			if (rows.table && !hasRows(rows.table.element)) rows.table.parent.elements.splice(rows.table.parent.elements.indexOf(rows.table.element), 1);
+		}
+	};
+	/**
+	* The rows that hold a field, grouped into the rows next to each other in a table, which are repeated together.
+	*/
+	var findRowsToRepeat = (json, fieldStart) => {
+		const found = findLocationOfText(json, fieldStart).flatMap((paragraph) => {
+			const row = rowHolding(json, paragraph.pathToParagraph);
+			return row ? [row] : [];
+		});
+		const rows = found.filter((row) => !found.some((other) => isInside(row.path, other.path))).filter((row, index, all) => all.findIndex((other) => other.row === row.row) === index);
+		return [...new Set(rows.map((row) => row.parent))].flatMap((parent) => {
+			const siblingRows = parent.elements.filter((e) => e.name === "w:tr");
+			const positions = rows.filter((row) => row.parent === parent).map((row) => siblingRows.indexOf(row.row)).sort((a, b) => a - b);
+			const { table } = rows.find((row) => row.parent === parent);
+			return positions.reduce((all, position) => {
+				const previous = all[all.length - 1];
+				return (previous === null || previous === void 0 ? void 0 : previous[previous.length - 1]) === position - 1 ? [...all.slice(0, -1), [...previous, position]] : [...all, [position]];
+			}, []).map((group) => {
+				const first = parent.elements.indexOf(siblingRows[group[0]]);
+				const last = parent.elements.indexOf(siblingRows[group[group.length - 1]]);
+				return {
+					parent,
+					table,
+					elements: parent.elements.slice(first, last + 1)
+				};
+			});
+		});
+	};
+	/**
+	* The row nearest to the paragraph at the end of the path that holds it, if it is in a table.
+	*/
+	var rowHolding = (json, pathToParagraph) => {
+		let element = json;
+		let row;
+		let table;
+		for (let i = 1; i < pathToParagraph.length; i++) {
+			const child = element.elements[pathToParagraph[i]];
+			if (child.name === "w:tbl") table = {
+				element: child,
+				parent: element
+			};
+			if (child.name === "w:tr") row = {
+				parent: element,
+				table,
+				row: child,
+				path: pathToParagraph.slice(0, i + 1)
+			};
+			element = child;
+		}
+		return row;
+	};
+	var isInside = (path, ancestorPath) => path.length > ancestorPath.length && ancestorPath.every((index, i) => path[i] === index);
+	var hasRows = (table) => {
+		var _table$elements;
+		return ((_table$elements = table.elements) !== null && _table$elements !== void 0 ? _table$elements : []).some((e) => e.name === "w:tr" || e.name !== "w:tblPr" && e.name !== "w:tblGrid" && hasRows(e));
+	};
+	/**
+	* The names of the fields in the elements, such as "name" for `{{items.name}}`.
+	*/
+	var fieldsIn = (elements, fieldStart, end) => {
+		const fields = findLocationOfText({ elements: [...elements] }, fieldStart).flatMap(({ text }) => text.split(fieldStart).slice(1).flatMap((after) => {
+			const fieldEnd = after.indexOf(end);
+			return fieldEnd > 0 ? [after.slice(0, fieldEnd)] : [];
+		}));
+		return [...new Set(fields)];
+	};
+	var copyOf = (element) => JSON.parse(JSON.stringify(element));
+	var ATTRIBUTES_TO_REMOVE = ["w14:paraId", "w14:textId"];
+	var ELEMENTS_TO_REMOVE = ["w:bookmarkStart", "w:bookmarkEnd"];
+	/**
+	* A copy of elements without what must be unique in a document, so they can be in the document more than once.
+	*
+	* @param parent - The elements' parent, as a content control's id is an element in its properties
+	*/
+	var withoutIds = (elements, parent) => elements.filter((e) => {
+		var _e$name;
+		return !ELEMENTS_TO_REMOVE.includes((_e$name = e.name) !== null && _e$name !== void 0 ? _e$name : "") && !((parent === null || parent === void 0 ? void 0 : parent.name) === "w:sdtPr" && e.name === "w:id");
+	}).map((e) => _objectSpread2(_objectSpread2(_objectSpread2({}, e), e.attributes === void 0 ? {} : { attributes: Object.fromEntries(Object.entries(e.attributes).filter(([name]) => !ATTRIBUTES_TO_REMOVE.includes(name))) }), e.elements === void 0 ? {} : { elements: [...withoutIds(e.elements, e)] }));
+	//#endregion
 	//#region src/patcher/theme-colors.ts
 	var THEME_RELATIONSHIP_TYPE = "http://schemas.openxmlformats.org/officeDocument/2006/relationships/theme";
 	var COLOR_NAMES = /* @__PURE__ */ new Map([
@@ -35597,7 +37554,7 @@ while (n === a[++i] && n === a[++i] && n === a[++i] && n === a[++i] && n === a[+
 				return ((_item$attributes3 = item.attributes) === null || _item$attributes3 === void 0 ? void 0 : _item$attributes3.Type) === THEME_RELATIONSHIP_TYPE;
 			});
 			const target = theme === null || theme === void 0 || (_theme$attributes = theme.attributes) === null || _theme$attributes === void 0 ? void 0 : _theme$attributes.Target;
-			return typeof target === "string" ? readPart(zip, target.startsWith("/") ? target.slice(1) : `word/${target}`) : void 0;
+			return typeof target === "string" ? readPart(zip, resolveTarget("word/document.xml", target)) : void 0;
 		});
 		return function readTheme(_x3) {
 			return _ref2.apply(this, arguments);
@@ -35636,6 +37593,23 @@ while (n === a[++i] && n === a[++i] && n === a[++i] && n === a[++i] && n === a[+
 	*
 	* @module
 	*/
+	/**
+	* Throws if a patch, or a patch for a field of one of its rows, isn't one `patchDocument` can apply, such as a patch
+	* from JavaScript without its children.
+	*
+	* @param key - The patch's key, such as "items", or for a field of a row, such as "items.name"
+	* @param inTableRow - Whether the patch is for a field of a row, where a drawing patch can't be
+	*/
+	var assertValidPatch = (key, patch, { inTableRow }) => {
+		if ((patch === null || patch === void 0 ? void 0 : patch.type) === PatchType.TABLE_ROWS && Array.isArray(patch.rows)) {
+			for (const row of patch.rows) {
+				if (typeof row !== "object" || row === null) throw new Error(`Invalid patch "${key}". Expected each of its rows to be an object of patches, by the name of their field`);
+				for (const [field, fieldPatch] of Object.entries(row)) if (fieldPatch !== void 0) assertValidPatch(`${key}.${field}`, fieldPatch, { inTableRow: true });
+			}
+			return;
+		}
+		if (!((patch === null || patch === void 0 ? void 0 : patch.type) === PatchType.DRAWING ? !inTableRow && typeof patch.patch === "function" : (patch === null || patch === void 0 ? void 0 : patch.type) !== PatchType.TABLE_ROWS && Array.isArray(patch === null || patch === void 0 ? void 0 : patch.children))) throw new Error(`Invalid patch "${key}". Expected { type: PatchType.PARAGRAPH or PatchType.DOCUMENT, children: [...] }, ${inTableRow ? "or { type: PatchType.TABLE_ROWS, rows: [...] }" : "{ type: PatchType.TABLE_ROWS, rows: [...] }, or a drawing patch such as ChartDataPatch from docx/charts"}`);
+	};
 	var imageReplacer = new ImageReplacer();
 	var UTF16LE = new Uint8Array([255, 254]);
 	var UTF16BE = new Uint8Array([254, 255]);
@@ -35683,7 +37657,7 @@ while (n === a[++i] && n === a[++i] && n === a[++i] && n === a[++i] && n === a[+
 		var _ref = _asyncToGenerator(function* ({ outputType, data, patches, keepOriginalStyles, placeholderDelimiters = {
 			start: "{{",
 			end: "}}"
-		}, recursive = true }) {
+		}, recursive = true, footnotes, endnotes, pageNumbers }) {
 			const zipContent = data instanceof import_jszip_min.default ? data : yield import_jszip_min.default.loadAsync(data);
 			const contexts = /* @__PURE__ */ new Map();
 			const themeColors = yield readThemeColors(zipContent);
@@ -35703,7 +37677,7 @@ while (n === a[++i] && n === a[++i] && n === a[++i] && n === a[++i] && n === a[+
 			const binaryContentMap = /* @__PURE__ */ new Map();
 			if (!(placeholderDelimiters === null || placeholderDelimiters === void 0 ? void 0 : placeholderDelimiters.start.trim()) || !(placeholderDelimiters === null || placeholderDelimiters === void 0 ? void 0 : placeholderDelimiters.end.trim())) throw new Error("Both start and end delimiters must be non-empty strings.");
 			const { start, end } = placeholderDelimiters;
-			for (const [key, patch] of Object.entries(patches)) if (!((patch === null || patch === void 0 ? void 0 : patch.type) === PatchType.DRAWING ? typeof patch.patch === "function" : Array.isArray(patch === null || patch === void 0 ? void 0 : patch.children))) throw new Error(`Invalid patch "${key}". Expected { type: PatchType.PARAGRAPH or PatchType.DOCUMENT, children: [...] }, or a drawing patch such as ChartDataPatch from docx/charts`);
+			for (const [key, patch] of Object.entries(patches)) assertValidPatch(key, patch, { inTableRow: false });
 			for (const [key, value] of Object.entries(zipContent.files)) {
 				const binaryValue = yield value.async("uint8array");
 				const startBytes = binaryValue.slice(0, 2);
@@ -35732,6 +37706,7 @@ while (n === a[++i] && n === a[++i] && n === a[++i] && n === a[++i] && n === a[+
 				}
 				map.set(key, json);
 			}
+			const renumberBookmarks = renumberBookmarksAvoiding([...map.values()].flatMap(findBookmarkIds));
 			const createContext = (key) => ({
 				file,
 				viewWrapper: { Relationships: { addRelationship: (id, type, target, targetMode) => {
@@ -35745,6 +37720,17 @@ while (n === a[++i] && n === a[++i] && n === a[++i] && n === a[++i] && n === a[+
 				} } },
 				stack: []
 			});
+			const notes = patchNotes({
+				footnotes,
+				endnotes
+			}, map, {
+				createContext,
+				addContentTypeOverride: (contentType, partName) => contentTypeOverrides.push({
+					contentType,
+					partName
+				}),
+				renumberBookmarks
+			});
 			patchDrawings({
 				parts: map,
 				binaryParts: binaryContentMap,
@@ -35755,35 +37741,56 @@ while (n === a[++i] && n === a[++i] && n === a[++i] && n === a[++i] && n === a[+
 					end
 				}
 			}, createContext);
+			const textPatches = Object.entries(patches).flatMap(([key, patch]) => patch.type === PatchType.DRAWING ? [] : [[key, patch]]);
+			const patchesInOrder = [...textPatches.filter(([, patch]) => patch.type === PatchType.TABLE_ROWS), ...textPatches.filter(([, patch]) => patch.type !== PatchType.TABLE_ROWS)];
 			for (const [key, json] of [...map]) {
 				if (!key.startsWith("word/") || key.endsWith(".xml.rels")) continue;
 				const context = createContext(key);
 				contexts.set(key, context);
-				for (const [patchKey, patchValue] of Object.entries(patches)) {
-					if (patchValue.type === PatchType.DRAWING) continue;
-					const patchText = `${start}${patchKey}${end}`;
-					replacer({
-						json,
-						patch: _objectSpread2(_objectSpread2({}, patchValue), {}, { children: patchValue.children.map((element) => {
-							if (element instanceof ExternalHyperlink) {
-								const concreteHyperlink = new ConcreteHyperlink(element.options.children, uniqueId());
-								relationshipAdditions.push({
+				const patchPlaceholder = (element, patchKey, patchValue) => {
+					if (patchValue.type === PatchType.TABLE_ROWS) {
+						patchTableRows({
+							json: element,
+							key: patchKey,
+							patch: patchValue,
+							delimiters: {
+								start,
+								end
+							},
+							patchPlaceholder
+						});
+						return;
+					}
+					const hyperlinkRelationships = [];
+					const { didFindOccurrence } = replacer({
+						json: element,
+						patch: _objectSpread2(_objectSpread2({}, patchValue), {}, { children: patchValue.children.flatMap((child) => child instanceof Bookmark ? child.writtenAs : [child]).map((child) => {
+							if (child instanceof ExternalHyperlink) {
+								const concreteHyperlink = new ConcreteHyperlink(child.options.children, uniqueId());
+								hyperlinkRelationships.push({
 									key,
 									id: concreteHyperlink.linkId,
 									type: "http://schemas.openxmlformats.org/officeDocument/2006/relationships/hyperlink",
-									target: element.options.link,
+									target: child.options.link,
 									targetMode: TargetModeType.EXTERNAL
 								});
 								return concreteHyperlink;
-							} else return element;
+							} else return child;
 						}) }),
-						patchText,
+						patchText: `${start}${patchKey}${end}`,
 						context,
 						keepOriginalStyles,
-						recursive
+						recursive,
+						renumberIds: (elements) => notes.renumber(renumberBookmarks(elements))
 					});
-				}
-				const mediaDatas = imageReplacer.getMediaData(JSON.stringify(json), context.file.Media);
+					if (didFindOccurrence) relationshipAdditions.push(...hyperlinkRelationships);
+				};
+				for (const [patchKey, patchValue] of patchesInOrder) patchPlaceholder(json, patchKey, patchValue);
+			}
+			notes.write();
+			for (const [key, json] of map) {
+				if (!key.startsWith("word/") || key.endsWith(".xml.rels")) continue;
+				const mediaDatas = imageReplacer.getMediaData(JSON.stringify(json), file.Media);
 				if (mediaDatas.length > 0) {
 					hasMedia = true;
 					imageRelationshipAdditions.push({
@@ -35812,6 +37819,7 @@ while (n === a[++i] && n === a[++i] && n === a[++i] && n === a[++i] && n === a[+
 				map.set(relationshipKey, relationshipsJson);
 				appendRelationship(relationshipsJson, id, type, target, targetMode);
 			}
+			if (pageNumbers) yield fillTemplatePageNumbers(map, pageNumbers, binaryContentMap);
 			const packageParts = xmlifyPackageParts(file, void 0);
 			if (hasMedia || contentTypeOverrides.length > 0) {
 				const contentTypesJson = map.get("[Content_Types].xml");
@@ -35845,12 +37853,13 @@ while (n === a[++i] && n === a[++i] && n === a[++i] && n === a[++i] && n === a[+
 		};
 	}();
 	/**
-	* The element with an extra escape on each "&" in its text. xml-js reads "&amp;" in text as an "&" already escaped, and
-	* would write a text's literal "&amp;", such as in a document about HTML, as "&".
+	* The element with an extra escape on each "&" in its text and attributes. xml-js reads "&amp;" in text as an "&"
+	* already escaped, and would write a text's literal "&amp;", such as in a document about HTML, as "&". It escapes the
+	* quotes in an attribute before `attributeValueFn` is given it, so that can't tell its "&quot;" from a literal one.
 	*/
-	var withAmpersandsEscaped = (element) => _objectSpread2(_objectSpread2({}, element), element.elements === void 0 ? {} : { elements: element.elements.map((child) => child.type === "text" ? _objectSpread2(_objectSpread2({}, child), {}, { text: String(child.text).replace(/&/g, "&amp;") }) : withAmpersandsEscaped(child)) });
+	var withAmpersandsEscaped = (element) => _objectSpread2(_objectSpread2(_objectSpread2({}, element), element.attributes === void 0 ? {} : { attributes: Object.fromEntries(Object.entries(element.attributes).map(([key, value]) => [key, value === void 0 ? value : String(value).replace(/&/g, "&amp;")])) }), element.elements === void 0 ? {} : { elements: element.elements.map((child) => child.type === "text" ? _objectSpread2(_objectSpread2({}, child), {}, { text: String(child.text).replace(/&/g, "&amp;") }) : withAmpersandsEscaped(child)) });
 	var toXml = (jsonObj) => {
-		return (0, import_lib.js2xml)(withAmpersandsEscaped(jsonObj), { attributeValueFn: (str) => String(str).replace(/&(?!amp;|lt;|gt;|quot;|apos;)/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&apos;") });
+		return (0, import_lib.js2xml)(withAmpersandsEscaped(jsonObj), { attributeValueFn: (str) => String(str).replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/'/g, "&apos;") });
 	};
 	//#endregion
 	//#region src/patcher/patch-detector.ts
@@ -35965,6 +37974,7 @@ while (n === a[++i] && n === a[++i] && n === a[++i] && n === a[++i] && n === a[+
 	exports.EmphasisMarkType = EmphasisMarkType;
 	exports.EmptyElement = EmptyElement;
 	exports.EndnoteIdReference = EndnoteIdReference;
+	exports.EndnotePosition = EndnotePosition;
 	exports.EndnoteReference = EndnoteReference;
 	exports.EndnoteReferenceRun = EndnoteReferenceRun;
 	exports.EndnoteReferenceRunAttributes = EndnoteReferenceRunAttributes;
@@ -35976,6 +37986,7 @@ while (n === a[++i] && n === a[++i] && n === a[++i] && n === a[++i] && n === a[+
 	exports.FootNotes = FootNotes;
 	exports.Footer = Footer;
 	exports.FooterWrapper = FooterWrapper;
+	exports.FootnotePosition = FootnotePosition;
 	exports.FootnoteReference = FootnoteReference;
 	exports.FootnoteReferenceElement = FootnoteReferenceElement;
 	exports.FootnoteReferenceRun = FootnoteReferenceRun;
@@ -36042,6 +38053,7 @@ while (n === a[++i] && n === a[++i] && n === a[++i] && n === a[++i] && n === a[+
 	exports.NextAttributeComponent = NextAttributeComponent;
 	exports.NoBreakHyphen = NoBreakHyphen;
 	exports.NonVisualDrawingProperties = NonVisualDrawingProperties;
+	exports.NoteNumberRestart = NoteNumberRestart;
 	exports.NumberFormat = NumberFormat;
 	exports.NumberProperties = NumberProperties;
 	exports.NumberValueElement = NumberValueElement;
@@ -36156,6 +38168,8 @@ while (n === a[++i] && n === a[++i] && n === a[++i] && n === a[++i] && n === a[+
 	exports.createDocumentGrid = createDocumentGrid;
 	exports.createDotEmphasisMark = createDotEmphasisMark;
 	exports.createEmphasisMark = createEmphasisMark;
+	exports.createEndnoteProperties = createEndnoteProperties;
+	exports.createFootnoteProperties = createFootnoteProperties;
 	exports.createFrameProperties = createFrameProperties;
 	exports.createHeaderFooterReference = createHeaderFooterReference;
 	exports.createHorizontalPosition = createHorizontalPosition;
@@ -36205,6 +38219,9 @@ while (n === a[++i] && n === a[++i] && n === a[++i] && n === a[++i] && n === a[+
 	exports.docPropertiesUniqueNumericIdGen = docPropertiesUniqueNumericIdGen;
 	exports.eighthPointMeasureValue = eighthPointMeasureValue;
 	exports.encodeUtf8 = encodeUtf8;
+	exports.fillPageNumbers = fillPageNumbers;
+	exports.fillPartPageNumbers = fillPartPageNumbers;
+	exports.fillSequenceNumbers = fillSequenceNumbers;
 	exports.hashedId = hashedId;
 	exports.hexColorValue = hexColorValue;
 	exports.hpsMeasureValue = hpsMeasureValue;
