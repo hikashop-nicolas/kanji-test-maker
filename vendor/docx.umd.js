@@ -11035,7 +11035,7 @@ DOT: "dot" };
 			if (options.imprint !== void 0) this.push(new OnOffElement("w:imprint", options.imprint));
 			if (options.noProof !== void 0) this.push(new OnOffElement("w:noProof", options.noProof));
 			if (options.snapToGrid !== void 0) this.push(new OnOffElement("w:snapToGrid", options.snapToGrid));
-			if (options.vanish) this.push(new OnOffElement("w:vanish", options.vanish));
+			if (options.vanish !== void 0) this.push(new OnOffElement("w:vanish", options.vanish));
 			if (options.color) this.push(new Color(options.color));
 			if (options.characterSpacing) this.push(new CharacterSpacing(options.characterSpacing));
 			if (options.scale !== void 0) this.push(new NumberValueElement("w:w", options.scale));
@@ -11054,8 +11054,8 @@ DOT: "dot" };
 			if (options.rightToLeft !== void 0) this.push(new OnOffElement("w:rtl", options.rightToLeft));
 			if (options.emphasisMark) this.push(createEmphasisMark(options.emphasisMark.type));
 			if (options.language) this.push(createLanguageComponent(options.language));
-			if (options.specVanish) this.push(new OnOffElement("w:specVanish", options.vanish));
-			if (options.math) this.push(new OnOffElement("w:oMath", options.math));
+			if (options.specVanish !== void 0) this.push(new OnOffElement("w:specVanish", options.specVanish));
+			if (options.math !== void 0) this.push(new OnOffElement("w:oMath", options.math));
 			if (options.revision) this.push(new RunPropertiesChange(options.revision));
 		}
 		push(item) {
@@ -12789,7 +12789,7 @@ DOT: "dot" };
 		hash.sha512 = hash.sha.sha512;
 		hash.ripemd160 = hash.ripemd.ripemd160;
 	})))(), 1);
-	var urlAlphabet = "useandom-26T198340PX75pxJACKVERYMINDBUSHWOLF_GQZbfghjklqvwyzrict";
+	var urlAlphabet = "57X6y3wQZNzYjJB2L_10pxbackgroundhimselfUTF-8DEMOGRAPHICSVqvt4KW9";
 	//#endregion
 	//#region node_modules/nanoid/non-secure/index.js
 	var customAlphabet = (alphabet, defaultSize = 21) => {
@@ -14586,48 +14586,6 @@ DOT: "dot" };
 		}
 	};
 	//#endregion
-	//#region src/file/drawing/doc-properties/doc-properties-children.ts
-	/**
-	* Child elements for document properties.
-	*
-	* This module provides hyperlink elements that can be attached to
-	* drawing elements for interactive behavior.
-	*
-	* @module
-	*/
-	/**
-	* Creates a click hyperlink element for a drawing.
-	*
-	* This element defines what happens when a user clicks on a drawing element.
-	*
-	* ## XSD Schema
-	* ```xml
-	* <xsd:complexType name="CT_Hyperlink">
-	*   <xsd:group ref="EG_PContent" minOccurs="0" maxOccurs="unbounded"/>
-	*   <xsd:attribute name="tgtFrame" type="s:ST_String"/>
-	*   <xsd:attribute name="tooltip" type="s:ST_String"/>
-	*   <xsd:attribute name="docLocation" type="s:ST_String"/>
-	*   <xsd:attribute name="history" type="s:ST_OnOff"/>
-	*   <xsd:attribute name="anchor" type="s:ST_String"/>
-	*   <xsd:attribute ref="r:id"/>
-	* </xsd:complexType>
-	* ```
-	*
-	* @param linkId - The relationship ID for the hyperlink target
-	* @param hasXmlNs - Whether to include the XML namespace declaration
-	* @returns An XML component representing the click hyperlink
-	*/
-	var createHyperlinkClick = (linkId, hasXmlNs) => new BuilderElement({
-		name: "a:hlinkClick",
-		attributes: _objectSpread2(_objectSpread2({}, hasXmlNs ? { xmlns: {
-			key: "xmlns:a",
-			value: "http://schemas.openxmlformats.org/drawingml/2006/main"
-		} } : {}), {}, { id: {
-			key: "r:id",
-			value: `rId${linkId}`
-		} })
-	});
-	//#endregion
 	//#region src/file/drawing/inline/graphic/graphic-data/pic/non-visual-pic-properties/non-visual-properties/non-visual-properties-attributes.ts
 	/**
 	* Non-visual properties attributes module.
@@ -14708,7 +14666,7 @@ DOT: "dot" };
 			for (let i = context.stack.length - 1; i >= 0; i--) {
 				const element = context.stack[i];
 				if (!(element instanceof ConcreteHyperlink)) continue;
-				this.root.push(createHyperlinkClick(element.linkId, false));
+				this.root.push(element.createDrawingClick(context, false));
 				break;
 			}
 			const result = super.prepForXml(context);
@@ -15378,6 +15336,48 @@ EXTERNAL: "External" };
 		}
 	});
 	//#endregion
+	//#region src/file/drawing/doc-properties/doc-properties-children.ts
+	/**
+	* Child elements for document properties.
+	*
+	* This module provides hyperlink elements that can be attached to
+	* drawing elements for interactive behavior.
+	*
+	* @module
+	*/
+	/**
+	* Creates a click hyperlink element for a drawing.
+	*
+	* This element defines what happens when a user clicks on a drawing element.
+	*
+	* ## XSD Schema
+	* ```xml
+	* <xsd:complexType name="CT_Hyperlink">
+	*   <xsd:group ref="EG_PContent" minOccurs="0" maxOccurs="unbounded"/>
+	*   <xsd:attribute name="tgtFrame" type="s:ST_String"/>
+	*   <xsd:attribute name="tooltip" type="s:ST_String"/>
+	*   <xsd:attribute name="docLocation" type="s:ST_String"/>
+	*   <xsd:attribute name="history" type="s:ST_OnOff"/>
+	*   <xsd:attribute name="anchor" type="s:ST_String"/>
+	*   <xsd:attribute ref="r:id"/>
+	* </xsd:complexType>
+	* ```
+	*
+	* @param linkId - The relationship ID for the hyperlink target
+	* @param hasXmlNs - Whether to include the XML namespace declaration
+	* @returns An XML component representing the click hyperlink
+	*/
+	var createHyperlinkClick = (linkId, hasXmlNs) => new BuilderElement({
+		name: "a:hlinkClick",
+		attributes: _objectSpread2(_objectSpread2({}, hasXmlNs ? { xmlns: {
+			key: "xmlns:a",
+			value: "http://schemas.openxmlformats.org/drawingml/2006/main"
+		} } : {}), {}, { id: {
+			key: "r:id",
+			value: `rId${linkId}`
+		} })
+	});
+	//#endregion
 	//#region src/file/drawing/doc-properties/non-visual-drawing-properties.ts
 	/**
 	* Non-visual drawing properties (`CT_NonVisualDrawingProps`) of the shapes, pictures and groups inside a drawing:
@@ -15572,7 +15572,7 @@ EXTERNAL: "External" };
 			} else for (let i = context.stack.length - 1; i >= 0; i--) {
 				const element = context.stack[i];
 				if (!(element instanceof ConcreteHyperlink)) continue;
-				this.root.push(createHyperlinkClick(element.linkId, true));
+				this.root.push(element.createDrawingClick(context, true));
 				break;
 			}
 			if (this.decorative) this.root.push(createDecorativeExtensionList(true));
@@ -16887,14 +16887,14 @@ EXTERNAL: "External" };
 		}
 	};
 	/** The name of a formatted element, or `_attr` for its parent's attributes */
-	var nameOf$2 = (element) => typeof element === "object" && element !== null ? Object.keys(element)[0] : void 0;
+	var nameOf$3 = (element) => typeof element === "object" && element !== null ? Object.keys(element)[0] : void 0;
 	/** The children of a formatted element. An element with only attributes has them as its one child */
 	var childrenOf = (element) => {
-		const name = nameOf$2(element);
+		const name = nameOf$3(element);
 		const content = name === void 0 ? void 0 : element[name];
 		return Array.isArray(content) ? content : content === void 0 ? [] : [content];
 	};
-	var childOf = (element, name) => childrenOf(element).find((child) => nameOf$2(child) === name);
+	var childOf = (element, name) => childrenOf(element).find((child) => nameOf$3(child) === name);
 	var attributeOf = (element, attribute) => {
 		var _childOf;
 		return (_childOf = childOf(element, "_attr")) === null || _childOf === void 0 || (_childOf = _childOf._attr) === null || _childOf === void 0 ? void 0 : _childOf[attribute];
@@ -16918,7 +16918,7 @@ EXTERNAL: "External" };
 	* so the paragraphs in it aren't taken for headings. Nor are paragraphs in text boxes, as in Word.
 	*/
 	var blocksOf = (elements) => elements.flatMap((element) => {
-		const name = nameOf$2(element);
+		const name = nameOf$3(element);
 		if (name === "w:p" || writtenTables.has(element)) return [element];
 		return name !== void 0 && BLOCK_CONTAINERS.has(name) ? blocksOf(childrenOf(element)) : [];
 	});
@@ -16938,7 +16938,7 @@ EXTERNAL: "External" };
 	]);
 	/** The text an element in a run stands for, such as `\t` for a tab. A page or column break isn't text */
 	var textOfRunContent = (element) => {
-		switch (nameOf$2(element)) {
+		switch (nameOf$3(element)) {
 			case "w:t": return childrenOf(element).filter((child) => typeof child === "string").join("");
 			case "w:tab": return "	";
 			case "w:br": return [void 0, "textWrapping"].includes(attributeOf(element, "w:type")) ? "\n" : "";
@@ -16951,7 +16951,7 @@ EXTERNAL: "External" };
 	var textOf = (paragraph) => {
 		const fields = [];
 		const read = (element) => {
-			const name = nameOf$2(element);
+			const name = nameOf$3(element);
 			if (name !== void 0 && TEXT_CONTAINERS.has(name)) return childrenOf(element).map(read).join("");
 			if (name === "w:fldChar") {
 				const type = attributeOf(element, "w:fldCharType");
@@ -16966,7 +16966,7 @@ EXTERNAL: "External" };
 	};
 	/** The bookmarks started and ended in an element, in order */
 	var bookmarkMarksOf = (element) => {
-		const name = nameOf$2(element);
+		const name = nameOf$3(element);
 		if (name === "w:bookmarkStart") return [{
 			start: true,
 			id: attributeOf(element, "w:id"),
@@ -17011,7 +17011,7 @@ EXTERNAL: "External" };
 	var stylesOf = (context) => {
 		var _context$file;
 		const styles = (_context$file = context.file) === null || _context$file === void 0 || (_context$file = _context$file.Styles) === null || _context$file === void 0 ? void 0 : _context$file.prepForXml(context);
-		return new Map(childrenOf(styles).filter((style) => nameOf$2(style) === "w:style" && ["paragraph", void 0].includes(attributeOf(style, "w:type"))).map((style) => [attributeOf(style, "w:styleId"), {
+		return new Map(childrenOf(styles).filter((style) => nameOf$3(style) === "w:style" && ["paragraph", void 0].includes(attributeOf(style, "w:type"))).map((style) => [attributeOf(style, "w:styleId"), {
 			name: attributeOf(childOf(style, "w:name"), "w:val"),
 			basedOn: attributeOf(childOf(style, "w:basedOn"), "w:val"),
 			outlineLevel: numberAttributeOf(childOf(childOf(style, "w:pPr"), "w:outlineLvl"), "w:val")
@@ -17139,7 +17139,7 @@ EXTERNAL: "External" };
 	/** Puts a bookmark around the content of a formatted paragraph */
 	var bookmark = (paragraph, name, id, context) => {
 		const children = childrenOf(paragraph);
-		const start = children.findIndex((child) => nameOf$2(child) === "w:pPr") + 1;
+		const start = children.findIndex((child) => nameOf$3(child) === "w:pPr") + 1;
 		paragraph["w:p"] = [
 			...children.slice(0, start),
 			new BookmarkStart(name, id).prepForXml(context),
@@ -17160,7 +17160,7 @@ EXTERNAL: "External" };
 		if (tables.length === 0) return;
 		const styles = stylesOf(context);
 		const followBookmarks = tables.some(([, { properties }]) => Boolean(properties.entriesFromBookmark));
-		const headings = paragraphDetailsOf(blocks.filter((block) => nameOf$2(block) === "w:p"), followBookmarks).map((paragraph) => ({
+		const headings = paragraphDetailsOf(blocks.filter((block) => nameOf$3(block) === "w:p"), followBookmarks).map((paragraph) => ({
 			paragraph,
 			levels: tables.map(([, { properties }]) => levelIn(properties, paragraph, styles))
 		})).filter(({ levels }) => levels.some((level) => level !== void 0)).map((heading, index) => _objectSpread2(_objectSpread2({}, heading), {}, { id: bookmarkIds.get(index) }));
@@ -17175,7 +17175,7 @@ EXTERNAL: "External" };
 				}];
 			});
 			if (entries.length === 0) return;
-			table["w:sdt"] = childrenOf(table).map((child) => nameOf$2(child) === "w:sdtContent" ? contentOf(options, entries, styles, context) : child);
+			table["w:sdt"] = childrenOf(table).map((child) => nameOf$3(child) === "w:sdtContent" ? contentOf(options, entries, styles, context) : child);
 		});
 	};
 	//#endregion
@@ -17355,21 +17355,21 @@ EXTERNAL: "External" };
 	*
 	* @module
 	*/
-	var nameOf$1 = (element) => {
+	var nameOf$2 = (element) => {
 		const name = typeof element === "object" && element !== null && !Array.isArray(element) ? Object.keys(element)[0] : void 0;
 		return name === "_attr" ? void 0 : name;
 	};
 	var textElement = (text) => ({ "w:t": [{ _attr: { "xml:space": "preserve" } }, text] });
 	/** The elements docx formats to write a document */
 	var FORMATTED = {
-		nameOf: nameOf$1,
+		nameOf: nameOf$2,
 		contentOf: (element) => {
-			const content = element[nameOf$1(element)];
+			const content = element[nameOf$2(element)];
 			return Array.isArray(content) ? content : void 0;
 		},
 		attributeOf: (element, attribute) => {
 			var _holder$_attr;
-			const content = element[nameOf$1(element)];
+			const content = element[nameOf$2(element)];
 			const holder = Array.isArray(content) ? content.find((child) => typeof child === "object" && child !== null && "_attr" in child) : content;
 			return holder === null || holder === void 0 || (_holder$_attr = holder._attr) === null || _holder$_attr === void 0 ? void 0 : _holder$_attr[attribute];
 		},
@@ -18498,9 +18498,9 @@ EXTERNAL: "External" };
 	var LineRuleType = {
 		/** Line spacing is at least the specified value */
 		AT_LEAST: "atLeast",
-		/** Line spacing is exactly the specified value */
+		/** Writes `exactly`, which isn't a value the schema allows, so Word ignores it. Use {@link LineRuleType.EXACT} for an exact line height. */
 		EXACTLY: "exactly",
-		/** Line spacing is exactly the specified value (alias for EXACTLY) */
+		/** Line spacing is exactly the specified value */
 		EXACT: "exact",
 		/** Line spacing is automatically determined based on content */
 		AUTO: "auto"
@@ -18960,19 +18960,43 @@ MAX: 9026 };
 	* ```
 	*/
 	var ConcreteHyperlink = class extends XmlComponent {
-		constructor(children, relationshipId, anchor) {
+		/**
+		* @param children - Inline content of the hyperlink
+		* @param relationshipId - Id of the external relationship, without the rId prefix
+		* @param anchor - Bookmark name or external URL fragment
+		* @param externalLink - The full address of an external hyperlink, so the relationship id is kept alongside its anchor
+		*/
+		constructor(children, relationshipId, anchor, externalLink) {
 			super("w:hyperlink");
 			_defineProperty(this, "linkId", void 0);
+			_defineProperty(this, "drawingLink", void 0);
 			this.linkId = relationshipId;
+			this.drawingLink = anchor && externalLink !== void 0 ? new DrawingLink(externalLink) : void 0;
 			const attributes = new HyperlinkAttributes({
 				history: 1,
 				anchor: anchor ? anchor : void 0,
-				id: !anchor ? `rId${this.linkId}` : void 0
+				id: !anchor || externalLink !== void 0 ? `rId${this.linkId}` : void 0
 			});
 			this.root.push(attributes);
 			children.forEach((child) => {
 				this.root.push(child);
 			});
+		}
+		/**
+		* Creates the `a:hlinkClick` of a picture in the hyperlink, which links to the same address.
+		*
+		* The hyperlink decides which relationship its pictures use, rather than the pictures reading `linkId`, because only it
+		* knows whether that relationship has lost the fragment to `w:anchor`. The picture's relationship is added as the
+		* picture is written, through the context's relationships, so it lands in the part the picture is in, both when
+		* packing and when patching.
+		*
+		* @param context - The context the picture is written in, whose relationships get the picture's link if it has its own
+		* @param declareNamespace - Declares the DrawingML namespace, for elements outside `a:graphic` such as `wp:docPr`
+		*/
+		createDrawingClick(context, declareNamespace) {
+			if (!this.drawingLink) return createHyperlinkClick(this.linkId, declareNamespace);
+			this.drawingLink.addRelationship(context);
+			return this.drawingLink.createClick(declareNamespace);
 		}
 	};
 	/**
@@ -19022,6 +19046,11 @@ MAX: 9026 };
 	* External hyperlinks create a relationship to an external resource (URL).
 	* The relationship is created during document preparation and the hyperlink
 	* is converted to a ConcreteHyperlink with the relationship ID.
+	* URL fragments of at most 255 UTF-16 units are written as anchors, preserving any additional # characters.
+	* Longer fragments stay in the original relationship URI to avoid exceeding Word's anchor limit;
+	* those links retain the existing limitations for fragments with multiple # characters.
+	* Word appends the anchor to the relationship target as described in MS-OI29500 §17.16.22:
+	* https://learn.microsoft.com/en-us/openspecs/office_standards/ms-oi29500/df06e423-11a6-4a36-bfb3-82139e531781
 	*
 	* Reference: http://officeopenxml.com/WPhyperlink.php
 	*
@@ -19035,6 +19064,7 @@ MAX: 9026 };
 	*   <xsd:group ref="EG_PContent" minOccurs="0" maxOccurs="unbounded"/>
 	*   <xsd:attribute ref="r:id"/>
 	*   <xsd:attribute name="history" type="s:ST_OnOff" use="optional"/>
+	*   <xsd:attribute name="anchor" type="s:ST_String" use="optional"/>
 	* </xsd:complexType>
 	* ```
 	*
@@ -19483,6 +19513,29 @@ MAX: 9026 };
 		}
 	};
 	//#endregion
+	//#region src/file/paragraph/links/external-hyperlink-target.ts
+	/**
+	* External hyperlink targets and fragments for WordprocessingML.
+	*
+	* Word appends the anchor to the relationship target, separated by a # character.
+	* Reference: https://learn.microsoft.com/en-us/openspecs/office_standards/ms-oi29500/df06e423-11a6-4a36-bfb3-82139e531781
+	*
+	* @module
+	*/
+	var MAX_ANCHOR_LENGTH = 255;
+	/**
+	* Splits a nonempty fragment that fits Word's anchor limit without decoding or normalizing either part.
+	* Longer fragments stay in the original relationship URI, retaining its existing multi-hash limitations.
+	*/
+	var externalHyperlinkTarget = (link) => {
+		const index = link.indexOf("#");
+		const fragmentLength = link.length - index - 1;
+		return index > 0 && fragmentLength > 0 && fragmentLength <= MAX_ANCHOR_LENGTH ? {
+			target: link.slice(0, index),
+			anchor: link.slice(index + 1)
+		} : { target: link };
+	};
+	//#endregion
 	//#region src/file/fonts/font.ts
 	/**
 	* Font module for WordprocessingML documents.
@@ -19621,32 +19674,26 @@ MAX: 9026 };
 		]
 	});
 	//#endregion
-	//#region src/file/fonts/create-regular-font.ts
+	//#region src/file/fonts/create-embedded-font.ts
 	/**
-	* Creates a regular embedded font with default settings.
+	* Creates an embedded font with default settings.
 	*
 	* This helper function creates a font definition with standard font signature
 	* values that work for most common fonts. The signature specifies Unicode
 	* and code page ranges supported by the font.
 	*
-	* @param options - Font creation options
-	* @param options.name - Font name
-	* @param options.index - Font relationship index
-	* @param options.fontKey - Unique font key (GUID) for obfuscation
-	* @param options.characterSet - Optional character set identifier
-	*
 	* @returns XmlComponent representing the font definition
 	*
 	* @example
 	* ```typescript
-	* const font = createRegularFont({
+	* const font = createEmbeddedFont({
 	*   name: "Arial",
-	*   index: 1,
-	*   fontKey: "12345678-1234-1234-1234-123456789012"
+	*   embedRegular: { id: "rId1", fontKey: "12345678-1234-1234-1234-123456789012" },
+	*   embedBold: { id: "rId2", fontKey: "12345678-1234-1234-1234-123456789013" },
 	* });
 	* ```
 	*/
-	var createRegularFont = ({ name, index, fontKey, characterSet }) => createFont({
+	var createEmbeddedFont = ({ name, characterSet, embedRegular, embedBold, embedItalic, embedBoldItalic }) => createFont({
 		name,
 		sig: {
 			usb0: "E0002AFF",
@@ -19659,10 +19706,10 @@ MAX: 9026 };
 		charset: characterSet,
 		family: "auto",
 		pitch: "variable",
-		embedRegular: {
-			fontKey,
-			id: `rId${index}`
-		}
+		embedRegular,
+		embedBold,
+		embedItalic,
+		embedBoldItalic
 	});
 	//#endregion
 	//#region src/file/fonts/font-table.ts
@@ -19740,25 +19787,47 @@ MAX: 9026 };
 				value: "w14 w15 w16se w16cid w16 w16cex w16sdtdh"
 			}
 		},
-		children: fonts.map((font, i) => createRegularFont({
-			name: font.name,
-			index: i + 1,
-			fontKey: font.fontKey,
-			characterSet: font.characterSet
-		}))
+		children: fonts.map(createEmbeddedFont)
 	});
 	//#endregion
 	//#region src/file/fonts/font-wrapper.ts
+	var FACES = [
+		{
+			option: "data",
+			element: "embedRegular",
+			bold: false,
+			italic: false
+		},
+		{
+			option: "bold",
+			element: "embedBold",
+			bold: true,
+			italic: false
+		},
+		{
+			option: "italic",
+			element: "embedItalic",
+			bold: false,
+			italic: true
+		},
+		{
+			option: "boldItalic",
+			element: "embedBoldItalic",
+			bold: true,
+			italic: true
+		}
+	];
 	/**
 	* Wrapper class for managing the font table and its relationships.
 	*
 	* Creates a font table with embedded font files and manages the relationships
-	* required for font embedding. Each font is assigned a unique key for obfuscation.
+	* required for font embedding. Each face of a font is embedded as a file of its own,
+	* with a unique key for obfuscation.
 	*
 	* @example
 	* ```typescript
 	* const fontWrapper = new FontWrapper([
-	*   { name: "CustomFont", data: fontBuffer }
+	*   { name: "CustomFont", data: fontBuffer, bold: boldFontBuffer }
 	* ]);
 	* ```
 	*/
@@ -19767,12 +19836,43 @@ MAX: 9026 };
 			_defineProperty(this, "options", void 0);
 			_defineProperty(this, "fontTable", void 0);
 			_defineProperty(this, "relationships", void 0);
-			_defineProperty(this, "fontOptionsWithKey", []);
+			_defineProperty(
+				this,
+				/** @deprecated Use `files`, which has the file and key of each face a font embeds, not only the regular face's key */
+				"fontOptionsWithKey",
+				[]
+			);
+			_defineProperty(
+				this,
+				/** The files of the faces the fonts embed, in order: the Nth is `fonts/font<N>.odttf`, with the relationship `rId<N>` */
+				"files",
+				[]
+			);
 			this.options = options;
-			this.fontOptionsWithKey = options.map((o) => _objectSpread2(_objectSpread2({}, o), {}, { fontKey: uniqueUuid() }));
-			this.fontTable = createFontTable(this.fontOptionsWithKey);
+			const faces = options.map((font) => FACES.flatMap(({ option, element, bold, italic }) => {
+				const data = font[option];
+				return data ? [{
+					element,
+					file: {
+						name: font.name,
+						data,
+						bold,
+						italic,
+						fontKey: uniqueUuid()
+					}
+				}] : [];
+			}));
+			this.files = faces.flatMap((ofFont) => ofFont.map(({ file }) => file));
+			this.fontOptionsWithKey = options.map((font, index) => _objectSpread2(_objectSpread2({}, font), {}, { fontKey: faces[index][0].file.fontKey }));
+			this.fontTable = createFontTable(options.map((font, index) => _objectSpread2({
+				name: font.name,
+				characterSet: font.characterSet
+			}, Object.fromEntries(faces[index].map(({ element, file }) => [element, {
+				id: `rId${this.files.indexOf(file) + 1}`,
+				fontKey: file.fontKey
+			}])))));
 			this.relationships = new Relationships();
-			for (let i = 0; i < options.length; i++) this.relationships.addRelationship(i + 1, "http://schemas.openxmlformats.org/officeDocument/2006/relationships/font", `fonts/font${i + 1}.odttf`);
+			for (let i = 0; i < this.files.length; i++) this.relationships.addRelationship(i + 1, "http://schemas.openxmlformats.org/officeDocument/2006/relationships/font", `fonts/font${i + 1}.odttf`);
 		}
 		get View() {
 			return this.fontTable;
@@ -20132,12 +20232,14 @@ MAX: 9026 };
 			if (options.widowControl !== void 0) this.push(new OnOffElement("w:widowControl", options.widowControl));
 			if (options.bullet) this.push(new NumberProperties(1, options.bullet.level));
 			if (options.numbering) {
-				var _options$numbering$in, _options$numbering$in2;
+				const { reference: list, instance = 0, level } = options.numbering;
+				const reference = typeof list === "string" ? list : list.reference;
 				this.numberingReferences.push({
-					reference: options.numbering.reference,
-					instance: (_options$numbering$in = options.numbering.instance) !== null && _options$numbering$in !== void 0 ? _options$numbering$in : 0
+					reference,
+					instance,
+					definition: typeof list === "string" ? void 0 : list
 				});
-				this.push(new NumberProperties(`${options.numbering.reference}-${(_options$numbering$in2 = options.numbering.instance) !== null && _options$numbering$in2 !== void 0 ? _options$numbering$in2 : 0}`, options.numbering.level));
+				this.push(new NumberProperties(`${reference}-${instance}`, level));
 			} else if (options.numbering === false) this.push(new NumberProperties(0, 0));
 			if (options.border) this.push(new Border(options.border));
 			if (options.thematicBreak) this.push(new ThematicBreak());
@@ -20217,7 +20319,7 @@ MAX: 9026 };
 		* @returns The prepared XML object, or undefined if the component should be ignored
 		*/
 		prepForXml(context) {
-			if (!(context.viewWrapper instanceof FontWrapper)) for (const reference of this.numberingReferences) context.file.Numbering.createConcreteNumberingInstance(reference.reference, reference.instance);
+			if (!(context.viewWrapper instanceof FontWrapper)) for (const { reference, instance, definition } of this.numberingReferences) context.file.Numbering.createConcreteNumberingInstance(reference, instance, definition);
 			return super.prepForXml(context);
 		}
 	};
@@ -20295,8 +20397,9 @@ MAX: 9026 };
 		prepForXml(context) {
 			for (const element of this.root) if (element instanceof ExternalHyperlink) {
 				const index = this.root.indexOf(element);
-				const concreteHyperlink = new ConcreteHyperlink(element.options.children, uniqueId());
-				context.viewWrapper.Relationships.addRelationship(concreteHyperlink.linkId, "http://schemas.openxmlformats.org/officeDocument/2006/relationships/hyperlink", element.options.link, TargetModeType.EXTERNAL);
+				const { target, anchor } = externalHyperlinkTarget(element.options.link);
+				const concreteHyperlink = new ConcreteHyperlink(element.options.children, uniqueId(), anchor, element.options.link);
+				context.viewWrapper.Relationships.addRelationship(concreteHyperlink.linkId, "http://schemas.openxmlformats.org/officeDocument/2006/relationships/hyperlink", target, TargetModeType.EXTERNAL);
 				this.root[index] = concreteHyperlink;
 			}
 			return super.prepForXml(context);
@@ -26550,6 +26653,35 @@ MAX: 9026 };
 		}
 	};
 	//#endregion
+	//#region src/file/footnotes/footnote/note-paragraph.ts
+	/**
+	* The first paragraph of a footnote or endnote, written with the run that shows the note's number before its content.
+	*
+	* The run is added to what the paragraph is written as, rather than to the paragraph, so a paragraph in more than one
+	* note, such as the notes of two documents, or two notes with the same content, has one number in each.
+	*
+	* @internal
+	*/
+	var FirstNoteParagraph = class extends XmlComponent {
+		constructor(paragraph, mark) {
+			super("w:p");
+			_defineProperty(this, "paragraph", void 0);
+			_defineProperty(this, "mark", void 0);
+			this.paragraph = paragraph;
+			this.mark = mark;
+		}
+		prepForXml(context) {
+			const content = this.paragraph.prepForXml(context)["w:p"];
+			const children = Array.isArray(content) ? content : [];
+			const index = children.length > 0 && "w:pPr" in children[0] ? 1 : 0;
+			return { "w:p": [
+				...children.slice(0, index),
+				this.mark.prepForXml(context),
+				...children.slice(index)
+			] };
+		}
+	};
+	//#endregion
 	//#region src/file/endnotes/endnote/endnote-attributes.ts
 	var EndnoteAttributes = class extends XmlAttributeComponent {
 		constructor(..._args) {
@@ -26581,11 +26713,7 @@ MAX: 9026 };
 				type: options.type,
 				id: options.id
 			}));
-			for (let i = 0; i < options.children.length; i++) {
-				const child = options.children[i];
-				if (i === 0) child.addRunToFront(new EndnoteRefRun());
-				this.root.push(child);
-			}
+			for (const [index, child] of options.children.entries()) this.root.push(index === 0 ? new FirstNoteParagraph(child, new EndnoteRefRun()) : child);
 		}
 	};
 	//#endregion
@@ -26704,6 +26832,8 @@ MAX: 9026 };
 	var Endnotes = class extends XmlComponent {
 		constructor() {
 			super("w:endnotes");
+			_defineProperty(this, "ownNotes", /* @__PURE__ */ new Map());
+			_defineProperty(this, "highestId", 0);
 			this.root.push(new EndnotesAttributes({
 				wpc: "http://schemas.microsoft.com/office/word/2010/wordprocessingCanvas",
 				mc: "http://schemas.openxmlformats.org/markup-compatibility/2006",
@@ -26756,6 +26886,27 @@ MAX: 9026 };
 				children: paragraph
 			});
 			this.root.push(endnote);
+			if (Number.isFinite(id)) this.highestId = Math.max(this.highestId, Math.floor(id));
+		}
+		/**
+		* The id of the endnote that a reference run brings with it, which is added to the endnotes the first time the run
+		* is written, with an id no other endnote has. Word has endnotes only in a document's body, so a run written
+		* anywhere else, such as in a header, has none, and its endnote isn't added.
+		*
+		* @internal
+		* @param reference - The run, which has the same endnote each time it is written
+		* @param endnote - The endnote's content
+		* @param context - The context the run is written in
+		* @returns The endnote's id, or undefined outside the document's body
+		*/
+		idOf(reference, endnote, context) {
+			if (context.viewWrapper !== context.file.Document) return;
+			const existing = this.ownNotes.get(reference);
+			if (existing !== void 0) return existing;
+			const id = this.highestId + 1;
+			this.createEndnote(id, endnote.children);
+			this.ownNotes.set(reference, id);
+			return id;
 		}
 		/**
 		* Formats the endnotes, with the page numbers worked out for their document written into their fields, when the
@@ -27100,11 +27251,7 @@ MAX: 9026 };
 				type: options.type,
 				id: options.id
 			}));
-			for (let i = 0; i < options.children.length; i++) {
-				const child = options.children[i];
-				if (i === 0) child.addRunToFront(new FootnoteRefRun());
-				this.root.push(child);
-			}
+			for (const [index, child] of options.children.entries()) this.root.push(index === 0 ? new FirstNoteParagraph(child, new FootnoteRefRun()) : child);
 		}
 	};
 	//#endregion
@@ -27207,6 +27354,8 @@ MAX: 9026 };
 	var FootNotes = class extends XmlComponent {
 		constructor() {
 			super("w:footnotes");
+			_defineProperty(this, "ownNotes", /* @__PURE__ */ new Map());
+			_defineProperty(this, "highestId", 0);
 			this.root.push(new FootnotesAttributes({
 				wpc: "http://schemas.microsoft.com/office/word/2010/wordprocessingCanvas",
 				mc: "http://schemas.openxmlformats.org/markup-compatibility/2006",
@@ -27265,6 +27414,27 @@ MAX: 9026 };
 				children: paragraph
 			});
 			this.root.push(footnote);
+			if (Number.isFinite(id)) this.highestId = Math.max(this.highestId, Math.floor(id));
+		}
+		/**
+		* The id of the footnote that a reference run brings with it, which is added to the footnotes the first time the
+		* run is written, with an id no other footnote has. Word has footnotes only in a document's body, so a run written
+		* anywhere else, such as in a header, has none, and its footnote isn't added.
+		*
+		* @internal
+		* @param reference - The run, which has the same footnote each time it is written
+		* @param footnote - The footnote's content
+		* @param context - The context the run is written in
+		* @returns The footnote's id, or undefined outside the document's body
+		*/
+		idOf(reference, footnote, context) {
+			if (context.viewWrapper !== context.file.Document) return;
+			const existing = this.ownNotes.get(reference);
+			if (existing !== void 0) return existing;
+			const id = this.highestId + 1;
+			this.createFootNote(id, footnote.children);
+			this.ownNotes.set(reference, id);
+			return id;
 		}
 		/**
 		* Formats the footnotes, with the page numbers worked out for their document written into their fields, when the
@@ -28473,8 +28643,15 @@ MAX: 9026 };
 		*
 		* @param reference - The reference name of the abstract numbering definition
 		* @param instance - The instance number for this concrete numbering
+		* @param definition - The list's definition, for a list a paragraph gives its own definition of. It is added with
+		* its reference, unless the numbering already has a list with that reference, such as one of the document's
+		* `numbering` option, which is kept
 		*/
-		createConcreteNumberingInstance(reference, instance) {
+		createConcreteNumberingInstance(reference, instance, definition) {
+			if (definition && !this.abstractNumberingMap.has(definition.reference)) {
+				this.abstractNumberingMap.set(definition.reference, new AbstractNumbering(this.abstractNumUniqueNumericId(), definition.levels));
+				this.referenceConfigMap.set(definition.reference, definition.levels);
+			}
 			const abstractNumbering = this.abstractNumberingMap.get(reference);
 			if (!abstractNumbering) return;
 			const fullReference = `${reference}-${instance}`;
@@ -29574,7 +29751,7 @@ MAX: 9026 };
 	//#endregion
 	//#region src/file/styles/styles.ts
 	/** The name of a formatted element, such as `w:style`, or `_attr` for its parent's attributes */
-	var nameOf = (child) => typeof child === "object" ? Object.keys(child)[0] : void 0;
+	var nameOf$1 = (child) => typeof child === "object" ? Object.keys(child)[0] : void 0;
 	/** The attributes of a formatted `w:style` */
 	var attributesOf = (style) => {
 		var _flat$find;
@@ -29654,16 +29831,16 @@ MAX: 9026 };
 			const xml = super.prepForXml(context);
 			const children = xml["w:styles"];
 			if (!Array.isArray(children)) return xml;
-			const named = (name) => children.filter((child) => nameOf(child) === name);
-			const ids = children.map((child) => nameOf(child) === "w:style" ? styleIdOf(child) : void 0);
+			const named = (name) => children.filter((child) => nameOf$1(child) === name);
+			const ids = children.map((child) => nameOf$1(child) === "w:style" ? styleIdOf(child) : void 0);
 			const kept = children.filter((child, index) => ![
 				"_attr",
 				"w:docDefaults",
 				"w:latentStyles"
-			].includes(nameOf(child)) && (ids[index] === void 0 || ids.lastIndexOf(ids[index]) === index));
-			const styles = kept.some((child) => nameOf(child) === "w:style" && isDefaultParagraphStyle(child)) ? kept : kept.map((child) => {
+			].includes(nameOf$1(child)) && (ids[index] === void 0 || ids.lastIndexOf(ids[index]) === index));
+			const styles = kept.some((child) => nameOf$1(child) === "w:style" && isDefaultParagraphStyle(child)) ? kept : kept.map((child) => {
 				var _attributesOf$wType, _attributesOf2;
-				return nameOf(child) === "w:style" && styleIdOf(child) === "Normal" && ((_attributesOf$wType = (_attributesOf2 = attributesOf(child)) === null || _attributesOf2 === void 0 ? void 0 : _attributesOf2["w:type"]) !== null && _attributesOf$wType !== void 0 ? _attributesOf$wType : "paragraph") === "paragraph" ? markedAsDefault(child) : child;
+				return nameOf$1(child) === "w:style" && styleIdOf(child) === "Normal" && ((_attributesOf$wType = (_attributesOf2 = attributesOf(child)) === null || _attributesOf2 === void 0 ? void 0 : _attributesOf2["w:type"]) !== null && _attributesOf$wType !== void 0 ? _attributesOf$wType : "paragraph") === "paragraph" ? markedAsDefault(child) : child;
 			});
 			return { "w:styles": [
 				...named("_attr"),
@@ -31056,16 +31233,6 @@ MAX: 9026 };
 	//#endregion
 	//#region src/file/footnotes/footnote/run/reference-run.ts
 	/**
-	* Footnote reference run module for WordprocessingML documents.
-	*
-	* This module provides the footnote reference marker that appears in the
-	* main document text to indicate a footnote.
-	*
-	* Reference: http://officeopenxml.com/WPfootnotes.php
-	*
-	* @module
-	*/
-	/**
 	* Represents the attributes for a footnote reference element.
 	*
 	* @internal
@@ -31105,6 +31272,10 @@ MAX: 9026 };
 	* (typically a superscript number) that appears in the main document text.
 	* Clicking this marker navigates to the corresponding footnote content.
 	*
+	* It refers to one of the document's `footnotes` by its id, or is given its footnote's content, for a footnote of its
+	* own, which is added to the document's footnotes when the run is written. Content made before the document it goes
+	* in, such as by a function that makes paragraphs, then brings its footnotes with it.
+	*
 	* Reference: http://officeopenxml.com/WPfootnotes.php
 	*
 	* @publicApi
@@ -31118,17 +31289,44 @@ MAX: 9026 };
 	*     new FootnoteReferenceRun(1),
 	*   ],
 	* });
+	*
+	* // Or with the footnote's content
+	* new Paragraph({
+	*   children: [
+	*     new TextRun("This text has a footnote of its own"),
+	*     new FootnoteReferenceRun({ children: [new Paragraph("The footnote.")] }),
+	*   ],
+	* });
 	* ```
 	*/
 	var FootnoteReferenceRun = class extends Run {
 		/**
 		* Creates a new footnote reference run.
 		*
-		* @param id - Unique identifier linking to the footnote content
+		* @param footnote - The id of one of the document's `footnotes`, or the footnote's content, for a footnote of the
+		* run's own. Word has footnotes only in a document's body, so a run with its footnote's content is left out of
+		* headers, footers, comments and notes
 		*/
-		constructor(id) {
+		constructor(footnote) {
 			super({ style: "FootnoteReference" });
+			_defineProperty(this, "footnote", void 0);
+			if (typeof footnote === "number") this.root.push(new FootnoteReference(footnote));
+			else this.footnote = footnote;
+		}
+		/**
+		* Formats the run, with its own footnote added to the document's footnotes, and referred to by the id it has there.
+		*/
+		prepForXml(context) {
+			var _context$file;
+			if (this.footnote === void 0) return super.prepForXml(context);
+			const id = (_context$file = context.file) === null || _context$file === void 0 ? void 0 : _context$file.FootNotes.View.idOf(this, this.footnote, context);
+			if (id === void 0) return;
 			this.root.push(new FootnoteReference(id));
+			try {
+				return super.prepForXml(context);
+			} finally {
+				this.root.pop();
+			}
 		}
 	};
 	//#endregion
@@ -31145,10 +31343,47 @@ MAX: 9026 };
 			this.root.push(new EndnoteReferenceRunAttributes({ id }));
 		}
 	};
+	/**
+	* A run with an endnote's reference mark, its number, in the document's text.
+	*
+	* It refers to one of the document's `endnotes` by its id, or is given its endnote's content, for an endnote of its
+	* own, which is added to the document's endnotes when the run is written.
+	*
+	* @publicApi
+	*
+	* @example
+	* ```typescript
+	* new Paragraph({
+	*   children: [new TextRun("A claim"), new EndnoteReferenceRun({ children: [new Paragraph("Its source.")] })],
+	* });
+	* ```
+	*/
 	var EndnoteReferenceRun = class extends Run {
-		constructor(id) {
+		/**
+		* @param endnote - The id of one of the document's `endnotes`, or the endnote's content, for an endnote of the run's
+		* own. Word has endnotes only in a document's body, so a run with its endnote's content is left out of headers,
+		* footers, comments and notes
+		*/
+		constructor(endnote) {
 			super({ style: "EndnoteReference" });
+			_defineProperty(this, "endnote", void 0);
+			if (typeof endnote === "number") this.root.push(new EndnoteIdReference(endnote));
+			else this.endnote = endnote;
+		}
+		/**
+		* Formats the run, with its own endnote added to the document's endnotes, and referred to by the id it has there.
+		*/
+		prepForXml(context) {
+			var _context$file;
+			if (this.endnote === void 0) return super.prepForXml(context);
+			const id = (_context$file = context.file) === null || _context$file === void 0 ? void 0 : _context$file.Endnotes.View.idOf(this, this.endnote, context);
+			if (id === void 0) return;
 			this.root.push(new EndnoteIdReference(id));
+			try {
+				return super.prepForXml(context);
+			} finally {
+				this.root.pop();
+			}
 		}
 	};
 	//#endregion
@@ -35350,11 +35585,11 @@ while (n === a[++i] && n === a[++i] && n === a[++i] && n === a[++i] && n === a[+
 	*
 	* @module
 	*/
-	var formatter$3 = new Formatter();
+	var formatter$4 = new Formatter();
 	/**
 	* Formats a part's XML, with the relationships that anything in it that refers to other parts adds to.
 	*/
-	var xmlifyPart = (file, content, prettify, relationships, standalone = true) => (0, import_xml.default)(formatter$3.format(content, {
+	var xmlifyPart = (file, content, prettify, relationships, standalone = true) => (0, import_xml.default)(formatter$4.format(content, {
 		viewWrapper: {
 			View: content,
 			Relationships: relationships
@@ -35471,7 +35706,7 @@ while (n === a[++i] && n === a[++i] && n === a[++i] && n === a[++i] && n === a[+
 				zip.file(`word/media/${data.fileName}`, data.data);
 				zip.file(`word/media/${data.fallback.fileName}`, data.fallback.data);
 			}
-			for (const [i, { data: buffer, fontKey }] of file.FontTable.fontOptionsWithKey.entries()) zip.file(`word/fonts/font${i + 1}.odttf`, obfuscate(buffer, fontKey));
+			for (const [i, { data: buffer, fontKey }] of file.FontTable.files.entries()) zip.file(`word/fonts/font${i + 1}.odttf`, obfuscate(buffer, fontKey));
 			return zip;
 		}
 		xmlifyFile(file, prettify) {
@@ -36124,7 +36359,7 @@ while (n === a[++i] && n === a[++i] && n === a[++i] && n === a[++i] && n === a[+
 	*
 	* @module
 	*/
-	var formatter$2 = new Formatter();
+	var formatter$3 = new Formatter();
 	/**
 	* Converts XML string to JSON element structure.
 	*
@@ -36164,7 +36399,7 @@ while (n === a[++i] && n === a[++i] && n === a[++i] && n === a[++i] && n === a[+
 	*/
 	var createTextElementContents = (text) => {
 		var _textJson$elements$0$;
-		return (_textJson$elements$0$ = toJson((0, import_xml.default)(formatter$2.format(new Text({ text })))).elements[0].elements) !== null && _textJson$elements$0$ !== void 0 ? _textJson$elements$0$ : [];
+		return (_textJson$elements$0$ = toJson((0, import_xml.default)(formatter$3.format(new Text({ text })))).elements[0].elements) !== null && _textJson$elements$0$ !== void 0 ? _textJson$elements$0$ : [];
 	};
 	/**
 	* Adds xml:space="preserve" attribute to an element.
@@ -36278,6 +36513,81 @@ while (n === a[++i] && n === a[++i] && n === a[++i] && n === a[++i] && n === a[+
 			var _el$attributes$PartNa, _el$attributes4;
 			return !(el.name === "Override" && String((_el$attributes$PartNa = (_el$attributes4 = el.attributes) === null || _el$attributes4 === void 0 ? void 0 : _el$attributes4.PartName) !== null && _el$attributes$PartNa !== void 0 ? _el$attributes$PartNa : "").toLowerCase() === partName.toLowerCase());
 		});
+	};
+	//#endregion
+	//#region src/patcher/drawing-ids.ts
+	var DRAWINGS = /* @__PURE__ */ new Set(["wp:inline", "wp:anchor"]);
+	var ID_ELEMENTS = /* @__PURE__ */ new Set([
+		"wp:docPr",
+		"wps:cNvPr",
+		"wpg:cNvPr"
+	]);
+	var REFERENCE_ELEMENTS = /* @__PURE__ */ new Set(["a:stCxn", "a:endCxn"]);
+	var idOf$1 = (element, names) => {
+		var _element$name, _element$attributes;
+		if (!names.has((_element$name = element.name) !== null && _element$name !== void 0 ? _element$name : "")) return;
+		const id = Number((_element$attributes = element.attributes) === null || _element$attributes === void 0 ? void 0 : _element$attributes.id);
+		return Number.isInteger(id) ? id : void 0;
+	};
+	/**
+	* Finds the id of every drawing in an element, at any depth, and of the shapes in them, such as in a group.
+	*
+	* @param element - The element to search, such as a part's root
+	* @returns The ids, once for each element that has one
+	*/
+	var findDrawingIds = (element) => {
+		var _element$elements;
+		const id = idOf$1(element, ID_ELEMENTS);
+		return [...id === void 0 ? [] : [id], ...((_element$elements = element.elements) !== null && _element$elements !== void 0 ? _element$elements : []).flatMap(findDrawingIds)];
+	};
+	var ownIdsOf = (drawing) => {
+		const idsIn = (element) => {
+			var _element$elements2;
+			const id = idOf$1(element, ID_ELEMENTS);
+			return [...id === void 0 ? [] : [id], ...((_element$elements2 = element.elements) !== null && _element$elements2 !== void 0 ? _element$elements2 : []).flatMap((child) => {
+				var _child$name;
+				return DRAWINGS.has((_child$name = child.name) !== null && _child$name !== void 0 ? _child$name : "") ? [] : idsIn(child);
+			})];
+		};
+		return idsIn(drawing);
+	};
+	/**
+	* Creates a function that renumbers the drawings in content being inserted, so none has an id another drawing in the
+	* document has. Word finds a document whose drawings share an id unreadable, even when they are in different parts,
+	* such as a header and the body. A drawing's id is chosen when it is created, without knowing which ids the template
+	* has, and content inserted more than once would have the same ids each time.
+	*
+	* A drawing keeps its ids if nothing in the document has them yet, and otherwise gets the next unused ones. The
+	* connectors in a drawing then still join the shapes they did.
+	*
+	* @param idsInDocument - The ids of the drawings already in the document, and of the shapes in them
+	* @returns A function that returns the elements with their drawings renumbered
+	*/
+	var renumberDrawingsAvoiding = (idsInDocument) => {
+		const usedIds = new Set(idsInDocument);
+		let highestId = idsInDocument.reduce((highest, id) => Math.max(highest, id), 0);
+		const newIdFor = (id) => {
+			const newId = usedIds.has(id) ? highestId + 1 : id;
+			highestId = Math.max(highestId, newId);
+			usedIds.add(newId);
+			return newId;
+		};
+		const renumberDrawing = (drawing) => {
+			const newIds = new Map([...new Set(ownIdsOf(drawing))].map((id) => [id, newIdFor(id)]));
+			const renumberIn = (element) => {
+				var _element$name2, _idOf;
+				if (element !== drawing && DRAWINGS.has((_element$name2 = element.name) !== null && _element$name2 !== void 0 ? _element$name2 : "")) return renumberDrawing(element);
+				const id = (_idOf = idOf$1(element, ID_ELEMENTS)) !== null && _idOf !== void 0 ? _idOf : idOf$1(element, REFERENCE_ELEMENTS);
+				const newId = id === void 0 ? void 0 : newIds.get(id);
+				return _objectSpread2(_objectSpread2(_objectSpread2({}, element), newId === void 0 ? {} : { attributes: _objectSpread2(_objectSpread2({}, element.attributes), {}, { id: String(newId) }) }), element.elements === void 0 ? {} : { elements: element.elements.map(renumberIn) });
+			};
+			return renumberIn(drawing);
+		};
+		const renumber = (element) => {
+			var _element$name3;
+			return DRAWINGS.has((_element$name3 = element.name) !== null && _element$name3 !== void 0 ? _element$name3 : "") ? renumberDrawing(element) : _objectSpread2(_objectSpread2({}, element), element.elements === void 0 ? {} : { elements: element.elements.map(renumber) });
+		};
+		return (elements) => elements.map(renumber);
 	};
 	//#endregion
 	//#region src/patcher/patch-type.ts
@@ -36623,8 +36933,8 @@ while (n === a[++i] && n === a[++i] && n === a[++i] && n === a[++i] && n === a[+
 	*
 	* @module
 	*/
-	var formatter$1 = new Formatter();
-	var DOCUMENT_PATH = "word/document.xml";
+	var formatter$2 = new Formatter();
+	var DOCUMENT_PATH$1 = "word/document.xml";
 	var FOOTNOTES = {
 		path: "word/footnotes.xml",
 		rootName: "w:footnotes",
@@ -36659,7 +36969,7 @@ while (n === a[++i] && n === a[++i] && n === a[++i] && n === a[++i] && n === a[+
 			]
 		}
 	};
-	var formatElement = (component, context) => toJson((0, import_xml.default)(formatter$1.format(component, context))).elements[0];
+	var formatElement$1 = (component, context) => toJson((0, import_xml.default)(formatter$2.format(component, context))).elements[0];
 	var findIds = (element, names) => {
 		var _element$name, _element$attributes, _element$elements;
 		const id = names.includes((_element$name = element.name) !== null && _element$name !== void 0 ? _element$name : "") ? Number((_element$attributes = element.attributes) === null || _element$attributes === void 0 ? void 0 : _element$attributes["w:id"]) : NaN;
@@ -36675,8 +36985,10 @@ while (n === a[++i] && n === a[++i] && n === a[++i] && n === a[++i] && n === a[+
 			...elements.slice(index)
 		] });
 	};
-	var patchNotesOfKind = (kind, notes, parts, { createContext, addContentTypeOverride, renumberBookmarks }) => {
+	var patchNotesOfKind = (kind, notes, parts, { createContext, addContentTypeOverride, renumberBookmarks, renumberDrawings, renumberLists, useStyles }) => {
 		const givenNotes = new Map(Object.entries(notes).map(([id, note]) => [Number(id), note]));
+		const carriedIds = /* @__PURE__ */ new Map();
+		let highestGivenId = [...givenNotes.keys()].filter(Number.isFinite).reduce((highest, id) => Math.max(highest, Math.floor(id)), 0);
 		const noteOfId = /* @__PURE__ */ new Map();
 		let highestId;
 		const renumber = (element) => {
@@ -36689,11 +37001,11 @@ while (n === a[++i] && n === a[++i] && n === a[++i] && n === a[++i] && n === a[+
 		};
 		const findOrAddPart = () => {
 			var _parts$get;
-			const relationship = getFirstLevelElements((_parts$get = parts.get(relationshipsPathOf(DOCUMENT_PATH))) !== null && _parts$get !== void 0 ? _parts$get : {}, "Relationships").find((element) => {
+			const relationship = getFirstLevelElements((_parts$get = parts.get(relationshipsPathOf(DOCUMENT_PATH$1))) !== null && _parts$get !== void 0 ? _parts$get : {}, "Relationships").find((element) => {
 				var _element$attributes3;
 				return ((_element$attributes3 = element.attributes) === null || _element$attributes3 === void 0 ? void 0 : _element$attributes3.Type) === kind.relationshipType;
 			});
-			const path = relationship ? resolveTarget(DOCUMENT_PATH, String(relationship.attributes.Target)) : kind.path;
+			const path = relationship ? resolveTarget(DOCUMENT_PATH$1, String(relationship.attributes.Target)) : kind.path;
 			if (!parts.has(path)) {
 				parts.set(path, {
 					declaration: { attributes: {
@@ -36701,11 +37013,11 @@ while (n === a[++i] && n === a[++i] && n === a[++i] && n === a[++i] && n === a[+
 						encoding: "UTF-8",
 						standalone: "yes"
 					} },
-					elements: [formatElement(kind.create.part(), createContext(path))]
+					elements: [formatElement$1(kind.create.part(), createContext(path))]
 				});
 				addContentTypeOverride(kind.contentType, `/${path}`);
 			}
-			if (!relationship) createContext(DOCUMENT_PATH).viewWrapper.Relationships.addRelationship(uniqueId(), kind.relationshipType, relativeTarget(DOCUMENT_PATH, path));
+			if (!relationship) createContext(DOCUMENT_PATH$1).viewWrapper.Relationships.addRelationship(uniqueId(), kind.relationshipType, relativeTarget(DOCUMENT_PATH$1, path));
 			return path;
 		};
 		const write = () => {
@@ -36713,14 +37025,14 @@ while (n === a[++i] && n === a[++i] && n === a[++i] && n === a[++i] && n === a[+
 			const path = findOrAddPart();
 			const context = createContext(path);
 			const contentOfNote = new Map([...new Set(noteOfId.values())].map((note) => {
-				const mark = formatElement(kind.create.mark(), context);
-				return [note, renumberBookmarks(note.children.map((paragraph) => formatElement(paragraph, context)).map((paragraph, index) => index === 0 ? withMark(paragraph, mark) : paragraph))];
+				const mark = formatElement$1(kind.create.mark(), context);
+				return [note, useStyles(renumberLists(renumberBookmarks(note.children.map((paragraph) => formatElement$1(paragraph, context)).map((paragraph, index) => index === 0 ? withMark(paragraph, mark) : paragraph))))];
 			}));
 			getFirstLevelElements(parts.get(path), kind.rootName).push(...[...noteOfId].map(([id, note]) => ({
 				type: "element",
 				name: kind.noteName,
 				attributes: { "w:id": String(id) },
-				elements: [...contentOfNote.get(note)]
+				elements: [...renumberDrawings(contentOfNote.get(note))]
 			})));
 			const stylesPart = parts.get("word/styles.xml");
 			if (stylesPart) {
@@ -36729,34 +37041,162 @@ while (n === a[++i] && n === a[++i] && n === a[++i] && n === a[++i] && n === a[+
 					var _style$attributes;
 					return (_style$attributes = style.attributes) === null || _style$attributes === void 0 ? void 0 : _style$attributes["w:styleId"];
 				}));
-				styles.push(...kind.create.styles().map((style) => formatElement(style, context)).filter((style) => {
+				styles.push(...kind.create.styles().map((style) => formatElement$1(style, context)).filter((style) => {
 					var _style$attributes2;
 					return !styleIds.has((_style$attributes2 = style.attributes) === null || _style$attributes2 === void 0 ? void 0 : _style$attributes2["w:styleId"]);
 				}));
 			}
 		};
+		const carry = (reference, note) => {
+			const existing = carriedIds.get(reference);
+			if (existing !== void 0) return existing;
+			highestGivenId++;
+			givenNotes.set(highestGivenId, note);
+			carriedIds.set(reference, highestGivenId);
+			return highestGivenId;
+		};
 		return {
 			renumber: (elements) => elements.map(renumber),
-			write
+			write,
+			carry
 		};
 	};
 	/**
 	* Creates the writer of the footnotes and endnotes that patches refer to.
 	*
 	* A patch refers to a note with a reference run, such as `new FootnoteReferenceRun(1)`, whose id is the note's in
-	* `footnotes`. Only references to the given notes are renumbered, and only the notes that are referred to are written.
+	* `footnotes`, or with a run that brings its note with it, such as `new FootnoteReferenceRun({ children })`, which is
+	* given an id with `carry` as it is written. Only references to these notes are renumbered, and only the notes that
+	* are referred to are written.
 	*
 	* @param notes - The footnotes and endnotes, by the id the patches' reference runs are given
 	* @param parts - The document's XML parts, parsed, by their paths, which the notes are written to
 	* @param helpers - The patcher's helpers for what the notes refer to
 	*/
 	var patchNotes = ({ footnotes = {}, endnotes = {} }, parts, helpers) => {
-		const patchers = [patchNotesOfKind(FOOTNOTES, footnotes, parts, helpers), patchNotesOfKind(ENDNOTES, endnotes, parts, helpers)];
+		const patchers = {
+			footnotes: patchNotesOfKind(FOOTNOTES, footnotes, parts, helpers),
+			endnotes: patchNotesOfKind(ENDNOTES, endnotes, parts, helpers)
+		};
 		return {
-			renumber: (elements) => patchers.reduce((renumbered, patcher) => patcher.renumber(renumbered), elements),
+			carry: (kind, reference, note) => patchers[kind].carry(reference, note),
+			renumber: (elements) => Object.values(patchers).reduce((renumbered, patcher) => patcher.renumber(renumbered), elements),
 			write: () => {
-				for (const patcher of patchers) patcher.write();
+				for (const patcher of Object.values(patchers)) patcher.write();
 			}
+		};
+	};
+	//#endregion
+	//#region src/patcher/numbering.ts
+	/**
+	* Lists in content inserted into an existing document.
+	*
+	* @module
+	*/
+	var formatter$1 = new Formatter();
+	var DOCUMENT_PATH = "word/document.xml";
+	var NUMBERING_PATH = "word/numbering.xml";
+	var NUMBERING_CONTENT_TYPE = "application/vnd.openxmlformats-officedocument.wordprocessingml.numbering+xml";
+	var NUMBERING_RELATIONSHIP = "http://schemas.openxmlformats.org/officeDocument/2006/relationships/numbering";
+	var BULLET_REFERENCE = "default-bullet-numbering";
+	var BULLET_NUM_ID = "1";
+	var formatElement = (component, context) => toJson((0, import_xml.default)(formatter$1.format(component, context))).elements[0];
+	var highestOf = (ids) => ids.reduce((highest, id) => Math.max(highest, id), 0);
+	/**
+	* Creates the writer of the lists that patches use.
+	*
+	* A paragraph in a patch is put in a list as in a Document, with `numbering: { reference, level }` for one of the
+	* numbering's references, or with `bullet`. It is written with a placeholder for its list's id, or for a bullet, with
+	* the id a Document's bullet list has, which a template's lists may have too.
+	*
+	* @param numbering - The numbering the patches' paragraphs add their lists to as they are written
+	* @param parts - The document's XML parts, parsed, by their paths, which the lists are written to
+	* @param helpers - The patcher's helpers for the numbering part
+	*/
+	var patchNumbering = (numbering, parts, { createContext, addContentTypeOverride }) => {
+		const newNumIds = /* @__PURE__ */ new Map();
+		let highestNumId;
+		const numberingRelationship = () => {
+			var _parts$get;
+			return getFirstLevelElements((_parts$get = parts.get(relationshipsPathOf(DOCUMENT_PATH))) !== null && _parts$get !== void 0 ? _parts$get : {}, "Relationships").find((element) => {
+				var _element$attributes;
+				return ((_element$attributes = element.attributes) === null || _element$attributes === void 0 ? void 0 : _element$attributes.Type) === NUMBERING_RELATIONSHIP;
+			});
+		};
+		const numberingPath = (relationship = numberingRelationship()) => relationship ? resolveTarget(DOCUMENT_PATH, String(relationship.attributes.Target)) : NUMBERING_PATH;
+		const idsInTemplate = (name, attribute) => {
+			var _parts$get2;
+			return getFirstLevelElements((_parts$get2 = parts.get(numberingPath())) !== null && _parts$get2 !== void 0 ? _parts$get2 : {}, "w:numbering").filter((element) => element.name === name).map((element) => Number(element.attributes[attribute]));
+		};
+		const listOf = (numId) => {
+			if (numId === BULLET_NUM_ID) return numbering.ConcreteNumbering.find(({ reference }) => reference === BULLET_REFERENCE);
+			if (!numId.startsWith("{")) return;
+			const list = numbering.ConcreteNumbering.find(({ reference, instance }) => numId === `{${reference}-${instance}}`);
+			if (!list) {
+				const reference = numId.slice(1, -1).replace(/-\d+$/, "");
+				throw new Error(`A paragraph in a patch uses the numbering "${reference}", which isn't in the numbering option of patchDocument. Add it there with its levels, as in a Document`);
+			}
+			return list;
+		};
+		const newNumIdOf = (list) => {
+			var _highestNumId;
+			const knownId = newNumIds.get(list.numId);
+			if (knownId !== void 0) return knownId;
+			highestNumId = ((_highestNumId = highestNumId) !== null && _highestNumId !== void 0 ? _highestNumId : highestOf(idsInTemplate("w:num", "w:numId"))) + 1;
+			newNumIds.set(list.numId, highestNumId);
+			return highestNumId;
+		};
+		const renumber = (element) => {
+			const list = element.name === "w:numId" ? listOf(String(element.attributes["w:val"])) : void 0;
+			if (list === void 0) return element.elements === void 0 ? element : _objectSpread2(_objectSpread2({}, element), {}, { elements: element.elements.map(renumber) });
+			return _objectSpread2(_objectSpread2({}, element), {}, { attributes: _objectSpread2(_objectSpread2({}, element.attributes), {}, { "w:val": String(newNumIdOf(list)) }) });
+		};
+		const findOrAddPart = (written) => {
+			const relationship = numberingRelationship();
+			const path = numberingPath(relationship);
+			if (!parts.has(path)) {
+				parts.set(path, {
+					declaration: { attributes: {
+						version: "1.0",
+						encoding: "UTF-8",
+						standalone: "yes"
+					} },
+					elements: [_objectSpread2(_objectSpread2({}, written), {}, { elements: [] })]
+				});
+				addContentTypeOverride(NUMBERING_CONTENT_TYPE, `/${path}`);
+			}
+			if (!relationship) createContext(DOCUMENT_PATH).viewWrapper.Relationships.addRelationship(uniqueId(), NUMBERING_RELATIONSHIP, relativeTarget(DOCUMENT_PATH, path));
+			return path;
+		};
+		const write = () => {
+			var _root$attributes$mcI, _root$attributes;
+			if (newNumIds.size === 0) return;
+			const written = formatElement(numbering, createContext(numberingPath()));
+			const abstractNumIdOf = (list) => Number(list.elements.find((element) => element.name === "w:abstractNumId").attributes["w:val"]);
+			const lists = written.elements.filter((element) => element.name === "w:num" && newNumIds.has(Number(element.attributes["w:numId"])));
+			const highestAbstractNumId = highestOf(idsInTemplate("w:abstractNum", "w:abstractNumId"));
+			const newAbstractNumIds = new Map([...new Set(lists.map(abstractNumIdOf))].map((id, index) => [id, highestAbstractNumId + index + 1]));
+			const abstractLists = written.elements.flatMap((element) => {
+				const newId = element.name === "w:abstractNum" ? newAbstractNumIds.get(Number(element.attributes["w:abstractNumId"])) : void 0;
+				return newId === void 0 ? [] : [_objectSpread2(_objectSpread2({}, element), {}, { attributes: _objectSpread2(_objectSpread2({}, element.attributes), {}, { "w:abstractNumId": String(newId) }) })];
+			});
+			const path = findOrAddPart(written);
+			const root = parts.get(path).elements.find((element) => element.name === "w:numbering");
+			root.attributes = _objectSpread2(_objectSpread2(_objectSpread2({}, Object.fromEntries(Object.entries(written.attributes).filter(([name]) => name.startsWith("xmlns:")))), root.attributes), {}, { "mc:Ignorable": [.../* @__PURE__ */ new Set([...String((_root$attributes$mcI = (_root$attributes = root.attributes) === null || _root$attributes === void 0 ? void 0 : _root$attributes["mc:Ignorable"]) !== null && _root$attributes$mcI !== void 0 ? _root$attributes$mcI : "").split(" "), ...String(written.attributes["mc:Ignorable"]).split(" ")])].filter((prefix) => prefix !== "").join(" ") });
+			const elements = getFirstLevelElements(parts.get(path), "w:numbering");
+			const firstIndexOf = (names) => {
+				const index = elements.findIndex((element) => names.includes(element.name));
+				return index === -1 ? elements.length : index;
+			};
+			elements.splice(firstIndexOf(["w:num", "w:numIdMacAtCleanup"]), 0, ...abstractLists);
+			elements.splice(firstIndexOf(["w:numIdMacAtCleanup"]), 0, ...lists.map((list) => _objectSpread2(_objectSpread2({}, list), {}, {
+				attributes: _objectSpread2(_objectSpread2({}, list.attributes), {}, { "w:numId": String(newNumIds.get(Number(list.attributes["w:numId"]))) }),
+				elements: list.elements.map((element) => element.name === "w:abstractNumId" ? _objectSpread2(_objectSpread2({}, element), {}, { attributes: { "w:val": String(newAbstractNumIds.get(abstractNumIdOf(list))) } }) : element)
+			})));
+		};
+		return {
+			renumber: (elements) => elements.map(renumber),
+			write
 		};
 	};
 	//#endregion
@@ -37187,7 +37627,6 @@ while (n === a[++i] && n === a[++i] && n === a[++i] && n === a[++i] && n === a[+
 	*
 	* @module
 	*/
-	var formatter = new Formatter();
 	var SPLIT_TOKEN = "￿";
 	/**
 	* Replaces placeholder text in XML with new content from a patch.
@@ -37204,7 +37643,7 @@ while (n === a[++i] && n === a[++i] && n === a[++i] && n === a[++i] && n === a[+
 	* @param keepOriginalStyles - Whether to preserve original text formatting
 	* @param recursive - Whether to replace every occurrence in a paragraph, rather than only the first
 	* @param renumberIds - Renumbers the bookmarks and note references the patch inserts, so they don't take an id the
-	* document uses
+	* document uses, and records the styles it uses
 	* @returns Result containing the modified element and whether a replacement occurred
 	*/
 	var replacer = ({ json, patch, patchText, context, keepOriginalStyles = true, recursive = true, renumberIds = (elements) => elements }) => {
@@ -37260,7 +37699,10 @@ while (n === a[++i] && n === a[++i] && n === a[++i] && n === a[++i] && n === a[+
 	var formatChildren = (patch, context, renumberIds) => renumberIds(patch.children.flatMap((c) => {
 		var _c$writtenAs;
 		return (_c$writtenAs = c.writtenAs) !== null && _c$writtenAs !== void 0 ? _c$writtenAs : c;
-	}).map((c) => toJson((0, import_xml.default)(formatter.format(c, context)))).map((c) => c.elements[0]));
+	}).flatMap((c) => {
+		const formatted = c.prepForXml(context);
+		return formatted ? [toJson((0, import_xml.default)(formatted)).elements[0]] : [];
+	}));
 	/**
 	* Replaces the first occurrence of the placeholder from `fromIndex` on, splitting the run it starts in.
 	*
@@ -37384,6 +37826,91 @@ while (n === a[++i] && n === a[++i] && n === a[++i] && n === a[++i] && n === a[+
 	var goToParentElementFromPath = (json, path) => goToElementFromPath(json, path.slice(0, path.length - 1));
 	var getLastElementIndexFromPath = (path) => path[path.length - 1];
 	//#endregion
+	//#region src/patcher/styles.ts
+	/**
+	* Styles of content inserted into an existing document.
+	*
+	* @module
+	*/
+	var formatter = new Formatter();
+	var STYLES_PATH = "word/styles.xml";
+	var REFERENCES = /* @__PURE__ */ new Set([
+		"w:pStyle",
+		"w:rStyle",
+		"w:tblStyle",
+		"w:basedOn",
+		"w:next",
+		"w:link"
+	]);
+	var idOf = (style) => {
+		var _style$attributes;
+		return String((_style$attributes = style.attributes) === null || _style$attributes === void 0 ? void 0 : _style$attributes["w:styleId"]);
+	};
+	var nameOf = (style) => {
+		var _style$elements;
+		const name = (_style$elements = style.elements) === null || _style$elements === void 0 || (_style$elements = _style$elements.find((element) => element.name === "w:name")) === null || _style$elements === void 0 || (_style$elements = _style$elements.attributes) === null || _style$elements === void 0 ? void 0 : _style$elements["w:val"];
+		return name === void 0 ? void 0 : String(name).toLowerCase();
+	};
+	var formatDefaultStyles = (context) => new Map(Object.values(createDefaultStyles()).map((style) => toJson((0, import_xml.default)(formatter.format(style, context))).elements[0]).filter((style) => style.name === "w:style").map((style) => [idOf(style), style]));
+	/**
+	* Creates the writer of the styles that patches use.
+	*
+	* A paragraph in a patch refers to its style by its id, such as `Heading1` for `HeadingLevel.HEADING_1`, which a
+	* template may not have, as Word only saves the styles that a document uses. Word shows a paragraph whose style the
+	* document doesn't have in the Normal style, and LibreOffice leaves out its number if it is in a list, so the styles of
+	* docx's that the content uses are added to the document.
+	*
+	* @param parts - The document's XML parts, parsed, by their paths, whose styles part the styles are added to
+	* @param createContext - Creates a context to format content for a part with
+	*/
+	var patchStyles = (parts, createContext) => {
+		var _parts$get;
+		const templateStyles = getFirstLevelElements((_parts$get = parts.get(STYLES_PATH)) !== null && _parts$get !== void 0 ? _parts$get : {}, "w:styles").filter((element) => element.name === "w:style");
+		const templateIds = new Set(templateStyles.map(idOf));
+		let defaultStyles;
+		const defaultStyleOf = (id) => {
+			var _defaultStyles;
+			(_defaultStyles = defaultStyles) !== null && _defaultStyles !== void 0 || (defaultStyles = formatDefaultStyles(createContext(STYLES_PATH)));
+			return defaultStyles.get(id);
+		};
+		const missingIds = /* @__PURE__ */ new Set();
+		const idsInDocument = /* @__PURE__ */ new Map();
+		const findIdInDocument = (id) => {
+			const style = templateIds.has(id) ? void 0 : defaultStyleOf(id);
+			if (style === void 0) return id;
+			const sameStyle = templateStyles.find((templateStyle) => {
+				var _templateStyle$attrib, _style$attributes2;
+				return ((_templateStyle$attrib = templateStyle.attributes) === null || _templateStyle$attrib === void 0 ? void 0 : _templateStyle$attrib["w:type"]) === ((_style$attributes2 = style.attributes) === null || _style$attributes2 === void 0 ? void 0 : _style$attributes2["w:type"]) && nameOf(templateStyle) === nameOf(style);
+			});
+			if (sameStyle !== void 0) return idOf(sameStyle);
+			missingIds.add(id);
+			return id;
+		};
+		const idInDocument = (id) => {
+			if (!idsInDocument.has(id)) idsInDocument.set(id, findIdInDocument(id));
+			return idsInDocument.get(id);
+		};
+		const withIdsInDocument = (element) => {
+			var _element$name;
+			if (REFERENCES.has((_element$name = element.name) !== null && _element$name !== void 0 ? _element$name : "")) return _objectSpread2(_objectSpread2({}, element), {}, { attributes: _objectSpread2(_objectSpread2({}, element.attributes), {}, { "w:val": idInDocument(String(element.attributes["w:val"])) }) });
+			return element.elements === void 0 ? element : _objectSpread2(_objectSpread2({}, element), {}, { elements: element.elements.map(withIdsInDocument) });
+		};
+		const write = () => {
+			const stylesPart = parts.get(STYLES_PATH);
+			if (!stylesPart) return;
+			const styles = getFirstLevelElements(stylesPart, "w:styles");
+			const ids = new Set(styles.map(idOf));
+			for (const id of missingIds) if (!ids.has(id)) {
+				ids.add(id);
+				styles.push(withIdsInDocument(defaultStyleOf(id)));
+			}
+		};
+		return {
+			use: (elements) => elements.map(withIdsInDocument),
+			write
+		};
+	};
+	//#endregion
 	//#region src/patcher/table-rows.ts
 	var EMPTY = {
 		type: PatchType.PARAGRAPH,
@@ -37398,8 +37925,9 @@ while (n === a[++i] && n === a[++i] && n === a[++i] && n === a[++i] && n === a[+
 	* @param patch - The rows of data
 	* @param delimiters - The placeholders' delimiters
 	* @param patchPlaceholder - Patches a field in a copy of the rows, as `patchDocument` patches a placeholder
+	* @param renumberDrawings - Gives the drawings in a copy of the rows ids no other drawing in the document has
 	*/
-	var patchTableRows = ({ json, key, patch, delimiters: { start, end }, patchPlaceholder }) => {
+	var patchTableRows = ({ json, key, patch, delimiters: { start, end }, patchPlaceholder, renumberDrawings }) => {
 		const fieldStart = `${start}${key}.`;
 		for (const rows of findRowsToRepeat(json, fieldStart)) {
 			const fields = fieldsIn(rows.elements, fieldStart, end);
@@ -37407,7 +37935,7 @@ while (n === a[++i] && n === a[++i] && n === a[++i] && n === a[++i] && n === a[+
 				const copy = {
 					type: "element",
 					name: "w:tbl",
-					elements: [...index === 0 ? rows.elements.map(copyOf) : withoutIds(rows.elements)]
+					elements: [...index === 0 ? rows.elements.map(copyOf) : renumberDrawings(withoutIds(rows.elements))]
 				};
 				const fieldPatches = new Map(Object.entries(row).flatMap(([field, p]) => p === void 0 ? [] : [[field, p]]));
 				for (const [field, fieldPatch] of fieldPatches) patchPlaceholder(copy, `${key}.${field}`, fieldPatch);
@@ -37657,14 +38185,17 @@ while (n === a[++i] && n === a[++i] && n === a[++i] && n === a[++i] && n === a[+
 		var _ref = _asyncToGenerator(function* ({ outputType, data, patches, keepOriginalStyles, placeholderDelimiters = {
 			start: "{{",
 			end: "}}"
-		}, recursive = true, footnotes, endnotes, pageNumbers }) {
+		}, recursive = true, footnotes, endnotes, numbering = { config: [] }, pageNumbers }) {
 			const zipContent = data instanceof import_jszip_min.default ? data : yield import_jszip_min.default.loadAsync(data);
 			const contexts = /* @__PURE__ */ new Map();
 			const themeColors = yield readThemeColors(zipContent);
 			const contentTypeOverrides = [];
 			const file = {
 				Media: new Media(),
+				Numbering: new Numbering(numbering),
 				Theme: themeColors && { Colors: themeColors },
+				FootNotes: { View: { idOf: (reference, note, context) => carryNote("footnotes", reference, note, context) } },
+				Endnotes: { View: { idOf: (reference, note, context) => carryNote("endnotes", reference, note, context) } },
 				PackageParts: new PackageParts({ addOverride: (contentType, partName) => contentTypeOverrides.push({
 					contentType,
 					partName
@@ -37707,9 +38238,12 @@ while (n === a[++i] && n === a[++i] && n === a[++i] && n === a[++i] && n === a[+
 				map.set(key, json);
 			}
 			const renumberBookmarks = renumberBookmarksAvoiding([...map.values()].flatMap(findBookmarkIds));
-			const createContext = (key) => ({
-				file,
-				viewWrapper: { Relationships: { addRelationship: (id, type, target, targetMode) => {
+			const renumberDrawings = renumberDrawingsAvoiding([...map.values()].flatMap(findDrawingIds));
+			const viewWrappers = /* @__PURE__ */ new Map();
+			const viewWrapperOf = (key) => {
+				const existing = viewWrappers.get(key);
+				if (existing) return existing;
+				const viewWrapper = { Relationships: { addRelationship: (id, type, target, targetMode) => {
 					relationshipAdditions.push({
 						key,
 						id,
@@ -37717,20 +38251,38 @@ while (n === a[++i] && n === a[++i] && n === a[++i] && n === a[++i] && n === a[+
 						target,
 						targetMode
 					});
-				} } },
+				} } };
+				viewWrappers.set(key, viewWrapper);
+				return viewWrapper;
+			};
+			const createContext = (key) => ({
+				file,
+				viewWrapper: viewWrapperOf(key),
 				stack: []
+			});
+			const addContentTypeOverride = (contentType, partName) => {
+				contentTypeOverrides.push({
+					contentType,
+					partName
+				});
+			};
+			const styles = patchStyles(map, createContext);
+			const lists = patchNumbering(file.Numbering, map, {
+				createContext,
+				addContentTypeOverride
 			});
 			const notes = patchNotes({
 				footnotes,
 				endnotes
 			}, map, {
 				createContext,
-				addContentTypeOverride: (contentType, partName) => contentTypeOverrides.push({
-					contentType,
-					partName
-				}),
-				renumberBookmarks
+				addContentTypeOverride,
+				renumberBookmarks,
+				renumberDrawings,
+				renumberLists: lists.renumber,
+				useStyles: styles.use
 			});
+			const carryNote = (kind, reference, note, context) => context.viewWrapper === viewWrapperOf("word/document.xml") ? notes.carry(kind, reference, note) : void 0;
 			patchDrawings({
 				parts: map,
 				binaryParts: binaryContentMap,
@@ -37757,7 +38309,8 @@ while (n === a[++i] && n === a[++i] && n === a[++i] && n === a[++i] && n === a[+
 								start,
 								end
 							},
-							patchPlaceholder
+							patchPlaceholder,
+							renumberDrawings
 						});
 						return;
 					}
@@ -37766,12 +38319,13 @@ while (n === a[++i] && n === a[++i] && n === a[++i] && n === a[++i] && n === a[+
 						json: element,
 						patch: _objectSpread2(_objectSpread2({}, patchValue), {}, { children: patchValue.children.flatMap((child) => child instanceof Bookmark ? child.writtenAs : [child]).map((child) => {
 							if (child instanceof ExternalHyperlink) {
-								const concreteHyperlink = new ConcreteHyperlink(child.options.children, uniqueId());
+								const { target, anchor } = externalHyperlinkTarget(child.options.link);
+								const concreteHyperlink = new ConcreteHyperlink(child.options.children, uniqueId(), anchor, child.options.link);
 								hyperlinkRelationships.push({
 									key,
 									id: concreteHyperlink.linkId,
 									type: "http://schemas.openxmlformats.org/officeDocument/2006/relationships/hyperlink",
-									target: child.options.link,
+									target,
 									targetMode: TargetModeType.EXTERNAL
 								});
 								return concreteHyperlink;
@@ -37781,13 +38335,15 @@ while (n === a[++i] && n === a[++i] && n === a[++i] && n === a[++i] && n === a[+
 						context,
 						keepOriginalStyles,
 						recursive,
-						renumberIds: (elements) => notes.renumber(renumberBookmarks(elements))
+						renumberIds: (elements) => styles.use(lists.renumber(notes.renumber(renumberBookmarks(renumberDrawings(elements)))))
 					});
 					if (didFindOccurrence) relationshipAdditions.push(...hyperlinkRelationships);
 				};
 				for (const [patchKey, patchValue] of patchesInOrder) patchPlaceholder(json, patchKey, patchValue);
 			}
 			notes.write();
+			lists.write();
+			styles.write();
 			for (const [key, json] of map) {
 				if (!key.startsWith("word/") || key.endsWith(".xml.rels")) continue;
 				const mediaDatas = imageReplacer.getMediaData(JSON.stringify(json), file.Media);
