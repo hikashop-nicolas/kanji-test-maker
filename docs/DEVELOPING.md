@@ -209,6 +209,11 @@ pull request and fails when a copy is out of date, so a bump cannot be merged
 half-applied. If a major release moves a file, the script says which path it
 could no longer find; fix the mapping at the top of `tools/sync-vendor.mjs`.
 
+On a Dependabot PR the refresh happens by itself:
+`.github/workflows/vendor-refresh.yml` recopies the files and pushes them into
+the PR, so it arrives ready to merge. It skips npm install scripts, and it only
+ever runs on Dependabot's own PRs, which touch nothing but the two manifests.
+
 Dependabot (`.github/dependabot.yml`) watches the npm packages and the GitHub
 Actions, weekly, grouping minor and patch bumps into one PR and leaving majors
 on their own. It does not see the fonts in `assets/fonts/` (Google Fonts) or the

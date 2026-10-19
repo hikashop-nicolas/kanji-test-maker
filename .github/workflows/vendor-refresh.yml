@@ -1,0 +1,45 @@
+name: Vendor refresh
+
+# Dependabot bumps package.json but cannot refresh the copies in vendor/ that
+# the browser actually loads, so every one of its PRs fails the Vendor sync
+# check and has to be redone by hand. This does that one step for it.
+#
+# pull_request_target is what gives the job a token that may push, and it is
+# limited to Dependabot's own PRs, which only ever touch the two manifests.
+# Install scripts are skipped so a freshly bumped package cannot run code here.
+on:
+  pull_request_target:
+    paths:
+      - package.json
+      - package-lock.json
+
+permissions:
+  contents: write
+
+jobs:
+  refresh:
+    if: github.actor == 'dependabot[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.pull_request.head.ref }}
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci --ignore-scripts
+      - run: node tools/sync-vendor.mjs
+      - name: Commit the refreshed copies
+        run: |
+          if git diff --quiet; then
+            echo "vendor/ already matches the bump"
+            exit 0
+          fi
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git commit -am 'build(deps): refresh the vendor copies for this bump'
+          git push
+      # proves the pushed state is the one the Vendor sync check asks for,
+      # since that check does not re-run on a push made with this token
+      - run: node tools/sync-vendor.mjs --check
