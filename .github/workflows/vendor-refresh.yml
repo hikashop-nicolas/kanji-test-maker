@@ -30,16 +30,26 @@ jobs:
           cache: npm
       - run: npm ci --ignore-scripts
       - run: node tools/sync-vendor.mjs
+      # git add -A, not commit -a: a bump can introduce a vendor file that does
+      # not exist yet, and an untracked one would be left out of the commit
       - name: Commit the refreshed copies
         run: |
-          if git diff --quiet; then
+          git add -A
+          if git diff --cached --quiet; then
             echo "vendor/ already matches the bump"
             exit 0
           fi
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git commit -am 'build(deps): refresh the vendor copies for this bump'
+          git commit -m 'build(deps): refresh the vendor copies for this bump'
           git push
       # proves the pushed state is the one the Vendor sync check asks for,
       # since that check does not re-run on a push made with this token
       - run: node tools/sync-vendor.mjs --check
+      - name: Fail if the refresh left anything uncommitted
+        run: |
+          if [ -n "$(git status --porcelain --untracked-files=all)" ]; then
+            git status --short --untracked-files=all
+            echo 'the refresh left files behind, so the PR is incomplete'
+            exit 1
+          fi
